@@ -103,21 +103,10 @@ ENV
 done
 [ -f "$SECRETS" ] && shred -u "$SECRETS" 2>/dev/null || rm -f "$SECRETS"
 
-say "Installing, building and starting (deploy.sh)"
+say "Installing, building, starting and HTTPS (deploy.sh)"
 bash "$APP_DIR/deploy/deploy.sh"
 
-say "Nginx sites"
-cp "$APP_DIR/deploy/nginx-spa-snippet.conf" /etc/nginx/snippets/visacrm-spa.conf
-cp "$APP_DIR/deploy/nginx-visacrm.conf" /etc/nginx/sites-available/visacrm.conf
-ln -sf /etc/nginx/sites-available/visacrm.conf /etc/nginx/sites-enabled/visacrm.conf
-rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl enable --now nginx && systemctl reload nginx
-
 if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then ufw allow 'Nginx Full' >/dev/null; fi
-
-say "HTTPS certificates (Let's Encrypt)"
-certbot --nginx --non-interactive --agree-tos --register-unsafely-without-email --redirect \
-    -d "$API" -d "$ADMIN" -d "$CRM" -d "$STUDENT" || echo "Certbot failed - check DNS, then run: certbot --nginx -d $API -d $ADMIN -d $CRM -d $STUDENT"
 
 say "Start on boot"
 pm2 startup systemd -u root --hp /root >/dev/null || true

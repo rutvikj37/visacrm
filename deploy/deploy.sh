@@ -31,6 +31,9 @@ for app in admin agent student; do
     npm run build
 done
 
+say "Nginx sites and automatic HTTPS"
+bash "$APP_DIR/deploy/install-auto-https.sh"
+
 say "Checking the API"
 for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4001/health >/dev/null && break; sleep 2; done
 curl -fsS http://127.0.0.1:4001/health && echo " - deploy finished"
