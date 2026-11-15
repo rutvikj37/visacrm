@@ -12,7 +12,8 @@ import nodemailer from 'nodemailer'
 import axios from "axios";
 import UserDevices from "../../model/UserDevices";
 import Admin from "../../model/Admin";
-import { LOGIN_CODE_MARKER, checkStudentLoginCode, studentUsesLoginCode } from "../../services/agencyLogin";
+import { LOGIN_CODE_MARKER, adminUsesLoginCode, checkAdminLoginCode, checkStudentLoginCode, studentUsesLoginCode } from "../../services/agencyLogin";
+import { isLocalDev } from "../../middleware/localOnly";
 
 /** Fire-and-forget: show student portal login on the CRM lead timeline. */
 const notePortalLogin = (user: any) => {
@@ -57,6 +58,26 @@ const tryStudentLoginCode = async (res: Response, user: any, otp: unknown) => {
     if (!pin.applies) return null;
     if (!pin.ok) return returnHelper(res, 200, false, pin.message);
     return studentLoginSuccess(res, user);
+};
+
+/** Token + profile for a successful platform-admin login (same shape as the OTP flows). */
+const adminLoginSuccess = async (res: Response, user: any) => {
+    const u = user.dataValues;
+    const accessToken = Jwt.sign({
+        user: { user: { uuid: u.uuid, role: u.user_type, agency_uuid: u.agency_uuid, id: u.id } },
+    }, secretTokenForJWT, { expiresIn: "90d" });
+    return res.status(200).json({
+        success: true,
+        message: "Login Success",
+        data: { token: accessToken, name: u.username, phone: u.phone_number, country_code: u.country_code },
+    });
+};
+
+const tryAdminLoginCode = async (res: Response, user: any, otp: unknown) => {
+    const pin = await checkAdminLoginCode(user.dataValues.id, otp);
+    if (!pin.applies) return null;
+    if (!pin.ok) return returnHelper(res, 200, false, pin.message);
+    return adminLoginSuccess(res, user);
 };
 
 class UserController {
@@ -400,7 +421,7 @@ class UserController {
                 //     }
                 // })
 
-                if (phone_number == "9799999999" || phone_number == "9799999998") {
+                if (isLocalDev() && (phone_number == "9799999999" || phone_number == "9799999998")) {
                     return res.status(200).json({
                         success: true,
                         message: "OTP has been sent successfully.",
@@ -539,7 +560,7 @@ class UserController {
             if (user) {
                 // console.log("HERE FIND USER");
 
-                if (phone_number == "9799999999" || phone_number == "9799999998") {
+                if (isLocalDev() && (phone_number == "9799999999" || phone_number == "9799999998")) {
                     const sendTokenData = {
                         user: {
                             uuid: user.dataValues.uuid,
@@ -810,6 +831,8 @@ class UserController {
             })
 
             if (user) {
+                const viaCode = await tryAdminLoginCode(res, user, otp)
+                if (viaCode) return viaCode
                 // console.log("HERE FIND USER");
 
                 axios.get(
@@ -925,8 +948,13 @@ class UserController {
                     country_code,
                 }
             })
+            if (user) {
+                const viaCode = await tryAdminLoginCode(res, user, otp)
+                if (viaCode) return viaCode
+            }
 
-            if (user && (await bcrypt.compare(otp, user.dataValues.otp))) {
+
+            if (user && user.dataValues.otp && (await bcrypt.compare(String(otp), user.dataValues.otp))) {
 
 
                 if (new Date() > new Date(user.dataValues.otp_expire)) {
@@ -1018,7 +1046,7 @@ class UserController {
                 if (viaCode) return viaCode
                 // console.log("HERE FIND USER");
 
-                if (phone_number == "9799999999" || phone_number == "9799999998") {
+                if (isLocalDev() && (phone_number == "9799999999" || phone_number == "9799999998")) {
                     const sendTokenData = {
                         user: {
                             uuid: user.dataValues.uuid,
@@ -1261,6 +1289,10 @@ class UserController {
                     country_code,
                 }
             })
+            if (findUser && (await adminUsesLoginCode(findUser.dataValues.id))) {
+                return returnHelper(res, 200, true, "Enter your 6-digit admin login code.", LOGIN_CODE_MARKER)
+            }
+
 
             if (findUser) {
 
@@ -1330,6 +1362,10 @@ class UserController {
                     country_code,
                 }
             })
+            if (findUser && (await adminUsesLoginCode(findUser.dataValues.id))) {
+                return returnHelper(res, 200, true, "Enter your 6-digit admin login code.", LOGIN_CODE_MARKER)
+            }
+
 
             if (findUser) {
 
@@ -1366,7 +1402,7 @@ class UserController {
                 //     }
                 // })
 
-                if (phone_number == "9799999999" || phone_number == "9799999998") {
+                if (isLocalDev() && (phone_number == "9799999999" || phone_number == "9799999998")) {
                     return res.status(200).json({
                         success: true,
                         message: "OTP has been sent successfully.",
@@ -1482,7 +1518,7 @@ class UserController {
                 //     }
                 // })
 
-                if (phone_number == "9799999999" || phone_number == "9799999998") {
+                if (isLocalDev() && (phone_number == "9799999999" || phone_number == "9799999998")) {
                     return res.status(200).json({
                         success: true,
                         message: "OTP has been sent successfully.",

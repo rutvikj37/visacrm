@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { getAgencyAccess } from "../../services/saas";
 import { LOGIN_CODE_MARKER, checkLoginCode, usesLoginCode } from "../../services/agencyLogin";
+import { isLocalDev } from "../../middleware/localOnly";
 import Agent from "../../model/Agent";
 import { returnHelper } from "../../helpers/returnHelper";
 import Jwt from "jsonwebtoken";
@@ -25,8 +26,9 @@ const KEY_SMS:string = process.env.SMS_KEY
 const secretTokenForJWT: string | any = process.env.ACCESS_TOKEN_SECRET
 
 // Test numbers configuration
-const TEST_NUMBERS_NO_OTP = ["9799999999", "9799999998"]; // Bypass OTP completely
-const TEST_NUMBERS_OTP_1111 = ["9799999999", "9799999998"]; // Accept OTP "1111"
+// test numbers work only in local development (ISLOCAL=yes) - on a server they would be a back door
+const TEST_NUMBERS_NO_OTP = isLocalDev() ? ["9799999999", "9799999998"] : []; // Bypass OTP completely
+const TEST_NUMBERS_OTP_1111 = isLocalDev() ? ["9799999999", "9799999998"] : []; // Accept OTP "1111"
 const TEST_NUMBERS_SKIP_GENERATION = [...TEST_NUMBERS_NO_OTP, ...TEST_NUMBERS_OTP_1111]; // Skip OTP generation in loginWithNumber
 
 /** Token + profile response for a successful agency login (same shape as the OTP flows). */

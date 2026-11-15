@@ -2,6 +2,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import Agent from "../model/Agent";
 import User from "../model/User";
+import Admin from "../model/Admin";
 import { sendMail } from "./mailer";
 import { getPlatformBilling } from "./saasBilling";
 
@@ -23,7 +24,7 @@ const LOCK_MINUTES = 15;
 const newCode = () => String(crypto.randomInt(0, 10 ** LOGIN_CODE_LENGTH)).padStart(LOGIN_CODE_LENGTH, "0");
 
 // Agency users (Agent) and students (User) share the same three columns and rules.
-type CodeModel = typeof Agent | typeof User;
+type CodeModel = typeof Agent | typeof User | typeof Admin;
 
 const setCodeOn = async (model: CodeModel, id: number) => {
     const code = newCode();
@@ -92,6 +93,11 @@ export const checkLoginCode = (agencyUserId: number, code: unknown) => checkCode
 export const setStudentLoginCode = (studentId: number) => setCodeOn(User, studentId);
 export const studentUsesLoginCode = (studentId: number) => usesCodeOn(User, studentId);
 export const checkStudentLoginCode = (studentId: number, code: unknown) => checkCodeOn(User, studentId, code);
+
+/** Platform admins - fixed code, created / replaced with `npm run admin:code -- <mobile>`. */
+export const setAdminLoginCode = (adminId: number) => setCodeOn(Admin, adminId);
+export const adminUsesLoginCode = (adminId: number) => usesCodeOn(Admin, adminId);
+export const checkAdminLoginCode = (adminId: number, code: unknown) => checkCodeOn(Admin, adminId, code);
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 

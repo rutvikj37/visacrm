@@ -1,3 +1,4 @@
+import { localOnly } from "../../middleware/localOnly"
 import express from 'express'
 import UserController from '../controller/UserController'
 import { validateAdmin, validateAdminOrManager, validateGeneral } from '../../middleware/authMiddleware'
@@ -12,9 +13,9 @@ const userRoutes = express.Router()
 const adminRoutes = express.Router()
 
 adminRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), UserController.AdminValidateOTP)
-adminRoutes.route("/validate_otp_custom").post( UserController.AdminValidateOTPCUstom)
+adminRoutes.route("/validate_otp_custom").post(localOnly, UserController.AdminValidateOTPCUstom)
 adminRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberValidation), UserController.adminLoginWithNumber)
-adminRoutes.route("/login_with_number_custom").post(validationBodyMw(loginWithNumberValidation), UserController.AdminLoginWithNumberCustomLogic)
+adminRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), UserController.AdminLoginWithNumberCustomLogic)
 adminRoutes.route("/kyc").post(validateAdmin, UserController.kycTokenTypeAdmin)
 
 userRoutes.use("/admin",adminRoutes)
@@ -23,11 +24,11 @@ userRoutes.use("/admin",adminRoutes)
 const studentRoutes = express.Router()
 
 studentRoutes.route("/signup").post(validationBodyMw(sinupWithNumberValidation), numberExistMw, UserController.signupUser)
-studentRoutes.route("/signup_custom").post(validationBodyMw(sinupWithNumberValidation), numberExistMw, UserController.signupUserCustom)
+studentRoutes.route("/signup_custom").post(localOnly, validationBodyMw(sinupWithNumberValidation), numberExistMw, UserController.signupUserCustom)
 studentRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberValidation), UserController.studentLoginWithNumber)
-studentRoutes.route("/login_with_number_custom").post(validationBodyMw(loginWithNumberValidation), UserController.studentLoginCustom)
+studentRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), UserController.studentLoginCustom)
 studentRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), UserController.studentValidateOTP)
-studentRoutes.route("/validate_otp_custom").post( UserController.studentValidateOTPCUstom)
+studentRoutes.route("/validate_otp_custom").post(localOnly, UserController.studentValidateOTPCUstom)
 
 userRoutes.use("/student",studentRoutes)
 

@@ -11,7 +11,8 @@
     "pm2": "pm2 start dist/server.js --watch --ignore-watch 'public/**' --name 'techxuniverse_backend'",
     "db:sync": "ts-node src/scripts/syncDatabase.ts",
     "mail:test": "ts-node src/scripts/testMail.ts",
-    "demo:seed": "ts-node src/scripts/seedDemo.ts"
+    "demo:seed": "ts-node src/scripts/seedDemo.ts",
+    "admin:code": "ts-node src/scripts/adminLoginCode.ts"
   },
   "keywords": [],
   "author": "TechxSolutions",

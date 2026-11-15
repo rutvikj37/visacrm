@@ -10,8 +10,8 @@ import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 
 const IS_LOCAL = import.meta.env.VITE_IS_LOCAL || false
-// local (custom) login uses 6-digit OTPs, production uses 4
-const OTP_LENGTH = IS_LOCAL == "true" ? 6 : 4
+// SMS OTPs are 4 digits; local test OTPs and the admin's fixed login code are 6
+const DEFAULT_OTP_LENGTH = IS_LOCAL == "true" ? 6 : 4
 
 const Login = () => {
 
@@ -24,9 +24,16 @@ const Login = () => {
         phone_number: "",
         country_code: "+91"
     })
-    const initialValues = Array(OTP_LENGTH).fill('');
+    const [OTP_LENGTH, setOtpLength] = useState(DEFAULT_OTP_LENGTH)
+    const usesLoginCode = OTP_LENGTH === 6 && IS_LOCAL != 'true'
+    const initialValues = Array(DEFAULT_OTP_LENGTH).fill('');
     const [otpValues, setValues] = useState<string[]>(initialValues);
-    const inputRefs = Array(OTP_LENGTH).fill(0).map(() => useRef<HTMLInputElement>(null));
+    const inputRefs = Array(6).fill(0).map(() => useRef<HTMLInputElement>(null));
+    const startCodeEntry = (verification: string) => {
+        const len = verification === 'LOGIN_CODE' ? 6 : DEFAULT_OTP_LENGTH
+        setOtpLength(len)
+        setValues(Array(len).fill(''))
+    }
 
     const [sendOtpLoading, setSendOtpLoading] = useState(false)
     const [verifyOtpLoading, setVerifyOtpLoading] = useState(false)
@@ -78,6 +85,7 @@ const Login = () => {
         setSendOtpLoading(true)
         const { success, data } = await commonPostPublicAPICall({ phone: numberAndCountryCode.phone_number, country_code: "+91" }, `user/admin/${IS_LOCAL == 'true' ? 'login_with_number_custom' : 'login_with_number'}`, true);
         if (success) {
+            startCodeEntry(data)
             setOTPScreeen(true)
             setVerificationId(data)
         }
@@ -87,6 +95,7 @@ const Login = () => {
     const resendOTPCall = async () => {
         const { success, data } = await commonPostPublicAPICall({ country_code: numberAndCountryCode.country_code, phone: numberAndCountryCode.phone_number }, `user/admin/${IS_LOCAL == 'true' ? 'login_with_number_custom' : 'login_with_number'}`, true);
         if (success) {
+            startCodeEntry(data)
             setOTPScreeen(true)
             setNumberAndCountryCode({
                 country_code: numberAndCountryCode.country_code,
@@ -134,7 +143,7 @@ const Login = () => {
                         </form>
                         :
                         <div className="flex flex-col items-center">
-                            <p className="text-base mb-4">Enter the OTP sent to your phone number</p>
+                            <p className="text-base mb-4">{usesLoginCode ? "Enter your 6-digit admin login code" : "Enter the OTP sent to your phone number"}</p>
                             <section className="flex flex-row items-center gap-2">
                                 <p className='flex items-center'>{"+91"}{" "}{numberAndCountryCode.phone_number}</p>
                                 <Button isIconOnly variant='light' onPress={() => { setOTPScreeen(false) }}>

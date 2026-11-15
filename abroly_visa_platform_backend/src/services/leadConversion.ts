@@ -10,6 +10,7 @@ import Step from "../model/Step";
 import Question from "../model/Question";
 import { TemplateStep } from "./visaTemplateLibrary";
 import { agencyBrand, mailEnabled, sendMail } from "./mailer";
+import { setStudentLoginCode } from "./agencyLogin";
 
 /**
  * Lead -> visa case.
@@ -230,14 +231,27 @@ export const sendPortalInviteEmail = async (agencyUuid: string, lead: any, count
     const phone = `${l.country_code || ""} ${l.phone_number || ""}`.trim();
     const countryLabel = (country || l.interested_country || "").trim();
     const agencyName = invite.agency_name || "our agency";
+    // a fresh 6-digit login code for the student (no SMS needed); sending the invite again replaces it
+    const student: any = l.converted_student_id
+        ? await User.findByPk(l.converted_student_id, { attributes: ["id"] })
+        : await User.findOne({ where: { phone_number: l.phone_number, country_code: l.country_code, agency_uuid: agencyUuid }, attributes: ["id"] });
+    const code = student ? await setStudentLoginCode(student.dataValues.id) : null;
     const text =
         `Hi ${firstName},\n\n` +
         `Welcome to ${agencyName}! Your ${countryLabel} visa process has started.\n\n` +
         (invite.portal_url
-            ? `Track your progress and upload documents in the student portal:\n${invite.portal_url}\n\n`
+            ? `Track your progress, upload documents and pay fees in the student portal:\n${invite.portal_url}\n\n`
             : "Your agency will share the student portal link with you.\n\n") +
-        `Log in with your mobile number ${phone || "(the number on file)"} — we will send you an OTP.\n\n` +
+        (code
+            ? `How to log in:\n1. Enter your mobile number: ${phone || "(the number on file)"}\n2. Enter your 6-digit login code: ${code}\n\nKeep this code private. If you lose it, ask ${agencyName} to send the invite again.\n\n`
+            : `Log in with your mobile number ${phone || "(the number on file)"}.\n\n`) +
         `If you did not expect this email, you can ignore it.`;
+    const card = code
+        ? `<table role="presentation" style="margin:16px 0;border:1px solid #e5e7eb;border-radius:10px;border-collapse:separate;width:100%">` +
+          `<tr><td style="padding:12px 16px;color:#555;font-size:13px">Mobile number</td><td style="padding:12px 16px;font-weight:bold;font-size:15px">${phone}</td></tr>` +
+          `<tr><td style="padding:12px 16px;color:#555;font-size:13px;border-top:1px solid #e5e7eb">Login code</td>` +
+          `<td style="padding:12px 16px;border-top:1px solid #e5e7eb"><span style="font-family:monospace;font-size:24px;font-weight:bold;letter-spacing:6px">${code}</span></td></tr></table>`
+        : undefined;
     const brand = await agencyBrand(agencyUuid);
     const sent = await sendMail(
         to,
@@ -245,6 +259,7 @@ export const sendPortalInviteEmail = async (agencyUuid: string, lead: any, count
         text,
         invite.portal_url ? { label: "Open student portal", url: invite.portal_url } : null,
         brand || { name: agencyName },
+        card,
     );
     return {
         sent,

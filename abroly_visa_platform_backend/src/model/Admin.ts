@@ -50,11 +50,18 @@ const Admin = sequelize.define(
     {
       type: DataTypes.DATE
     },
+    // fixed login code (bcrypt hash) - set with `npm run admin:code -- <mobile>`; see services/agencyLogin.ts
+    login_pin: { type: DataTypes.STRING, allowNull: true, defaultValue: null },
+    login_pin_attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    login_pin_locked_until: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
   },
   {
     tableName: 'admin',
     paranoid: true,
     timestamps: true,
+    // never send the login code hash in API responses; read it only via Admin.scope("withLoginPin")
+    defaultScope: { attributes: { exclude: ["login_pin", "login_pin_attempts", "login_pin_locked_until"] } },
+    scopes: { withLoginPin: {} },
   }
 )
 

@@ -42,6 +42,14 @@ CRM for visa and study-abroad agencies: a platform (super) admin, a white-label 
 - **Agency owners and team members** created from the admin / agency panel get a 6-digit login code by email (mobile number + code).
 - **Students** log in with an SMS OTP; demo students get a fixed login code from `npm run demo:seed`.
 
+## Server (Ubuntu + PM2 + MySQL + Nginx)
+
+- First time, as root: `git clone https://github.com/rutvikj37/visacrm.git /opt/visacrm && bash /opt/visacrm/deploy/setup-server.sh`
+  (installs Nginx + HTTPS, creates the MySQL database, writes `.env` files with random secrets, builds and starts everything).
+- Every update: `bash /opt/visacrm/deploy/deploy.sh`
+- Admin login code: `cd /opt/visacrm/abroly_visa_platform_backend && npm run admin:code -- <mobile> "Name"`
+- Local-testing logins (`*_custom` routes, test numbers) only work with `ISLOCAL=yes`, which is never set on a server.
+
 ## Notes
 
 - Never commit `.env` files. The old database dumps (`backend/db_backup`) are kept out of git because they contain personal data.
