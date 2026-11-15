@@ -18,15 +18,20 @@ SECRETS=/root/visacrm-secrets.env
 say() { printf "\n\033[1;36m==> %s\033[0m\n" "$*"; }
 rand() { openssl rand -hex "${1:-32}"; }
 
-say "Checking Node.js, PM2 and MySQL"
-node -v; pm2 -v >/dev/null && echo "pm2 $(pm2 -v)"; mysql --version
-NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
-[ "$NODE_MAJOR" -ge 18 ] || { echo "Node 18+ is required (found $(node -v))"; exit 1; }
-
-say "Installing Nginx, Certbot and git"
 export DEBIAN_FRONTEND=noninteractive
+say "Installing Nginx, Certbot, git and curl"
 apt-get update -qq
-apt-get install -y -qq nginx certbot python3-certbot-nginx git openssl >/dev/null
+apt-get install -y -qq nginx certbot python3-certbot-nginx git openssl curl ca-certificates >/dev/null
+
+if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 18 ]; then
+    say "Installing Node.js 20"
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1 || true
+    apt-get install -y -qq nodejs >/dev/null
+fi
+command -v pm2 >/dev/null || { say "Installing PM2"; npm install -g pm2 --no-audit --no-fund >/dev/null; }
+
+say "Versions"
+echo "node $(node -v), npm $(npm -v), pm2 $(pm2 -v)"; mysql --version
 
 # small servers: add 2 GB swap so the frontend builds don't run out of memory
 if [ "$(free -m | awk '/^Mem:/{print $2}')" -lt 3000 ] && ! swapon --show | grep -q swapfile; then
@@ -76,6 +81,8 @@ LOCAL_PATH=https://$API/
 PUBLIC_API_URL=https://$API/api
 AGENCY_PANEL_URL=https://$CRM
 STUDENT_PORTAL_URL=https://$STUDENT
+# agency portals live at <agency>.techxsolutions.io
+PLATFORM_PORTAL_DOMAIN=techxsolutions.io
 
 RESEND_API_KEY=$(secret RESEND_API_KEY)
 MAIL_FROM=$(secret MAIL_FROM)
