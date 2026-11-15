@@ -1,0 +1,537 @@
+// import { Avatar, Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Link, Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle, useDisclosure } from '@nextui-org/react';
+// import React from 'react'
+// import { Route, Routes, useNavigate } from 'react-router-dom';
+// import { PublicRoutes, StudentRoutes } from '../../routes/AuthRoutes';
+// import ThemeToggle from '../../components/ThemeToggle';
+// import Footer from '../../components/Footer';
+// import CommonConfirmation from '../../components/CommonConfirmation';
+// import { handleLogout } from '../../utils/LogoutUtils';
+import {
+  BadgeCheck,
+  BadgeIndianRupee,
+  Bell,
+  BookOpen,
+  Bot,
+  Briefcase,
+  ChevronRight,
+  ChevronsUpDown,
+  Command,
+  Contact,
+  CreditCard,
+  Currency,
+  Dock,
+  Folder,
+  Forward,
+  Frame,
+  Home,
+  Languages,
+  LifeBuoy,
+  LogOut,
+  Map,
+  MapPin,
+  MessageCircleQuestion,
+  MoreHorizontal,
+  PieChart,
+  ScrollText,
+  Send,
+  Settings2,
+  Share,
+  Sparkles,
+  SquareChartGantt,
+  SquareTerminal,
+  Trash2,
+  UserCogIcon,
+} from "lucide-react"
+
+
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { Suspense, useEffect, useState } from "react"
+import { Avatar, Button, Spinner, useDisclosure } from "@nextui-org/react"
+import { Link, Route, Routes, useNavigate } from "react-router-dom"
+import { StudentRoutes } from "@/routes/AuthRoutes"
+import CommonConfirmation from "@/components/CommonConfirmation"
+import { handleLogout } from "@/utils/LogoutUtils"
+import { useDispatch, useSelector } from "react-redux"
+import CommonLocationSelector from "@/components/CommonLocationSelector"
+import { setArea, setLatitude, setLongitude } from "@/redux/slices/userLocationSlice"
+import { ErrorToast } from "@/utils/Toaster"
+import { addToLocal } from "@/utils/localstorage"
+import useApiCallUtils from "@/hooks/useApiCallUtils"
+import { useQuery } from "@tanstack/react-query"
+import aborlyIcon from "../../assets/logo.png"
+import { getAppName, getConfig } from "@/utils/config"
+import { AgencyLogo, StudentTopBar } from "@/components/AgencyBrand"
+import { PRIMARY_COLOR, PRIMARY_COLOR_50, PRIMARY_COLOR_100, PRIMARY_COLOR_200, PRIMARY_COLOR_800, PRIMARY_COLOR_900 } from '@/lib/theme';
+
+const data = {
+  navMain: [
+    {
+      title: "Introduction",
+      url: "#",
+      icon: Home,
+      isActive: true,
+      items: [
+        {
+          title: "Home",
+          url: "/",
+        },
+        // {
+        //   title: "Events",
+        //   url: "/event_banners",
+        // },
+      ],
+    },
+    {
+      title: "Services",
+      addon: "service_requests",
+      url: "#",
+      icon: SquareChartGantt,
+      isActive: true,
+      items: [
+        // {
+        //   title: "Health Insurenace",
+        //   url: "/services/health_ins",
+        // },
+        // {
+        //   title: "Sim Cards",
+        //   url: "/services/sim_card",
+        // },
+        // {
+        //   title: "Visa & Course Consultation",
+        //   url: "/services/visa_consultation",
+        // },
+        // {
+        //   title: "Accommodation",
+        //   url: "/services/accommodation",
+        // },
+        {
+          title: "Health Insurance",
+          url: "/services_request/health",
+        },
+        {
+          title: "International SIM Card",
+          url: "/services_request/data",
+        },
+
+
+      ],
+    },
+    {
+      title: "Visa & Course Consultation",
+      url: "#",
+      icon: Dock,
+      isActive: true,
+      items: [
+        {
+          title: "My progress",
+          url: "/my_progress",
+        },
+        {
+          title: "My fees",
+          url: "/my_fees",
+        },
+        {
+          title: "Services",
+          url: "/services",
+        },
+        {
+          title: "Raise an application",
+          url: "/services/visa_consultation",
+        },
+        {
+          title: "Accepted Applications",
+          url: "/accepted_applications",
+        },
+      ],
+    },
+    // {
+    //   title: "Language Preparation",
+    //   url: "#",
+    //   icon: Languages,
+    //   isActive: true,
+    //   items: [
+    //     {
+    //       title: "View All",
+    //       url: "/services/language",
+    //     },
+    //     {
+    //       title: "In Progress",
+    //       url: "/purchased_language_prep",
+    //     },
+    //     {
+    //       title: "Offline",
+    //       url: "/offline_language_prep",
+    //     },
+    //   ],
+    // },
+    {
+      title: "Career",
+      addon: "jobs",
+      url: "#",
+      icon: Briefcase,
+      isActive: true,
+      items: [
+        {
+          title: "Current Openings",
+          url: "/career/1",
+        },
+        {
+          title: "Applications",
+          url: "/career/history/list",
+        },
+      ],
+    },
+
+  ],
+  navSecondary: [
+    {
+      title: "FAQs",
+      url: "/faq",
+      icon: MessageCircleQuestion,
+    },
+    {
+      title: "Contact Us",
+      url: "/contact_us",
+      icon: Contact,
+    },
+  ],
+  profile: [
+    {
+      title: "Your Profile",
+      url: "#",
+      icon: UserCogIcon,
+      isActive: true,
+      items: [
+        {
+          title: "Student Profile",
+          url: "/student_profile",
+        },
+      ],
+    },
+  ],
+}
+
+
+const placesApiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+
+const StudentDashboard = () => {
+  // SaaS: only show optional modules included in the agency's plan (null = all)
+  const planAddons: string[] | null = (() => {
+    try { return JSON.parse(getConfig('ADDONS') || 'null') } catch { return null }
+  })()
+
+  // for logout
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const { isOpen: isLocationOpen, onOpenChange: onLocationOpenChange } = useDisclosure();
+  const {commonGetAPICalls} = useApiCallUtils()
+
+  const navigate = useNavigate()
+
+  const dispatch = useDispatch();
+
+  const { phone, email, profileimage, user_name } = useSelector((state: any) => state.login);
+
+  return (
+    <>
+      <SidebarProvider className="bg-white">
+        <Sidebar 
+          collapsible="icon" 
+          className="bg-white md:bg-transparent"
+          style={{
+            background: `linear-gradient(135deg, ${PRIMARY_COLOR_50}40 0%, ${PRIMARY_COLOR_100}30 50%, ${PRIMARY_COLOR_50}40 100%)`
+          }}
+        >
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <AgencyLogo size={32} />
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">
+                      {getAppName()}
+                    </span>
+                    <span className="truncate text-xs">
+                      Student
+                    </span>
+                  </div>
+                </SidebarMenuButton>
+
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SidebarMenu>
+                {data?.navMain.filter((item: any) => !item.addon || !planAddons || planAddons.includes(item.addon)).map((item) => (
+                  <Collapsible
+                    key={item.title}
+                    asChild
+                    defaultOpen={item.isActive}
+                    className="group/collapsible"
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton tooltip={item.title}>
+                          {item.icon && <item.icon />}
+                          <span className="text-[12px] font-semibold">{item.title}</span>
+                          <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub className="gap-2">
+                          {item.items?.map((subItem) => {
+                            const isActive = window.location.pathname === subItem.url;
+                            return (
+                              <SidebarMenuSubItem key={subItem.title} className="mb-1">
+                                <SidebarMenuSubButton 
+                                  asChild
+                                  isActive={isActive}
+                                  className={`w-full h-10 no-underline ${isActive ? `!bg-[${PRIMARY_COLOR}] !text-white [&>span]:!text-white [&>svg]:!text-white [&>a]:!no-underline data-[active=true]:!bg-[${PRIMARY_COLOR}] data-[active=true]:!text-white` : ''}`}
+                                  style={isActive ? { backgroundColor: PRIMARY_COLOR } : undefined}
+                                >
+                                  <Link
+                                    className={`w-full h-full text-sm py-2 transition-all no-underline ${
+                                      isActive 
+                                        ? '!text-white font-semibold !no-underline' 
+                                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground no-underline'
+                                    }`}
+                                    style={isActive ? { backgroundColor: PRIMARY_COLOR, textDecoration: 'none' } : { textDecoration: 'none' }}
+                                    to={subItem.url}
+                                  >{subItem.title}</Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            );
+                          })}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+            <SidebarGroup>
+              <SidebarGroupLabel>Personal Details</SidebarGroupLabel>
+              <SidebarMenu>
+                {data.profile.map((item) => (
+                  <Collapsible
+                    key={item.title}
+                    asChild
+                    defaultOpen={item.isActive}
+                    className="group/collapsible"
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton tooltip={item.title}>
+                          {item.icon && <item.icon />}
+                          <span className="text-[12px] font-semibold">{item.title}</span>
+                          <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub className="gap-2">
+                          {item.items?.map((subItem) => {
+                            const isActive = window.location.pathname === subItem.url;
+                            return (
+                              <SidebarMenuSubItem key={subItem.title} className="mb-1">
+                                <SidebarMenuSubButton 
+                                  asChild
+                                  isActive={isActive}
+                                  className={`w-full h-10 no-underline ${isActive ? `!bg-[${PRIMARY_COLOR}] !text-white [&>span]:!text-white [&>svg]:!text-white [&>a]:!no-underline data-[active=true]:!bg-[${PRIMARY_COLOR}] data-[active=true]:!text-white` : ''}`}
+                                  style={isActive ? { backgroundColor: PRIMARY_COLOR } : undefined}
+                                >
+                                  <Link
+                                    className={`w-full h-full text-sm py-2 transition-all no-underline ${
+                                      isActive 
+                                        ? '!text-white font-semibold !no-underline' 
+                                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground no-underline'
+                                    }`}
+                                    style={isActive ? { backgroundColor: PRIMARY_COLOR, textDecoration: 'none' } : { textDecoration: 'none' }}
+                                    to={subItem.url}
+                                  >{subItem.title}</Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            );
+                          })}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+            <SidebarGroup className="mt-auto">
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {data.navSecondary.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild 
+                        size="sm"
+                        isActive={window.location.pathname === item.url}
+                      >
+                        <Link
+                          className={`w-full h-full no-underline ${
+                            window.location.pathname === item.url 
+                              ? 'text-white' 
+                              : ''
+                          }`}
+                          style={window.location.pathname === item.url ? { backgroundColor: PRIMARY_COLOR, textDecoration: 'none' } : { textDecoration: 'none' }}
+                          to={item.url}
+                        >
+                          <item.icon />
+                          <span className="text-[12px] font-semibold">{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+          <SidebarFooter>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton
+                      size="lg"
+                      className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                    >
+                      <Avatar
+                        src={profileimage}
+                        showFallback
+                        className="h-8 w-8 rounded-lg"
+                      />
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="truncate font-semibold">
+                          {user_name}
+                        </span>
+                        <span className="truncate text-xs">
+                          {phone}
+                        </span>
+                      </div>
+                      <ChevronsUpDown className="ml-auto size-4" />
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-white"
+                    side="bottom"
+                    align="end"
+                    sideOffset={4}
+                  >
+                    <DropdownMenuLabel className="p-0 font-normal">
+                      <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                        <Avatar
+                          src={profileimage}
+                          showFallback
+                          className="h-8 w-8 rounded-lg"
+                        />
+                        <div className="grid flex-1 text-left text-sm leading-tight">
+                          <span className="truncate font-semibold">
+                            {user_name}
+                          </span>
+                          <span className="truncate text-xs">
+                            {phone}
+                          </span>
+                        </div>
+                      </div>
+                    </DropdownMenuLabel>
+
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onOpenChange}>
+                      <LogOut />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
+        <SidebarInset className="min-w-0">
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-default-100 bg-background/90 backdrop-blur">
+            <div className="flex items-center gap-2 px-4 w-full">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-1 h-4" />
+              <StudentTopBar />
+              {/* <Button size="sm" variant="flat" className="ml-auto"
+              onPress={()=> {
+                navigate("/coin_history")
+              }}
+              startContent={<BadgeIndianRupee className="p-1" />} color="success"><p className="font-bold text-lg">{balance}</p></Button> */}
+            </div>
+          </header>
+          <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4 min-w-0">
+            <Suspense fallback={<div className="min-h-[50vh] w-full" aria-busy="true" aria-label="Loading page" />}>
+              <Routes>
+                {
+                  StudentRoutes.map(
+                    (item: any) => <Route key={item.path} path={item.path} element={<item.element />} />)
+                }
+              </Routes>
+            </Suspense>
+          </div>
+        </SidebarInset>
+
+        <CommonLocationSelector
+          isOpen={isLocationOpen}
+          onOpenChange={onLocationOpenChange}
+        />
+
+      </SidebarProvider >
+
+      <CommonConfirmation
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        title={"Are you sure want to logout ?"}
+        handleSubmit={() => {
+          handleLogout(navigate)
+        }}
+        nagativeTitle={"No"}
+        positiveTitle={"Yes"}
+      />
+    </>
+
+  )
+}
+
+export default StudentDashboard

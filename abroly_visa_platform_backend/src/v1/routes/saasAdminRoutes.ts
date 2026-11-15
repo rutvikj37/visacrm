@@ -1,0 +1,48 @@
+import express from "express"
+import SaasAdminController from "../controller/SaasAdminController"
+import AnnouncementController from "../controller/AnnouncementController"
+import { validateAdmin } from "../../middleware/authMiddleware"
+
+/** Platform admin - plans, agencies, trials, payments: /api/v1/saas_admin/... */
+const saasAdminRoutes = express.Router()
+
+saasAdminRoutes.route("/features").get(validateAdmin, SaasAdminController.features)
+saasAdminRoutes.route("/plans").get(validateAdmin, SaasAdminController.listPlans)
+saasAdminRoutes.route("/plans").post(validateAdmin, SaasAdminController.createPlan)
+saasAdminRoutes.route("/plans/:uuid/update").post(validateAdmin, SaasAdminController.updatePlan)
+saasAdminRoutes.route("/plans/:uuid/delete").post(validateAdmin, SaasAdminController.deletePlan)
+
+saasAdminRoutes.route("/agencies").get(validateAdmin, SaasAdminController.listAgencies)
+saasAdminRoutes.route("/usage").get(validateAdmin, SaasAdminController.usage)
+saasAdminRoutes.route("/agencies").post(validateAdmin, SaasAdminController.createAgency)
+saasAdminRoutes.route("/agencies/bulk").post(validateAdmin, SaasAdminController.bulkAgencies)
+saasAdminRoutes.route("/agencies/:uuid").get(validateAdmin, SaasAdminController.agencyDetails)
+saasAdminRoutes.route("/agencies/:uuid/trial").post(validateAdmin, SaasAdminController.giveTrial)
+saasAdminRoutes.route("/agencies/:uuid/extend").post(validateAdmin, SaasAdminController.extend)
+saasAdminRoutes.route("/agencies/:uuid/change_plan").post(validateAdmin, SaasAdminController.changePlan)
+saasAdminRoutes.route("/agencies/:uuid/end_access").post(validateAdmin, SaasAdminController.endAccess)
+saasAdminRoutes.route("/agencies/:uuid/status").post(validateAdmin, SaasAdminController.setAgencyStatus)
+saasAdminRoutes.route("/agencies/:uuid/send_login").post(validateAdmin, SaasAdminController.sendLoginDetails)
+
+saasAdminRoutes.route("/payments").get(validateAdmin, SaasAdminController.listPayments)
+saasAdminRoutes.route("/payments/bulk").post(validateAdmin, SaasAdminController.bulkPayments)
+saasAdminRoutes.route("/payments/:uuid/invoice").get(validateAdmin, SaasAdminController.invoice)
+saasAdminRoutes.route("/payments/:uuid/remind").post(validateAdmin, SaasAdminController.remindFailed)
+saasAdminRoutes.route("/payments/:uuid/resolve").post(validateAdmin, SaasAdminController.resolveFailed)
+
+saasAdminRoutes.route("/billing_settings").get(validateAdmin, SaasAdminController.billingSettings)
+saasAdminRoutes.route("/billing_settings").post(validateAdmin, SaasAdminController.saveBillingSettings)
+
+saasAdminRoutes.route("/coupons").get(validateAdmin, SaasAdminController.listCoupons)
+saasAdminRoutes.route("/coupons").post(validateAdmin, SaasAdminController.saveCoupon)
+saasAdminRoutes.route("/coupons/:uuid/update").post(validateAdmin, SaasAdminController.saveCoupon)
+saasAdminRoutes.route("/coupons/:uuid/delete").post(validateAdmin, SaasAdminController.deleteCoupon)
+
+saasAdminRoutes.route("/announcements").get(validateAdmin, AnnouncementController.list)
+saasAdminRoutes.route("/announcements").post(validateAdmin, AnnouncementController.save)
+saasAdminRoutes.route("/announcements/preview").post(validateAdmin, AnnouncementController.preview)
+saasAdminRoutes.route("/announcements/:uuid/update").post(validateAdmin, AnnouncementController.save)
+saasAdminRoutes.route("/announcements/:uuid/end").post(validateAdmin, AnnouncementController.end)
+saasAdminRoutes.route("/announcements/:uuid/delete").post(validateAdmin, AnnouncementController.remove)
+
+export default saasAdminRoutes

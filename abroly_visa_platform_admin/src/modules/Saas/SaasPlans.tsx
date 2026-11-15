@@ -1,0 +1,174 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+    Button, Card, CardBody, CardFooter, Checkbox, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader,
+    Spinner, Switch, Textarea, useDisclosure,
+} from "@nextui-org/react";
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
+import useApiCallUtils from "@/hooks/useApiCallUtils";
+import { ErrorToast } from "@/utils/Toaster";
+import { FormField, rupees } from "./saasShared";
+
+type Feature = { key: string; label: string };
+type Draft = {
+    id?: string; name: string; description: string; price_monthly: string; price_yearly: string;
+    unlimited: boolean; max_team_members: string; sources: string[]; addons: string[]; active: boolean; sort_order: string;
+};
+
+const emptyDraft = (): Draft => ({
+    name: "", description: "", price_monthly: "", price_yearly: "", unlimited: false, max_team_members: "3",
+    sources: ["website", "csv"], addons: [], active: true, sort_order: "0",
+});
+
+const SaasPlans = () => {
+    const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
+    const [plans, setPlans] = useState<any[]>([]);
+    const [features, setFeatures] = useState<{ sources: Feature[]; addons: Feature[] }>({ sources: [], addons: [] });
+    const [loading, setLoading] = useState(true);
+    const [draft, setDraft] = useState<Draft>(emptyDraft());
+    const [saving, setSaving] = useState(false);
+    const editor = useDisclosure();
+
+    const load = useCallback(async () => {
+        const [p, f] = await Promise.all([commonGetAPICalls("/saas_admin/plans"), commonGetAPICalls("/saas_admin/features")]);
+        if (p.success) setPlans(p.data || []);
+        if (f.success) setFeatures({ sources: f.data?.sources || [], addons: f.data?.addons || [] });
+        setLoading(false);
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    const openNew = () => { setDraft(emptyDraft()); editor.onOpen(); };
+    const openEdit = (p: any) => {
+        setDraft({
+            id: p.id, name: p.name, description: p.description || "",
+            price_monthly: String(p.price_monthly || 0), price_yearly: String(p.price_yearly || 0),
+            unlimited: p.max_team_members === null, max_team_members: p.max_team_members === null ? "" : String(p.max_team_members),
+            sources: p.features?.sources || [], addons: p.features?.addons || [], active: p.status === "active", sort_order: String(p.sort_order || 0),
+        });
+        editor.onOpen();
+    };
+    const toggle = (list: "sources" | "addons", key: string) =>
+        setDraft((d) => ({ ...d, [list]: d[list].includes(key) ? d[list].filter((k) => k !== key) : [...d[list], key] }));
+
+    const save = async (close: () => void) => {
+        if (!draft.name.trim()) return ErrorToast("Plan name is required");
+        setSaving(true);
+        const body = {
+            name: draft.name, description: draft.description,
+            price_monthly: Number(draft.price_monthly || 0), price_yearly: Number(draft.price_yearly || 0),
+            max_team_members: draft.unlimited ? null : Number(draft.max_team_members || 0),
+            features: { sources: draft.sources, addons: draft.addons },
+            status: draft.active ? "active" : "inactive", sort_order: Number(draft.sort_order || 0),
+        };
+        const { success } = draft.id
+            ? await commonPostAPICall(body, `saas_admin/plans/${draft.id}/update`, true)
+            : await commonPostAPICall(body, "saas_admin/plans", true);
+        setSaving(false);
+        if (success) { close(); load(); }
+    };
+
+    const remove = async (p: any) => {
+        if (!window.confirm(`Delete the plan "${p.name}"?`)) return;
+        const { success } = await commonPostAPICall({}, `saas_admin/plans/${p.id}/delete`, true);
+        if (success) load();
+    };
+
+    const label = (list: Feature[], key: string) => list.find((f) => f.key === key)?.label || key;
+
+    if (loading) return <div className="flex justify-center p-10"><Spinner /></div>;
+
+    return (
+        <div className="flex flex-col gap-4 p-2 max-w-full">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h1 className="text-2xl font-semibold">Plans</h1>
+                    <p className="text-sm text-default-500">What agencies can buy. Changes apply to agencies on the plan right away. A price of ₹0 means it can only be assigned by you.</p>
+                </div>
+                <Button color="primary" startContent={<Plus size={16} />} onPress={openNew}>New plan</Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {plans.map((p) => (
+                    <Card key={p.id} shadow="sm" className={p.status !== "active" ? "opacity-60" : ""}>
+                        <CardBody className="gap-3">
+                            <div className="flex items-start gap-2">
+                                <div className="flex-1">
+                                    <div className="text-lg font-semibold">{p.name}</div>
+                                    {p.description && <div className="text-sm text-default-500">{p.description}</div>}
+                                </div>
+                                {p.status !== "active" && <Chip size="sm" variant="flat">Inactive</Chip>}
+                            </div>
+                            <div>
+                                <span className="text-2xl font-bold">{rupees(p.price_monthly)}</span><span className="text-sm text-default-500"> / month</span>
+                                <div className="text-sm text-default-500">{rupees(p.price_yearly)} / year</div>
+                            </div>
+                            <div className="text-sm flex items-center gap-2"><Users size={14} /> {p.max_team_members === null ? "Unlimited team" : `${p.max_team_members} team member(s)`}</div>
+                            <div>
+                                <div className="text-xs text-default-500 mb-1">Lead sources</div>
+                                <div className="flex flex-wrap gap-1">
+                                    {p.features.sources.length ? p.features.sources.map((k: string) => <Chip key={k} size="sm" variant="flat">{label(features.sources, k)}</Chip>) : <span className="text-xs text-default-400">None</span>}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-default-500 mb-1">Add-ons</div>
+                                <div className="flex flex-wrap gap-1">
+                                    {p.features.addons.length ? p.features.addons.map((k: string) => <Chip key={k} size="sm" variant="flat" color="secondary">{label(features.addons, k)}</Chip>) : <span className="text-xs text-default-400">None</span>}
+                                </div>
+                            </div>
+                            <div className="text-xs text-default-500">{p.agencies} agency(ies) on this plan</div>
+                        </CardBody>
+                        <CardFooter className="gap-2 pt-0">
+                            <Button size="sm" variant="flat" startContent={<Pencil size={14} />} onPress={() => openEdit(p)}>Edit</Button>
+                            <Button size="sm" variant="flat" color="danger" isIconOnly aria-label="Delete" onPress={() => remove(p)}><Trash2 size={14} /></Button>
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+
+            <Modal isOpen={editor.isOpen} onOpenChange={editor.onOpenChange} size="2xl" scrollBehavior="inside">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>{draft.id ? "Edit plan" : "New plan"}</ModalHeader>
+                            <ModalBody>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <FormField label="Plan name *"><Input aria-label="Plan name" value={draft.name} onValueChange={(v) => setDraft({ ...draft, name: v })} /></FormField>
+                                    <FormField label="Display order"><Input aria-label="Order" type="number" value={draft.sort_order} onValueChange={(v) => setDraft({ ...draft, sort_order: v })} /></FormField>
+                                    <FormField label="Short description" className="sm:col-span-2"><Textarea aria-label="Description" minRows={1} value={draft.description} onValueChange={(v) => setDraft({ ...draft, description: v })} /></FormField>
+                                    <FormField label="Price per month (₹)"><Input aria-label="Monthly price" type="number" min={0} value={draft.price_monthly} onValueChange={(v) => setDraft({ ...draft, price_monthly: v })} /></FormField>
+                                    <FormField label="Price per year (₹)"><Input aria-label="Yearly price" type="number" min={0} value={draft.price_yearly} onValueChange={(v) => setDraft({ ...draft, price_yearly: v })} /></FormField>
+                                    <FormField label="Team members">
+                                        <div className="flex items-center gap-3">
+                                            <Input aria-label="Team limit" type="number" min={0} isDisabled={draft.unlimited} value={draft.max_team_members} onValueChange={(v) => setDraft({ ...draft, max_team_members: v })} className="w-28" />
+                                            <Switch size="sm" isSelected={draft.unlimited} onValueChange={(v) => setDraft({ ...draft, unlimited: v })}>Unlimited</Switch>
+                                        </div>
+                                    </FormField>
+                                    <FormField label="Status"><Switch size="sm" isSelected={draft.active} onValueChange={(v) => setDraft({ ...draft, active: v })}>Available</Switch></FormField>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                                    <div className="flex flex-col gap-2">
+                                        <div className="text-sm font-medium">Lead sources</div>
+                                        {features.sources.map((f) => (
+                                            <Checkbox key={f.key} isSelected={draft.sources.includes(f.key)} onValueChange={() => toggle("sources", f.key)}>{f.label}</Checkbox>
+                                        ))}
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="text-sm font-medium">Paid add-ons</div>
+                                        {features.addons.map((f) => (
+                                            <Checkbox key={f.key} isSelected={draft.addons.includes(f.key)} onValueChange={() => toggle("addons", f.key)}>{f.label}</Checkbox>
+                                        ))}
+                                    </div>
+                                </div>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button color="primary" isLoading={saving} onPress={() => save(onClose)}>Save plan</Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
+        </div>
+    );
+};
+
+export default SaasPlans;

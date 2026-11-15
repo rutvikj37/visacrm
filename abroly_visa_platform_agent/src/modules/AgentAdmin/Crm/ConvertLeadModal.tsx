@@ -1,0 +1,217 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button, Checkbox, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, SelectSection, Spinner } from "@heroui/react";
+import { CheckCircle2, FileText, Upload } from "lucide-react";
+import useApiCallUtils from "@/hooks/useApiCallUtils";
+import { ErrorToast, SuccessToast } from "@/utils/Toaster";
+import FormField from "./FormField";
+import LeadDocChecklist from "./LeadDocChecklist";
+import PortalInvitePanel from "./PortalInvitePanel";
+import { summarizeDocChecklist } from "./crmShared";
+
+interface Props {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    lead: any;
+    /** Optional checklist summary from lead details API */
+    docChecklist?: any;
+    team?: any[];
+    canAssign?: boolean;
+    onConverted: () => void;
+}
+
+const VISA_TYPES = ["Student Visa", "Work Visa", "Tourist Visa", "PR / Immigration", "Business Visa", "Dependent Visa", "Other"];
+
+const norm = (v?: string) => (v || "").toLowerCase().replace(/[^a-z]/g, "");
+const countryMatches = (templateCountry?: string, wanted?: string) => {
+    const a = norm(templateCountry), b = norm(wanted);
+    if (!a || !b) return false;
+    return a === b || a.includes(b) || b.includes(a) || (a === "unitedkingdom" && b === "uk") || (a === "unitedstates" && ["usa", "us"].includes(b));
+};
+
+const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [], canAssign = false, onConverted }: Props) => {
+    const navigate = useNavigate();
+    const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
+    const [templates, setTemplates] = useState<{ agency: any[]; library: any[] }>({ agency: [], library: [] });
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
+    const [country, setCountry] = useState("");
+    const [intake, setIntake] = useState("");
+    const [visaType, setVisaType] = useState("");
+    const [course, setCourse] = useState("");
+    const [university, setUniversity] = useState("");
+    const [templateId, setTemplateId] = useState("");
+    const [assignedTo, setAssignedTo] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [result, setResult] = useState<any>(null);
+    const [checklist, setChecklist] = useState(() => summarizeDocChecklist(lead?.doc_checklist));
+    const [checklistAck, setChecklistAck] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen || !lead) return;
+        setResult(null);
+        setChecklistAck(false);
+        setCountry(lead.interested_country || "");
+        setIntake(lead.intake || "");
+        setVisaType(lead.visa_type || "");
+        setCourse(lead.interested_course || "");
+        setUniversity("");
+        setAssignedTo(lead.assigned_to ? String(lead.assigned_to) : "");
+        setTemplateId("");
+        setChecklist(docChecklist?.items ? docChecklist : summarizeDocChecklist(lead.doc_checklist));
+        (async () => {
+            setLoadingTemplates(true);
+            const { success, data } = await commonGetAPICalls("/crm/visa_templates");
+            if (success) setTemplates({ agency: data?.agency || [], library: data?.library || [] });
+            setLoadingTemplates(false);
+        })();
+    }, [isOpen, lead?.uuid, docChecklist]);
+
+    // suggest a template that matches the country
+    useEffect(() => {
+        if (templateId || !country) return;
+        const match = [...templates.agency, ...templates.library].find((t) => countryMatches(t.country, country));
+        if (match) setTemplateId(match.id);
+    }, [templates, country]);
+
+    const allTemplates = useMemo(() => [...templates.agency, ...templates.library], [templates]);
+    const chosen = allTemplates.find((t) => t.id === templateId);
+    const missingDocs = !checklist.complete;
+
+    const convert = async (ack = checklistAck) => {
+        if (!country.trim()) {
+            ErrorToast("Please enter the visa country");
+            return;
+        }
+        if (missingDocs && !ack) {
+            ErrorToast("Tick the box to convert with missing documents, or complete the checklist on the lead first");
+            return;
+        }
+        setSaving(true);
+        const { success, data } = await commonPostAPICall({
+            country: country.trim(),
+            intake: intake.trim(),
+            visa_type: visaType,
+            course: course.trim(),
+            university: university.trim(),
+            template_id: templateId || null,
+            assigned_to: canAssign && assignedTo ? Number(assignedTo) : undefined,
+            checklist_ack: missingDocs ? true : undefined,
+        }, `crm/leads/${lead.uuid}/convert`, false);
+        setSaving(false);
+        if (!success) return;
+        if (data?.needs_checklist_ack) {
+            if (data.doc_checklist) setChecklist(data.doc_checklist);
+            setChecklistAck(false);
+            return;
+        }
+        SuccessToast("Lead converted to a visa case");
+        setResult(data);
+        onConverted();
+    };
+
+    return (
+        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl" scrollBehavior="inside" isDismissable={!saving}>
+            <ModalContent>
+                {(onClose) => result ? (
+                    <>
+                        <ModalHeader className="flex items-center gap-2 text-success"><CheckCircle2 size={22} /> Visa case created</ModalHeader>
+                        <ModalBody>
+                            <p className="text-sm text-default-600">
+                                {result.studentCreated ? "A student account was created" : "The existing student account was used"}
+                                {result.stepCount ? ` and ${result.stepCount} steps with ${result.questionCount} items were added to the case.` : "."}
+                                {" "}Now invite the student to the portal so they can upload documents:
+                            </p>
+                            <PortalInvitePanel invite={result.invite} leadUuid={lead?.uuid} />
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button variant="light" onPress={onClose}>Close</Button>
+                            <Button color="primary" onPress={() => { onClose(); navigate(`/leads/progress/${result.caseId}`); }}>Open visa case</Button>
+                        </ModalFooter>
+                    </>
+                ) : (
+                    <>
+                        <ModalHeader>Convert to visa case</ModalHeader>
+                        <ModalBody>
+                            <p className="text-sm text-default-500">
+                                This creates the student, opens a visa case under <b>Visa Processing</b>, and adds the steps from the template you choose.
+                            </p>
+                            <LeadDocChecklist value={checklist} readOnly compact />
+                            {missingDocs && (
+                                <Checkbox isSelected={checklistAck} onValueChange={setChecklistAck} size="sm" className="items-start">
+                                    <span className="text-sm">
+                                        I understand {checklist.missing.length} document{checklist.missing.length === 1 ? " is" : "s are"} still missing
+                                        ({checklist.missing.map((m: any) => m.label).slice(0, 3).join(", ")}
+                                        {checklist.missing.length > 3 ? "…" : ""}) and want to convert anyway.
+                                    </span>
+                                </Checkbox>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <FormField label="Visa country *"><Input aria-label="Visa country" placeholder="e.g. Canada" value={country} onValueChange={setCountry} /></FormField>
+                                <FormField label="Intake"><Input aria-label="Intake" placeholder="e.g. Sep 2026" value={intake} onValueChange={setIntake} /></FormField>
+                                <FormField label="Visa type">
+                                    <Select aria-label="Visa type" selectedKeys={visaType ? [visaType] : []} onChange={(e) => setVisaType(e.target.value)}>
+                                        {(visaType && !VISA_TYPES.includes(visaType) ? [visaType, ...VISA_TYPES] : VISA_TYPES).map((v) => <SelectItem key={v}>{v}</SelectItem>)}
+                                    </Select>
+                                </FormField>
+                                <FormField label="Course / program"><Input aria-label="Course" value={course} onValueChange={setCourse} /></FormField>
+                                <FormField label="University / college"><Input aria-label="University" value={university} onValueChange={setUniversity} /></FormField>
+                                {canAssign && team.length > 0 && (
+                                    <FormField label="Case handled by" className="sm:col-span-2">
+                                        <Select aria-label="Case handled by" selectedKeys={assignedTo ? [assignedTo] : []} onChange={(e) => setAssignedTo(e.target.value)}>
+                                            {team.map((m: any) => <SelectItem key={String(m.id)}>{m.username || `#${m.id}`}</SelectItem>)}
+                                        </Select>
+                                    </FormField>
+                                )}
+                                <FormField label="Visa process template" className="sm:col-span-2">
+                                    {loadingTemplates ? <Spinner size="sm" /> : (
+                                        <Select aria-label="Template" placeholder="No template (add steps later)" selectedKeys={templateId ? [templateId] : []} onChange={(e) => setTemplateId(e.target.value)}>
+                                            {[
+                                                ...(templates.agency.length ? [
+                                                    <SelectSection key="agency" title="My templates">
+                                                        {templates.agency.map((t) => <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>)}
+                                                    </SelectSection>,
+                                                ] : []),
+                                                <SelectSection key="library" title="Built-in templates">
+                                                    {templates.library.map((t) => <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>)}
+                                                </SelectSection>,
+                                            ]}
+                                        </Select>
+                                    )}
+                                </FormField>
+                            </div>
+                            {chosen && (
+                                <div className="rounded-xl border border-default-200 p-3">
+                                    <div className="text-sm font-medium mb-2">Steps the student will see</div>
+                                    <ol className="text-sm space-y-1 list-decimal ml-5">
+                                        {chosen.steps.map((s: any, i: number) => (
+                                            <li key={i}>
+                                                {s.title}
+                                                <span className="text-xs text-default-500 ml-2 inline-flex items-center gap-2">
+                                                    <span className="inline-flex items-center gap-1"><Upload size={12} />{s.questions.filter((q: any) => q.type === "file_selector").length}</span>
+                                                    <span className="inline-flex items-center gap-1"><FileText size={12} />{s.questions.filter((q: any) => q.type !== "file_selector").length}</span>
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                </div>
+                            )}
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button variant="light" onPress={onClose}>Cancel</Button>
+                            <Button
+                                color="primary"
+                                isLoading={saving}
+                                isDisabled={missingDocs && !checklistAck}
+                                onPress={() => convert(checklistAck)}
+                            >
+                                {missingDocs ? "Convert anyway" : "Convert"}
+                            </Button>
+                        </ModalFooter>
+                    </>
+                )}
+            </ModalContent>
+        </Modal>
+    );
+};
+
+export default ConvertLeadModal;

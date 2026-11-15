@@ -1,0 +1,29 @@
+# dependencies / builds (each app's own .gitignore covers more)
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+*.log
+
+# secrets - never commit real env files; .env.example files are committed
+.env
+.env.*
+!.env.example
+env.txt
+
+# backend runtime data
+abroly_visa_platform_backend/public/
+abroly_visa_platform_backend/storage/
+# old database dumps contain real people's data - kept locally only
+abroly_visa_platform_backend/db_backup/
+
+# local machine / tools
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.claude/
+/package-lock.json
+
+# history of the four separate repos this one replaced (kept locally, not pushed)
+.repo-history-backup/
