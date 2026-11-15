@@ -245,7 +245,7 @@ const SaasAgencies = () => {
                 </div>
                 <div className="flex gap-2">
                     <Button variant="flat" startContent={<Download size={16} />} isLoading={busy === "export"} onPress={exportAll}>Export</Button>
-                    <Button color="primary" startContent={<Plus size={16} />} onPress={() => { setForm({ ...emptyForm, plan_id: plans.find((p) => p.status === "active")?.id || "" }); create.onOpen(); }}>
+                    <Button color="primary" startContent={<Plus size={16} />} onPress={() => { setForm({ ...emptyForm, plan_id: plans.find((p) => p.status === "active" && Number(p.duration_months) === 12)?.id || plans.find((p) => p.status === "active")?.id || "" }); create.onOpen(); }}>
                         Create agency
                     </Button>
                 </div>
@@ -271,7 +271,7 @@ const SaasAgencies = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-center">
                 <Input aria-label="Search" size="sm" placeholder="Search name, owner, phone, email, subdomain..." startContent={<Search size={16} />} value={search} onValueChange={setSearch} isClearable onClear={() => setSearch("")} />
                 <Select aria-label="Plan" size="sm" placeholder="All plans" selectedKeys={plan ? [plan] : []} onChange={(e) => setParam("plan", e.target.value)}>
-                    {plans.map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
+                    {plans.filter((p) => p.status === "active").map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
                 </Select>
                 <Select aria-label="Joined" size="sm" placeholder="Joined any time" selectedKeys={joined ? [joined] : []} onChange={(e) => setParam("joined", e.target.value)}>
                     {JOINED.map((j) => <SelectItem key={j.key}>{j.label}</SelectItem>)}

@@ -11,8 +11,6 @@ import { FormField, KIND_LABEL, METHOD_LABEL, STATUS_META, fmtDate, rupees } fro
 import { HEALTH_META, Trend, idleLabel } from "./SaasUsage";
 import LoginCodeDialog, { LoginCodeInfo } from "./LoginCodeDialog";
 
-const MONTH_OPTIONS = [1, 3, 6, 12, 24];
-
 const SaasAgencyDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -30,6 +28,8 @@ const SaasAgencyDetails = () => {
     const [newPlan, setNewPlan] = useState("");
     const [loginInfo, setLoginInfo] = useState<LoginCodeInfo>(null);
 
+    const activePlans = plans.filter((p) => p.status === "active");
+
     const load = useCallback(async () => {
         const { success, data } = await commonGetAPICalls(`/saas_admin/agencies/${id}`);
         if (success) setData(data);
@@ -44,10 +44,14 @@ const SaasAgencyDetails = () => {
     }, [load]);
 
     const currentPlanId = data?.access?.plan?.id || "";
-    const planPrice = (planId: string, months: number) => {
+    const planMeta = (planId: string) => {
         const p = plans.find((x) => x.id === planId);
-        if (!p) return "";
-        return String(months === 12 && p.price_yearly ? p.price_yearly : p.price_monthly * months);
+        if (!p) return { months: 12, amount: "" };
+        const months = Number(p.duration_months) === 6 ? 6 : 12;
+        const amount = months === 12
+            ? Number(p.price_yearly || p.price_monthly || 0)
+            : Number(p.price_monthly || p.price_yearly || 0);
+        return { months, amount: amount ? String(amount) : "" };
     };
 
     const run = async (url: string, body: object, close?: () => void) => {
@@ -105,11 +109,12 @@ const SaasAgencyDetails = () => {
 
             <div className="flex flex-wrap gap-2">
                 <Button color="primary" startContent={<CalendarPlus size={16} />} onPress={() => {
-                    const planId = currentPlanId || plans[0]?.id || "";
-                    setExt({ kind: "paid", plan_id: planId, months: "12", amount: planPrice(planId, 12), method: "upi", reference: "", note: "" });
+                    const planId = currentPlanId || activePlans[0]?.id || "";
+                    const meta = planMeta(planId);
+                    setExt({ kind: "paid", plan_id: planId, months: String(meta.months), amount: meta.amount, method: "upi", reference: "", note: "" });
                     extendModal.onOpen();
-                }}>Extend / record payment</Button>
-                <Button variant="flat" startContent={<Gift size={16} />} onPress={() => { setTrial({ days: "14", plan_id: currentPlanId || plans[0]?.id || "" }); trialModal.onOpen(); }}>Give free trial</Button>
+                }}>Record payment / activate</Button>
+                <Button variant="flat" startContent={<Gift size={16} />} onPress={() => { setTrial({ days: "14", plan_id: currentPlanId || activePlans[0]?.id || "" }); trialModal.onOpen(); }}>Give free trial</Button>
                 <Button variant="flat" startContent={<Repeat size={16} />} onPress={() => { setNewPlan(currentPlanId); planModal.onOpen(); }}>Change plan</Button>
                 <Button variant="flat" startContent={<KeyRound size={16} />} isLoading={busy} onPress={sendLogin}>Send new login code</Button>
                 {!access?.expired && (
@@ -198,7 +203,7 @@ const SaasAgencyDetails = () => {
                                 <FormField label="Number of days"><Input aria-label="Days" type="number" min={1} max={365} value={trial.days} onValueChange={(v) => setTrial({ ...trial, days: v })} /></FormField>
                                 <FormField label="Plan during the trial">
                                     <Select aria-label="Plan" selectedKeys={trial.plan_id ? [trial.plan_id] : []} onChange={(e) => setTrial({ ...trial, plan_id: e.target.value })}>
-                                        {plans.map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
+                                        {activePlans.map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
                                     </Select>
                                 </FormField>
                             </ModalBody>
@@ -220,24 +225,25 @@ const SaasAgencyDetails = () => {
                 <ModalContent>
                     {(onClose) => (
                         <>
-                            <ModalHeader>Extend access</ModalHeader>
+                            <ModalHeader>Record payment / activate plan</ModalHeader>
                             <ModalBody>
                                 <RadioGroup orientation="horizontal" value={ext.kind} onValueChange={(v) => setExt({ ...ext, kind: v })}>
                                     <Radio value="paid">They paid</Radio>
                                     <Radio value="complimentary">Free extension</Radio>
                                 </RadioGroup>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <FormField label="Plan">
+                                    <FormField label="Plan" className="sm:col-span-2">
                                         <Select aria-label="Plan" selectedKeys={ext.plan_id ? [ext.plan_id] : []}
-                                            onChange={(e) => setExt({ ...ext, plan_id: e.target.value, amount: planPrice(e.target.value, Number(ext.months)) })}>
-                                            {plans.map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
+                                            onChange={(e) => {
+                                                const plan_id = e.target.value;
+                                                const meta = planMeta(plan_id);
+                                                setExt({ ...ext, plan_id, months: String(meta.months), amount: meta.amount });
+                                            }}>
+                                            {activePlans.map((p) => <SelectItem key={p.id}>{p.name} · {p.duration_months || "?"} months · full access</SelectItem>)}
                                         </Select>
                                     </FormField>
-                                    <FormField label="Period">
-                                        <Select aria-label="Months" selectedKeys={[ext.months]}
-                                            onChange={(e) => e.target.value && setExt({ ...ext, months: e.target.value, amount: planPrice(ext.plan_id, Number(e.target.value)) })}>
-                                            {MONTH_OPTIONS.map((m) => <SelectItem key={String(m)}>{m === 12 ? "1 year" : m === 24 ? "2 years" : `${m} month${m > 1 ? "s" : ""}`}</SelectItem>)}
-                                        </Select>
+                                    <FormField label="Access period">
+                                        <Input aria-label="Period" isReadOnly value={Number(ext.months) === 12 ? "12 months" : `${ext.months} months`} />
                                     </FormField>
                                     {ext.kind === "paid" && (
                                         <>
@@ -253,7 +259,7 @@ const SaasAgencyDetails = () => {
                                     <FormField label="Note" className="sm:col-span-2"><Input aria-label="Note" value={ext.note} onValueChange={(v) => setExt({ ...ext, note: v })} /></FormField>
                                 </div>
                                 <p className="text-xs text-default-500">
-                                    The new time is added after the current end date ({fmtDate(access?.expired ? new Date() : access?.ends_at)}), so no days are lost.
+                                    New access is added after the current end date ({fmtDate(access?.expired ? new Date() : access?.ends_at)}), so no days are lost.
                                 </p>
                             </ModalBody>
                             <ModalFooter>
@@ -264,7 +270,7 @@ const SaasAgencyDetails = () => {
                                         kind: ext.kind, plan_id: ext.plan_id, months: Number(ext.months),
                                         amount: ext.kind === "paid" ? Number(ext.amount || 0) : 0, method: ext.method, reference: ext.reference, note: ext.note,
                                     }, onClose);
-                                }}>Extend</Button>
+                                }}>Activate plan</Button>
                             </ModalFooter>
                         </>
                     )}
@@ -280,7 +286,7 @@ const SaasAgencyDetails = () => {
                             <ModalBody>
                                 <p className="text-sm text-default-500">Limits change right away. The end date stays the same.</p>
                                 <Select aria-label="Plan" selectedKeys={newPlan ? [newPlan] : []} onChange={(e) => setNewPlan(e.target.value)}>
-                                    {plans.map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
+                                    {activePlans.map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
                                 </Select>
                             </ModalBody>
                             <ModalFooter>

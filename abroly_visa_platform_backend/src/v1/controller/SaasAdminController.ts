@@ -44,11 +44,17 @@ const readPlan = (body: any) => {
         team = Math.round(Number(body.max_team_members));
         if (!Number.isFinite(team) || team < 0 || team > 10000) throw new SaasError("Please enter a valid team limit");
     }
+    let duration: number | null = null;
+    if (body?.duration_months !== null && body?.duration_months !== undefined && body?.duration_months !== "") {
+        duration = Math.round(Number(body.duration_months));
+        if (![6, 12].includes(duration)) throw new SaasError("Plan duration must be 6 or 12 months");
+    }
     return {
         name,
         description: body?.description ? String(body.description).trim().slice(0, 1000) : null,
         price_monthly: money(body?.price_monthly),
         price_yearly: money(body?.price_yearly),
+        duration_months: duration,
         max_team_members: team,
         features: cleanFeatures(body?.features),
         status: body?.status === "inactive" ? "inactive" : "active",

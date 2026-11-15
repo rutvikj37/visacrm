@@ -57,33 +57,91 @@ export const cleanFeatures = (raw: any) => ({
     addons: Array.isArray(raw?.addons) ? raw.addons.filter((k: string) => ADDON_KEYS.includes(k)) : [],
 });
 
-/** Starter plans created the first time the admin opens Plans. Prices are examples - edit them. */
+/** Default plans: 6 and 12 months, full features. Price 0 = activate manually after payment. */
 const DEFAULT_PLANS = [
-    { name: "Starter", description: "For small agencies starting with online leads.", price_monthly: 1999, price_yearly: 19990, max_team_members: 3, sort_order: 1, features: { sources: ["website", "csv", "indiamart", "justdial", "sulekha"], addons: [] } },
-    { name: "Growth", description: "Lead ads, WhatsApp and a bigger team.", price_monthly: 4999, price_yearly: 49990, max_team_members: 10, sort_order: 2, features: { sources: ["website", "csv", "indiamart", "facebook", "whatsapp", "instagram", "google", "justdial", "sulekha"], addons: ["service_requests"] } },
-    { name: "Pro", description: "Everything, unlimited team.", price_monthly: 9999, price_yearly: 99990, max_team_members: null, sort_order: 3, features: { sources: SOURCE_KEYS, addons: ADDON_KEYS } },
+    {
+        name: "6 Months",
+        description: "Full CRM access for 6 months. Activate after you receive payment.",
+        price_monthly: 0,
+        price_yearly: 0,
+        duration_months: 6,
+        max_team_members: null,
+        sort_order: 1,
+        features: { sources: SOURCE_KEYS, addons: ADDON_KEYS },
+        status: "active",
+    },
+    {
+        name: "12 Months",
+        description: "Full CRM access for 12 months. Activate after you receive payment.",
+        price_monthly: 0,
+        price_yearly: 0,
+        duration_months: 12,
+        max_team_members: null,
+        sort_order: 2,
+        features: { sources: SOURCE_KEYS, addons: ADDON_KEYS },
+        status: "active",
+    },
 ];
 
+const OLD_DEFAULT_NAMES = ["Starter", "Growth", "Pro"];
+
+/** Create the 6/12 month plans if missing; keep them full-featured; retire old Starter/Growth/Pro. */
 export const ensureDefaultPlans = async () => {
-    const count = await SaasPlan.count({ paranoid: false });
-    if (count > 0) return;
-    await SaasPlan.bulkCreate(DEFAULT_PLANS as any[]);
+    const keptIds: number[] = [];
+    for (const plan of DEFAULT_PLANS) {
+        const existing: any = await SaasPlan.findOne({ where: { name: plan.name }, paranoid: false });
+        if (!existing) {
+            const created: any = await SaasPlan.create(plan as any);
+            keptIds.push(created.dataValues.id);
+            continue;
+        }
+        if (existing.dataValues.deletedAt) await existing.restore();
+        await existing.update({
+            description: plan.description,
+            duration_months: plan.duration_months,
+            max_team_members: null,
+            features: plan.features,
+            status: "active",
+            sort_order: plan.sort_order,
+        });
+        keptIds.push(existing.dataValues.id);
+    }
+
+    const twelve: any = await SaasPlan.findOne({ where: { name: "12 Months" } });
+    const oldPlans: any[] = await SaasPlan.findAll({ where: { name: OLD_DEFAULT_NAMES }, paranoid: false });
+    const oldIds = oldPlans.map((p) => p.dataValues.id);
+    if (twelve && oldIds.length) {
+        await Agent.update({ saas_plan_id: twelve.dataValues.id }, { where: { role: "agent", saas_plan_id: oldIds } });
+    }
+    if (oldIds.length) await SaasPlan.destroy({ where: { id: oldIds } });
 };
 
 export const presentPlan = (plan: any) => {
     if (!plan) return null;
     const p = plan.toJSON ? plan.toJSON() : plan;
+    const duration = p.duration_months == null ? null : Number(p.duration_months);
     return {
         id: p.uuid,
         name: p.name,
         description: p.description,
         price_monthly: Number(p.price_monthly) || 0,
         price_yearly: Number(p.price_yearly) || 0,
+        duration_months: Number.isFinite(duration) && duration! > 0 ? duration : null,
         max_team_members: p.max_team_members === null || p.max_team_members === undefined ? null : Number(p.max_team_members),
         features: cleanFeatures(p.features),
         status: p.status,
         sort_order: p.sort_order,
     };
+};
+
+/** Suggested package price for recording a manual payment. */
+export const planPackagePrice = (plan: any) => {
+    const p = plan?.toJSON ? plan.toJSON() : plan;
+    if (!p) return 0;
+    const months = Number(p.duration_months || 0);
+    if (months === 12) return Number(p.price_yearly || p.price_monthly || 0);
+    if (months > 0) return Number(p.price_monthly || 0);
+    return Number(p.price_monthly || 0);
 };
 
 const findAgency = async (agencyUuid: string) => {
