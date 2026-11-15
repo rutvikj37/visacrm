@@ -42,7 +42,9 @@ for host in $HOSTS; do
         if [ -f "$STATE/failed-$host" ] && [ -n "$(find "$STATE/failed-$host" -mmin -60 2>/dev/null)" ]; then continue; fi
         # ask public resolvers (what Let's Encrypt sees), not the server's own cache, which can
         # remember "does not exist" for up to an hour after a DNS record is added
-        if ! { dig +short A "$host" @1.1.1.1 2>/dev/null; dig +short A "$host" @8.8.8.8 2>/dev/null; getent ahostsv4 "$host" | awk '{print $1}'; } | grep -qx "$SERVER_IP"; then
+        # (collect first, then compare: `cmd | grep -q` breaks the pipe and fails under pipefail)
+        ips=$(dig +short +time=3 +tries=1 A "$host" @1.1.1.1 2>/dev/null; dig +short +time=3 +tries=1 A "$host" @8.8.8.8 2>/dev/null; getent ahostsv4 "$host" 2>/dev/null | awk '{print $1}')
+        if ! grep -qx "$SERVER_IP" <<< "$ips"; then
             log "waiting for DNS: $host does not point to $SERVER_IP yet"
             continue
         fi
