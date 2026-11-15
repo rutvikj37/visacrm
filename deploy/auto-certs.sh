@@ -40,7 +40,9 @@ for host in $HOSTS; do
 
     if [ ! -f "/etc/letsencrypt/live/$host/fullchain.pem" ]; then
         if [ -f "$STATE/failed-$host" ] && [ -n "$(find "$STATE/failed-$host" -mmin -60 2>/dev/null)" ]; then continue; fi
-        if ! getent ahostsv4 "$host" | awk '{print $1}' | grep -qx "$SERVER_IP"; then
+        # ask public resolvers (what Let's Encrypt sees), not the server's own cache, which can
+        # remember "does not exist" for up to an hour after a DNS record is added
+        if ! { dig +short A "$host" @1.1.1.1 2>/dev/null; dig +short A "$host" @8.8.8.8 2>/dev/null; getent ahostsv4 "$host" | awk '{print $1}'; } | grep -qx "$SERVER_IP"; then
             log "waiting for DNS: $host does not point to $SERVER_IP yet"
             continue
         fi
