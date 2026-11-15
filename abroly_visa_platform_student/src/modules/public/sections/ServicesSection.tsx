@@ -3,6 +3,7 @@ import React from 'react'
 import { Briefcase, Shield, Home, Globe, BookOpen, MapPin } from "lucide-react"
 import ContentWritingList from '../../../components/ContentWritingList'
 import { useNavigate } from 'react-router-dom'
+import { getAppName } from '@/utils/config'
 
 interface ServicesSectionProps {
     onOpenChange: (isOpen: boolean) => void
@@ -10,10 +11,11 @@ interface ServicesSectionProps {
 
 const ServicesSection = ({ onOpenChange }: ServicesSectionProps) => {
     const navigate = useNavigate()
+    const agencyName = getAppName() || 'your agency'
 
     return (
         <section className='container mx-auto my-20' id='services'>
-            <h1 className='text-3xl text-center my-5'>Everything you need for academics in one place</h1>
+            <h1 className='text-3xl text-center my-5'>Services from {agencyName}</h1>
 
             <p className='text-center mb-8'>Content Writing</p>
             <ContentWritingList onOpenChange={onOpenChange} />
@@ -24,42 +26,42 @@ const ServicesSection = ({ onOpenChange }: ServicesSectionProps) => {
                         title: "Health Insurance",
                         description:
                             "Comprehensive health coverage to ensure peace of mind during your academic pursuits abroad.",
-                        icon: <Shield className="text-orange-500" size={40} />,
+                        icon: <Shield className="text-primary" size={40} />,
                         navigateTo: "/services/health_ins",
                     },
                     {
                         title: "International SIM Card",
                         description:
                             "Stay connected with affordable international SIM card options tailored to your needs.",
-                        icon: <Briefcase className="text-orange-500" size={40} />,
+                        icon: <Briefcase className="text-primary" size={40} />,
                         navigateTo: "/services/sim_card",
                     },
                     {
                         title: "Accommodation",
                         description:
                             "Find comfortable and secure accommodation options near your university or workplace.",
-                        icon: <Home className="text-orange-500" size={40} />,
+                        icon: <Home className="text-primary" size={40} />,
                         navigateTo: "/services/accommodation",
                     },
                     {
                         title: "Tourist Visa/Package",
                         description:
                             "Hassle-free visa services and exciting travel packages to explore new destinations.",
-                        icon: <Globe className="text-orange-500" size={40} />,
+                        icon: <Globe className="text-primary" size={40} />,
                         navigateTo: "/services/tourist_visa",
                     },
                     {
                         title: "Language Preparation",
                         description:
                             "Master your language skills with our expert-led preparation courses for a successful future.",
-                        icon: <BookOpen className="text-orange-500" size={40} />,
+                        icon: <BookOpen className="text-primary" size={40} />,
                         navigateTo: "/services/language",
                     },
                     {
                         title: "Visa & Course Consultation",
                         description:
                             "Expert guidance on visa processes and course selection to help you make informed decisions for your academic journey.",
-                        icon: <MapPin className="text-orange-500" size={40} />,
+                        icon: <MapPin className="text-primary" size={40} />,
                         navigateTo: "/services/visa_consultation",
                     },
                 ].map((service, index) => (

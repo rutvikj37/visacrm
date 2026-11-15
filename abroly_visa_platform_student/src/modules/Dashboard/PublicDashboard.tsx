@@ -1,15 +1,14 @@
 import { Button, Link, Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle, Spinner } from '@nextui-org/react';
 import { motion } from 'framer-motion';
-import { FaGraduationCap } from 'react-icons/fa';
-import { HiHome, HiAcademicCap, HiGlobeAlt, HiPhone, HiOutlineMenuAlt4 } from 'react-icons/hi';
+import { HiHome, HiPhone, HiOutlineMenuAlt4 } from 'react-icons/hi';
 import ThemeToggle from '../../components/ThemeToggle';
 import { Suspense, useEffect, useState } from 'react';
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { PublicRoutes } from '@/routes/AuthRoutes';
 import Footer from '@/components/Footer';
-import { LogIn, MessageCircleQuestion } from 'lucide-react';
-import aborlyIcon from "../../assets/logo.png"
-import { getAppName, getConfig } from '@/utils/config'
+import { GraduationCap, LogIn, MessageCircleQuestion } from 'lucide-react';
+import { getAppName } from '@/utils/config'
+import { AgencyLogo } from '@/components/AgencyBrand'
 
 const PublicDashboard = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -65,14 +64,12 @@ const PublicDashboard = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => navigate("/")}
-                            className="flex items-center gap-2 cursor-pointer "
+                            className="flex items-center gap-2 cursor-pointer min-w-0"
                         >
-                            {/* <FaGraduationCap className="text-primary text-3xl" />
-                            <span className="font-bold text-xl bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-                                {getAppName()}
-                            </span> */}
-                            {/* <img src={aborlyIcon} alt="Aborly" className="w-12 h-12" /> */}
-                            <img src={getConfig('FAVICON_URL')} alt="techxuniverse" className="w-12 h-12" />
+                            <AgencyLogo size={40} />
+                            <span className="font-bold text-lg text-primary truncate max-w-[160px] sm:max-w-none">
+                                {getAppName() || "Student portal"}
+                            </span>
                         </motion.div>
                     </NavbarBrand>
                 </NavbarContent>
@@ -114,7 +111,7 @@ const PublicDashboard = () => {
                                 color="primary"
                                 onPress={() => navigate("/signup")}
                                 className="hidden sm:flex bg-primary text-white"
-                                startContent={<HiAcademicCap className="text-lg" />}
+                                startContent={<GraduationCap className="text-lg" />}
                             >
                                 Sign Up
                             </Button>

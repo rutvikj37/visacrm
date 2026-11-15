@@ -151,7 +151,11 @@ const BrandingSettings = () => {
                 <CardBody className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
                     <div className="flex-1">
                         <div className="font-medium">Student portal address</div>
-                        <div className="text-default-500">{form.portal_address || "Not set yet"} - to change it or use your own domain, contact support.</div>
+                        <div className="text-default-500">
+                            {form.portal_address
+                                ? `${form.portal_address} — students open this link for your branded landing page and login.`
+                                : "Not set yet — platform admin can assign your subdomain or custom domain."}
+                        </div>
                     </div>
                     <Button color="primary" isLoading={saving} onPress={save}>Save branding</Button>
                 </CardBody>

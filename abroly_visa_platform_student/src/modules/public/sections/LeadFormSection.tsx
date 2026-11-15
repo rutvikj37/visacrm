@@ -2,7 +2,7 @@ import { Button, Input, Textarea } from '@nextui-org/react'
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { MapPin, Mail, Phone } from 'lucide-react'
-import { getAgentId, getAgencyAddress, getSupportEmail, getSupportNumber } from '@/utils/config'
+import { getAgentId, getAgencyAddress, getAppName, getSupportEmail, getSupportNumber } from '@/utils/config'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { ErrorToast, SuccessToast } from '@/utils/Toaster'
 import { phoneInputProps, sanitizePhoneInput } from "@/utils/phone";
@@ -11,6 +11,10 @@ const LeadFormSection = () => {
     const { commonPostPublicAPICall } = useApiCallUtils()
     const agentId = getAgentId()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const agencyName = getAppName() || 'our team'
+    const supportEmail = getSupportEmail()
+    const supportNumber = getSupportNumber()
+    const agencyAddress = getAgencyAddress()
 
     return (
         <section className='container mx-auto my-20' id='lead-form'>
@@ -21,7 +25,7 @@ const LeadFormSection = () => {
                     className="max-w-3xl mb-10 lg:mb-14 mx-auto text-center"
                 >
                     <h2 className="font-semibold text-2xl md:text-4xl md:leading-tight mb-4">Get in Touch</h2>
-                    <p className="text-gray-600">Have questions? We're here to help. Fill out the form below and we'll get back to you within 2 business days.</p>
+                    <p className="text-gray-600">Have questions for {agencyName}? Fill out the form below and we&apos;ll get back to you within 2 business days.</p>
                 </motion.div>
 
                 <motion.div
@@ -133,41 +137,47 @@ const LeadFormSection = () => {
                     </div>
 
                     <div className="flex flex-col items-start gap-6">
-                        <div className="flex flex-row items-center gap-4">
-                            <MapPin className="text-primary shrink-0 size-12" />
-                            <div className='flex flex-col items-start'>
-                                <h4 className="font-semibold text-lg">Our Address</h4>
-                                <address className="text-sm not-italic text-gray-600">
-                                    {getAgencyAddress() || "Ahmedabad, Gujarat"}
-                                </address>
+                        {agencyAddress && (
+                            <div className="flex flex-row items-center gap-4">
+                                <MapPin className="text-primary shrink-0 size-12" />
+                                <div className='flex flex-col items-start'>
+                                    <h4 className="font-semibold text-lg">Our Address</h4>
+                                    <address className="text-sm not-italic text-gray-600 whitespace-pre-line">
+                                        {agencyAddress}
+                                    </address>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div className="flex flex-row items-center gap-4">
-                            <Mail className="text-primary shrink-0 size-12" />
-                            <div className='flex flex-col items-start'>
-                                <h4 className="font-semibold text-lg">Email Us</h4>
-                                <a
-                                    className="text-sm text-gray-600 hover:text-primary focus:outline-none focus:text-primary transition-colors"
-                                    href={`mailto:${getSupportEmail() || 'contact@techxuniverse.com'}`}
-                                >
-                                    {getSupportEmail() || 'contact@techxuniverse.com'}
-                                </a>
+                        {supportEmail && (
+                            <div className="flex flex-row items-center gap-4">
+                                <Mail className="text-primary shrink-0 size-12" />
+                                <div className='flex flex-col items-start'>
+                                    <h4 className="font-semibold text-lg">Email Us</h4>
+                                    <a
+                                        className="text-sm text-gray-600 hover:text-primary focus:outline-none focus:text-primary transition-colors"
+                                        href={`mailto:${supportEmail}`}
+                                    >
+                                        {supportEmail}
+                                    </a>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div className="flex flex-row items-center gap-4">
-                            <Phone className="text-primary shrink-0 size-12" />
-                            <div className='flex flex-col items-start'>
-                                <h4 className="font-semibold text-lg">Call Us</h4>
-                                <a
-                                    className="text-sm text-gray-600 hover:text-primary focus:outline-none focus:text-primary transition-colors"
-                                    href={`tel:${getSupportNumber() || ''}`}
-                                >
-                                    {getSupportNumber() || 'Contact us for support'}
-                                </a>
+                        {supportNumber && (
+                            <div className="flex flex-row items-center gap-4">
+                                <Phone className="text-primary shrink-0 size-12" />
+                                <div className='flex flex-col items-start'>
+                                    <h4 className="font-semibold text-lg">Call Us</h4>
+                                    <a
+                                        className="text-sm text-gray-600 hover:text-primary focus:outline-none focus:text-primary transition-colors"
+                                        href={`tel:${supportNumber.replace(/\s/g, '')}`}
+                                    >
+                                        {supportNumber}
+                                    </a>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </motion.div>
             </div>

@@ -802,8 +802,26 @@ class CrmController {
             }
             runTrigger(agencyUuid, "lead_converted", { name: lead.dataValues.name, phoneDigits: lead.dataValues.phone_normalized, email: lead.dataValues.email, leadId: lead.dataValues.id }, { country: body.country || lead.dataValues.interested_country || "" });
             const fresh: any = await CrmLead.findByPk(lead.dataValues.id);
-            const invite = await buildPortalInvite(agencyUuid, fresh, body.country || fresh.dataValues.interested_country);
-            return returnHelper(res, 200, true, "Lead converted to a visa case", { ...result, invite });
+            const country = body.country || fresh.dataValues.interested_country;
+            // student credentials email goes out on convert to visa case (not when the CRM lead is created)
+            let inviteEmail: { sent: boolean; reason?: string } | null = null;
+            if (fresh.dataValues.email) {
+                const mail = await sendPortalInviteEmail(agencyUuid, fresh, country);
+                inviteEmail = { sent: mail.sent, reason: mail.reason };
+                if (mail.sent) {
+                    await logPortalSafe(
+                        fresh.dataValues.id, agencyUuid,
+                        `Portal invite emailed to ${mail.invite.email} on convert`,
+                        { kind: "portal_invite", auto: true, to: mail.invite.email, portal_url: mail.invite.portal_url },
+                        userId,
+                    );
+                }
+            }
+            const invite = await buildPortalInvite(agencyUuid, fresh, country);
+            const msg = inviteEmail?.sent
+                ? "Lead converted to a visa case. Student portal login was emailed."
+                : "Lead converted to a visa case";
+            return returnHelper(res, 200, true, msg, { ...result, invite, invite_email: inviteEmail });
         } catch (error) {
             if (error instanceof ConversionError) return returnHelper(res, 200, false, error.message);
             return handleError(res, error, "convertLead");

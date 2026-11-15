@@ -31,6 +31,37 @@ const fail = (res: Response, error: any, where: string) => {
     return returnHelper(res, 500, false, "Something went wrong");
 };
 
+/** Platform base domain for agency subdomains (e.g. techxsolutions.io). */
+export const platformPortalDomain = () => {
+    const fromEnv = String(process.env.PLATFORM_PORTAL_DOMAIN || "").trim().toLowerCase();
+    if (fromEnv) return fromEnv.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    try {
+        const u = process.env.STUDENT_PORTAL_URL ? new URL(process.env.STUDENT_PORTAL_URL) : null;
+        const host = u?.hostname || "";
+        // student.techxsolutions.io -> techxsolutions.io
+        const parts = host.split(".").filter(Boolean);
+        if (parts.length >= 2) return parts.slice(-2).join(".");
+    } catch { /* ignore */ }
+    return "techxsolutions.io";
+};
+
+/** Validate and normalize sudomain + domain. Empty both = no branded portal yet. */
+const normalizePortal = (rawSub: any, rawDomain: any) => {
+    const sudomain = rawSub ? String(rawSub).trim().toLowerCase() : null;
+    let domain = rawDomain ? String(rawDomain).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : null;
+    if (sudomain && !domain) domain = platformPortalDomain();
+    if (sudomain && !/^[a-z0-9-]{2,40}$/.test(sudomain)) {
+        return { sudomain: null, domain: null, error: "Subdomain can only have letters, numbers and dashes" };
+    }
+    if (domain && !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) {
+        return { sudomain: null, domain: null, error: "Please enter a valid domain, e.g. yourdomain.com" };
+    }
+    if (!domain && sudomain) {
+        return { sudomain: null, domain: null, error: "Please enter a portal domain, or leave both blank" };
+    }
+    return { sudomain: sudomain || null, domain: domain || null, error: null as string | null };
+};
+
 const readPlan = (body: any) => {
     const name = String(body?.name || "").trim().slice(0, 100);
     if (!name) throw new SaasError("Plan name is required");
@@ -264,7 +295,9 @@ class SaasAdminController {
         }
     }
 
-    // POST /saas_admin/agencies  { name, owner_name, phone_number, country_code, email, sudomain, domain, plan_id, trial_days }
+    // POST /saas_admin/agencies
+    // { name, owner_name, phone_number, country_code, email, sudomain, domain, plan_id,
+    //   activate?: "paid"|"trial"|"none", trial_days?, amount?, method?, reference?, note? }
     async createAgency(req: RequestWithUser, res: Response) {
         try {
             const b = req.body || {};
@@ -273,6 +306,9 @@ class SaasAdminController {
             const countryCode = String(b.country_code || "+91").trim();
             const trialDays = Math.round(Number(b.trial_days || 0));
             const email = String(b.email || "").trim().toLowerCase().slice(0, 255);
+            const activate = ["paid", "trial", "none"].includes(String(b.activate || ""))
+                ? String(b.activate)
+                : (b.amount != null && b.amount !== "" ? "paid" : (trialDays > 0 ? "trial" : "none"));
             if (!ownerName) return returnHelper(res, 200, false, "Please enter the owner's name");
             if (phone.length < 8 || phone.length > 14) return returnHelper(res, 200, false, "Please enter a valid phone number");
             // the welcome email with the login code goes here
@@ -281,37 +317,80 @@ class SaasAdminController {
             if (await Agent.findOne({ where: { phone_number: phone }, attributes: ["id"] })) {
                 return returnHelper(res, 200, false, "This phone number is already used by another account");
             }
-            const sub = b.sudomain ? String(b.sudomain).trim().toLowerCase() : null;
-            const domain = b.domain ? String(b.domain).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : null;
-            if (sub && !/^[a-z0-9-]{2,40}$/.test(sub)) return returnHelper(res, 200, false, "Subdomain can only have letters, numbers and dashes");
-            if (domain && !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return returnHelper(res, 200, false, "Please enter a valid domain, e.g. yourdomain.com");
-            if (domain && await Agent.findOne({ where: { domain, sudomain: sub }, attributes: ["id"] })) {
+            const portal = normalizePortal(b.sudomain, b.domain);
+            if (portal.error) return returnHelper(res, 200, false, portal.error);
+            if (portal.domain && await Agent.findOne({ where: { domain: portal.domain, sudomain: portal.sudomain }, attributes: ["id"] })) {
                 return returnHelper(res, 200, false, "This portal address is already used by another agency");
             }
+            let plan: any = null;
             let planId: number | null = null;
             if (b.plan_id) {
-                const plan: any = await SaasPlan.findOne({ where: { uuid: b.plan_id } });
+                plan = await SaasPlan.findOne({ where: { uuid: b.plan_id } });
                 if (!plan) return returnHelper(res, 200, false, "Plan not found");
                 planId = plan.dataValues.id;
             }
-            if (trialDays && (trialDays < 1 || trialDays > 365)) return returnHelper(res, 200, false, "Trial days must be between 1 and 365");
+            if (activate === "paid" && !planId) return returnHelper(res, 200, false, "Please choose a 6 or 12 month plan");
+            if (activate === "trial" && (trialDays < 1 || trialDays > 365)) return returnHelper(res, 200, false, "Trial days must be between 1 and 365");
+
+            const months = plan?.dataValues?.duration_months
+                ? Number(plan.dataValues.duration_months)
+                : Math.round(Number(b.months || 0));
+            if (activate === "paid" && (![6, 12].includes(months))) {
+                return returnHelper(res, 200, false, "Paid activation needs a 6 or 12 month plan");
+            }
+            const amountRupees = Math.round(Number(b.amount || 0));
+            if (activate === "paid" && (!Number.isFinite(amountRupees) || amountRupees < 0)) {
+                return returnHelper(res, 200, false, "Please enter the amount received");
+            }
+            const method = MANUAL_METHODS.includes(b.method) ? b.method : "upi";
 
             const agency: any = await sequelize.transaction(async (t: any) => {
+                const brandName = (b.name ? String(b.name).trim() : ownerName).slice(0, 255);
                 const created: any = await Agent.create({
                     username: ownerName,
-                    app_name: b.name ? String(b.name).trim().slice(0, 255) : null,
+                    app_name: brandName,
                     email,
                     phone_number: phone,
                     country_code: countryCode,
                     role: "agent",
                     status: "active",
-                    sudomain: sub,
-                    domain,
-                    // no access until a trial or plan is assigned
+                    sudomain: portal.sudomain,
+                    domain: portal.domain,
+                    // student landing + login branding defaults (owner can change in CRM → Branding)
+                    primary_color: "#0f5bd8",
+                    primary_foreground_color: "#ffffff",
+                    dark_primary_color: "#050a30",
+                    support_number: phone,
+                    support_email: email,
+                    meta_description: `Study abroad with ${brandName}. Track your visa application, upload documents and get counselling support.`,
+                    // no access until a trial or paid plan is assigned below
                     expires_at: new Date(),
                     saas_plan_id: planId,
                 }, { transaction: t });
-                if (trialDays) {
+
+                if (activate === "paid" && planId) {
+                    const start = new Date();
+                    const end = addMonths(start, months);
+                    const amount = amountRupees * 100;
+                    let paymentId: number | null = null;
+                    if (amount > 0) {
+                        const payment: any = await SaasPayment.create({
+                            agency_uuid: created.dataValues.uuid, plan_id: planId, months, amount, currency: "INR",
+                            method, status: "paid",
+                            reference: b.reference ? String(b.reference).slice(0, 255) : null,
+                            note: b.note ? String(b.note).slice(0, 1000) : "Activated on create",
+                            paid_at: new Date(), created_by_admin: req.id || null,
+                        }, { transaction: t });
+                        paymentId = payment.dataValues.id;
+                        await issueInvoice(payment.dataValues.id, t);
+                    }
+                    await applyPeriod({
+                        agencyUuid: created.dataValues.uuid, planId, kind: "paid",
+                        startsAt: start, endsAt: end, paymentId,
+                        note: b.note ? String(b.note).slice(0, 1000) : `Payment recorded (${method})`,
+                        adminId: req.id || null, transaction: t,
+                    });
+                } else if (activate === "trial" && trialDays) {
                     const start = new Date();
                     await applyPeriod({
                         agencyUuid: created.dataValues.uuid, planId, kind: "trial", startsAt: start,
@@ -324,15 +403,48 @@ class SaasAdminController {
             // login code + welcome email (after the transaction, so a mail problem never undoes the agency)
             const code = await setLoginCode(agency.dataValues.id);
             const sent = await sendLoginEmail({
-                to: email, ownerName, agencyName: agency.dataValues.app_name, phone: `${countryCode} ${phone}`, code, trialDays: trialDays || undefined,
+                to: email, ownerName, agencyName: agency.dataValues.app_name, phone: `${countryCode} ${phone}`, code,
+                trialDays: activate === "trial" ? trialDays || undefined : undefined,
             });
-            const what = trialDays ? `Agency created with a ${trialDays}-day free trial.` : "Agency created. Give them a trial or plan to activate the account.";
+            const what = activate === "paid"
+                ? `Agency created and activated for ${months} months.`
+                : activate === "trial"
+                    ? `Agency created with a ${trialDays}-day free trial.`
+                    : "Agency created. Give them a trial or plan to activate the account.";
+            const portalHost = agency.dataValues.domain
+                ? `${agency.dataValues.sudomain ? `${agency.dataValues.sudomain}.` : ""}${agency.dataValues.domain}`
+                : null;
             return returnHelper(res, 200, true,
                 sent ? `${what} Login details were emailed to ${email}.` : `${what} The welcome email could not be sent - share the login code with the owner yourself.`,
                 // the plain code is only returned when the email failed, so the admin can pass it on
-                { id: agency.dataValues.uuid, email_sent: sent, ...(sent ? {} : { login_code: code, phone: `${countryCode} ${phone}` }) });
+                { id: agency.dataValues.uuid, email_sent: sent, portal: portalHost, ...(sent ? {} : { login_code: code, phone: `${countryCode} ${phone}` }) });
         } catch (error) {
             return fail(res, error, "createAgency");
+        }
+    }
+
+    // POST /saas_admin/agencies/:uuid/portal  { sudomain?, domain? }  - own domain or platform subdomain
+    async updatePortal(req: RequestWithUser, res: Response) {
+        try {
+            const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" } });
+            if (!agency) return returnHelper(res, 200, false, "Agency not found");
+            const portal = normalizePortal(req.body?.sudomain, req.body?.domain);
+            if (portal.error) return returnHelper(res, 200, false, portal.error);
+            if (portal.domain) {
+                const clash: any = await Agent.findOne({
+                    where: { domain: portal.domain, sudomain: portal.sudomain, id: { [Op.ne]: agency.dataValues.id } },
+                    attributes: ["id"],
+                });
+                if (clash) return returnHelper(res, 200, false, "This portal address is already used by another agency");
+            }
+            await Agent.update(
+                { sudomain: portal.sudomain, domain: portal.domain },
+                { where: { id: agency.dataValues.id } },
+            );
+            const host = portal.domain ? `${portal.sudomain ? `${portal.sudomain}.` : ""}${portal.domain}` : null;
+            return returnHelper(res, 200, true, host ? `Student portal set to ${host}` : "Student portal address cleared", { portal: host, sudomain: portal.sudomain, domain: portal.domain });
+        } catch (error) {
+            return fail(res, error, "updatePortal");
         }
     }
 

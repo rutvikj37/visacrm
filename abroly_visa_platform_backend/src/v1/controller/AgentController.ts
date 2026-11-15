@@ -986,6 +986,12 @@ class AgentController {
             if (!domain && !sudomain) {
                 return returnHelper(res, 200, false, "Please provide domain or subdomain")
             }
+
+            // Platform hosts are not agency tenants (admin/crm/api/student marketing host)
+            const RESERVED = new Set(["admin", "crm", "api", "www", "student"]);
+            if (sudomain && RESERVED.has(String(sudomain).toLowerCase())) {
+                return returnHelper(res, 200, false, "This is the platform host, not an agency portal")
+            }
     
             // Build where condition
             const whereCondition: any = {};
@@ -996,6 +1002,9 @@ class AgentController {
             
             if (sudomain) {
                 whereCondition.sudomain = sudomain;
+            } else {
+                // custom apex domain: agency stored with empty/null subdomain
+                whereCondition.sudomain = { [Op.or]: [null, ""] };
             }
     
             console.log("WHERE CONDITION:", whereCondition);

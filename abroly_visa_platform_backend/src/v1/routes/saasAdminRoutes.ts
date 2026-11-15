@@ -23,6 +23,7 @@ saasAdminRoutes.route("/agencies/:uuid/change_plan").post(validateAdmin, SaasAdm
 saasAdminRoutes.route("/agencies/:uuid/end_access").post(validateAdmin, SaasAdminController.endAccess)
 saasAdminRoutes.route("/agencies/:uuid/status").post(validateAdmin, SaasAdminController.setAgencyStatus)
 saasAdminRoutes.route("/agencies/:uuid/send_login").post(validateAdmin, SaasAdminController.sendLoginDetails)
+saasAdminRoutes.route("/agencies/:uuid/portal").post(validateAdmin, SaasAdminController.updatePortal)
 
 saasAdminRoutes.route("/payments").get(validateAdmin, SaasAdminController.listPayments)
 saasAdminRoutes.route("/payments/bulk").post(validateAdmin, SaasAdminController.bulkPayments)

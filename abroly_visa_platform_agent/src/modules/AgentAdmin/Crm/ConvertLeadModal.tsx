@@ -104,7 +104,9 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
             setChecklistAck(false);
             return;
         }
-        SuccessToast("Lead converted to a visa case");
+        if (data?.invite_email?.sent) SuccessToast("Visa case created — student login emailed");
+        else if (data?.invite_email?.reason) SuccessToast(`Visa case created. Invite email: ${data.invite_email.reason}`);
+        else SuccessToast("Lead converted to a visa case");
         setResult(data);
         onConverted();
     };
@@ -119,8 +121,16 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
                             <p className="text-sm text-default-600">
                                 {result.studentCreated ? "A student account was created" : "The existing student account was used"}
                                 {result.stepCount ? ` and ${result.stepCount} steps with ${result.questionCount} items were added to the case.` : "."}
-                                {" "}Now invite the student to the portal so they can upload documents:
+                                {result.invite_email?.sent
+                                    ? " Student portal login (mobile + 6-digit code) was emailed automatically."
+                                    : " Invite the student to the portal so they can upload documents:"}
                             </p>
+                            {result.invite_email?.sent && result.invite_email?.reason === undefined && (
+                                <p className="text-sm text-success">Invite email sent{result.invite?.email ? ` to ${result.invite.email}` : ""}.</p>
+                            )}
+                            {!result.invite_email?.sent && result.invite_email?.reason && (
+                                <p className="text-sm text-warning">{result.invite_email.reason}</p>
+                            )}
                             <PortalInvitePanel invite={result.invite} leadUuid={lead?.uuid} />
                         </ModalBody>
                         <ModalFooter>

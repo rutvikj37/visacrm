@@ -56,9 +56,9 @@ const ContentWritingList = ({ onOpenChange = () => { }, setFormOptions = {}, for
                         >
                             {/* Icons for Each Service */}
                             <div className="flex items-center mb-4">
-                                {item?.key === "sop" && <FileText className="text-orange-500" size={40} />}
-                                {item?.key === "motivation" && <Edit3 className="text-orange-500" size={40} />}
-                                {item?.key === "cover" && <PenTool className="text-orange-500" size={40} />}
+                                {item?.key === "sop" && <FileText className="text-primary" size={40} />}
+                                {item?.key === "motivation" && <Edit3 className="text-primary" size={40} />}
+                                {item?.key === "cover" && <PenTool className="text-primary" size={40} />}
                             </div>
 
                             {/* Service Title */}

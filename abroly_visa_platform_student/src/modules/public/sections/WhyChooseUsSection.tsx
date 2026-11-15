@@ -1,18 +1,20 @@
 import React from 'react'
 import { Layout, Target, Users, Languages, FileText, Heart, Stamp, Activity, Headphones, Home } from "lucide-react"
-import { getAppName } from '@/utils/config'
+import { getAppName, getMetaDescription } from '@/utils/config'
 
 const WhyChooseUsSection = () => {
+    const agencyName = getAppName() || 'your agency'
+    const intro = getMetaDescription() || (
+        `${agencyName} is your partner for studying abroad — from course shortlisting and language prep to visa filing and ongoing student support.`
+    )
+
     return (
         <div className="container p-10 mx-auto my-20">
             <div className="grid gap-12">
                 <div className="text-center">
-                    <h2 className="text-3xl font-bold mb-4"> Why Choose {getAppName()}?</h2>
+                    <h2 className="text-3xl font-bold mb-4"> Why Choose {agencyName}?</h2>
                     <p className="text-gray-600 max-w-2xl text-xl mx-auto text-justify">
-                        {getAppName()} is a comprehensive platform designed to simplify the journey of studying and working abroad. Whether
-                        you're a student exploring course options or a professional looking to advance your career in a foreign country,
-                        TechX CRM has everything you need in one place. With trusted consultants, language preparation, and visa
-                        assistance, we ensure a seamless transition to your dream destination.
+                        {intro}
                     </p>
                 </div>
 

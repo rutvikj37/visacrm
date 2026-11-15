@@ -3,10 +3,12 @@ import React from 'react'
 import { LogInIcon } from "lucide-react"
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getAppName } from '@/utils/config'
+import { getAppName, getMetaDescription } from '@/utils/config'
 
 const CTASection = () => {
     const navigate = useNavigate()
+    const agencyName = getAppName() || 'your agency'
+    const blurb = getMetaDescription() || `Take the next step toward studying abroad with ${agencyName}.`
 
     return (
         <section className='bg-gradient-to-r from-primary to-sidebar-primary py-16 my-20'>
@@ -21,7 +23,7 @@ const CTASection = () => {
                         Ready to Start Your Journey?
                     </h2>
                     <p className="text-xl text-white/90 mb-8">
-                        Join thousands of students who have successfully achieved their dreams of studying abroad with {getAppName()}
+                        {blurb}
                     </p>
                     <div className="flex flex-wrap gap-4 justify-center">
                         <Button

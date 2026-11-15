@@ -4,12 +4,14 @@ import {
     Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader,
     Radio, RadioGroup, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, useDisclosure,
 } from "@nextui-org/react";
-import { ArrowLeft, CalendarPlus, Gift, KeyRound, Repeat, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Gift, Globe, KeyRound, Repeat, XCircle } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast } from "@/utils/Toaster";
 import { FormField, KIND_LABEL, METHOD_LABEL, STATUS_META, fmtDate, rupees } from "./saasShared";
 import { HEALTH_META, Trend, idleLabel } from "./SaasUsage";
 import LoginCodeDialog, { LoginCodeInfo } from "./LoginCodeDialog";
+
+const PLATFORM_PORTAL_DOMAIN = (import.meta as any).env?.VITE_PLATFORM_PORTAL_DOMAIN || "techxsolutions.io";
 
 const SaasAgencyDetails = () => {
     const { id } = useParams();
@@ -23,8 +25,10 @@ const SaasAgencyDetails = () => {
     const trialModal = useDisclosure();
     const extendModal = useDisclosure();
     const planModal = useDisclosure();
+    const portalModal = useDisclosure();
     const [trial, setTrial] = useState({ days: "14", plan_id: "" });
     const [ext, setExt] = useState({ kind: "paid", plan_id: "", months: "12", amount: "", method: "upi", reference: "", note: "" });
+    const [portal, setPortal] = useState({ mode: "subdomain", sudomain: "", domain: "" });
     const [newPlan, setNewPlan] = useState("");
     const [loginInfo, setLoginInfo] = useState<LoginCodeInfo>(null);
 
@@ -116,6 +120,15 @@ const SaasAgencyDetails = () => {
                 }}>Record payment / activate</Button>
                 <Button variant="flat" startContent={<Gift size={16} />} onPress={() => { setTrial({ days: "14", plan_id: currentPlanId || activePlans[0]?.id || "" }); trialModal.onOpen(); }}>Give free trial</Button>
                 <Button variant="flat" startContent={<Repeat size={16} />} onPress={() => { setNewPlan(currentPlanId); planModal.onOpen(); }}>Change plan</Button>
+                <Button variant="flat" startContent={<Globe size={16} />} onPress={() => {
+                    const custom = Boolean(agency.domain && agency.domain !== PLATFORM_PORTAL_DOMAIN);
+                    setPortal({
+                        mode: custom ? "custom" : "subdomain",
+                        sudomain: agency.sudomain || "",
+                        domain: custom ? (agency.domain || "") : "",
+                    });
+                    portalModal.onOpen();
+                }}>Portal domain</Button>
                 <Button variant="flat" startContent={<KeyRound size={16} />} isLoading={busy} onPress={sendLogin}>Send new login code</Button>
                 {!access?.expired && (
                     <Button variant="flat" color="danger" startContent={<XCircle size={16} />} isLoading={busy}
@@ -292,6 +305,47 @@ const SaasAgencyDetails = () => {
                             <ModalFooter>
                                 <Button variant="light" onPress={onClose}>Cancel</Button>
                                 <Button color="primary" isLoading={busy} isDisabled={!newPlan} onPress={() => run(`saas_admin/agencies/${id}/change_plan`, { plan_id: newPlan }, onClose)}>Change plan</Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
+
+            {/* portal domain / subdomain */}
+            <Modal isOpen={portalModal.isOpen} onOpenChange={portalModal.onOpenChange}>
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Student portal address</ModalHeader>
+                            <ModalBody>
+                                <RadioGroup orientation="horizontal" value={portal.mode} onValueChange={(v) => setPortal({ ...portal, mode: v })}>
+                                    <Radio value="subdomain">Our subdomain</Radio>
+                                    <Radio value="custom">Their own domain</Radio>
+                                </RadioGroup>
+                                {portal.mode === "subdomain" ? (
+                                    <FormField label="Subdomain">
+                                        <Input aria-label="Subdomain" placeholder="e.g. globalvisa" value={portal.sudomain}
+                                            onValueChange={(v) => setPortal({ ...portal, sudomain: v.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+                                            description={portal.sudomain ? `Portal: ${portal.sudomain}.${PLATFORM_PORTAL_DOMAIN}` : `We host: name.${PLATFORM_PORTAL_DOMAIN}`} />
+                                    </FormField>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <FormField label="Their domain"><Input aria-label="Domain" placeholder="e.g. globalvisa.com" value={portal.domain} onValueChange={(v) => setPortal({ ...portal, domain: v })} /></FormField>
+                                        <FormField label="Optional host"><Input aria-label="Host" placeholder="portal or www" value={portal.sudomain} onValueChange={(v) => setPortal({ ...portal, sudomain: v })} /></FormField>
+                                    </div>
+                                )}
+                                <p className="text-xs text-default-500">DNS / SSL for custom domains still needs to be pointed at the server.</p>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button color="primary" isLoading={busy} onPress={() => {
+                                    if (portal.mode === "subdomain" && !portal.sudomain.trim()) return ErrorToast("Enter a subdomain");
+                                    if (portal.mode === "custom" && !portal.domain.trim()) return ErrorToast("Enter their domain");
+                                    run(`saas_admin/agencies/${id}/portal`, {
+                                        sudomain: portal.mode === "subdomain" ? portal.sudomain.trim() : (portal.sudomain.trim() || null),
+                                        domain: portal.mode === "subdomain" ? PLATFORM_PORTAL_DOMAIN : portal.domain.trim().toLowerCase(),
+                                    }, onClose);
+                                }}>Save portal</Button>
                             </ModalFooter>
                         </>
                     )}

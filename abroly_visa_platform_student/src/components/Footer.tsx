@@ -136,12 +136,16 @@ import {
   MapPin,
 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
-import { getAppName, getSupportEmail, getSupportNumber } from "@/utils/config";
+import { getAgencyAddress, getAppName, getDarkPrimaryColor, getMetaDescription, getSupportEmail, getSupportNumber } from "@/utils/config";
+import { AgencyLogo } from "@/components/AgencyBrand";
 
 const Footer = () => {
   const { commonPublicGetApiCalls } = useApiCallUtils();
   const [staticPages, setStaticPages] = useState([]);
   const navigate = useNavigate();
+  const agencyName = getAppName();
+  const tagline = getMetaDescription();
+  const footerBg = getDarkPrimaryColor() || "#111827";
 
   useEffect(() => {
     fetchStaticPages();
@@ -155,17 +159,18 @@ const Footer = () => {
   };
 
   return (
-    <footer className="w-full bg-gray-900 text-white py-10">
+    <footer className="w-full text-white py-10" style={{ backgroundColor: footerBg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
           {/* Brand Info */}
           <div className="flex flex-col">
-            <Link to="/" className="text-2xl font-bold text-white mb-3">
-              {getAppName()}
+            <Link to="/" className="flex items-center gap-3 text-white mb-3 min-w-0">
+              <AgencyLogo size={40} />
+              <span className="text-2xl font-bold truncate">{agencyName}</span>
             </Link>
-            {/* <p className="text-sm text-gray-400 max-w-xs">
-                            Get personalized guidance for admissions, scholarships, and visa processing at top universities worldwide.
-                        </p> */}
+            {tagline && (
+              <p className="text-sm text-gray-400 max-w-xs leading-relaxed">{tagline}</p>
+            )}
             <div className="mt-4 flex space-x-4">
               {[Facebook, Twitter, Linkedin, Instagram].map((Icon, idx) => (
                 <a
@@ -210,16 +215,22 @@ const Footer = () => {
           <div className="flex flex-col">
             <h4 className="font-semibold text-white mb-3">Contact</h4>
             <ul className="space-y-3">
-              <li className="flex items-center gap-2 text-sm text-gray-400">
-                <Mail size={16} /> {getSupportEmail()}
-              </li>
-              <li className="flex items-center gap-2 text-sm text-gray-400">
-                <Phone size={16} /> {getSupportNumber()}
-              </li>
-              {/* Uncomment if you want to add address */}
-              {/* <li className="flex items-center gap-2 text-sm text-gray-400">
-              <MapPin size={16} /> 123 Business Ave, Suite 100
-            </li> */}
+              {getSupportEmail() && (
+                <li className="flex items-center gap-2 text-sm text-gray-400">
+                  <Mail size={16} /> {getSupportEmail()}
+                </li>
+              )}
+              {getSupportNumber() && (
+                <li className="flex items-center gap-2 text-sm text-gray-400">
+                  <Phone size={16} /> {getSupportNumber()}
+                </li>
+              )}
+              {getAgencyAddress() && (
+                <li className="flex items-start gap-2 text-sm text-gray-400">
+                  <MapPin size={16} className="shrink-0 mt-0.5" />
+                  <span className="whitespace-pre-line">{getAgencyAddress()}</span>
+                </li>
+              )}
             </ul>
           </div>
         </div>

@@ -12,8 +12,9 @@ import AppLoader from '@/components/AppLoader';
 const Index = () => {
 
     const { commonPostAPICall, commonPublicGetApiCalls } = useApiCallUtils()
-    // Check if config exists, if so don't show loader initially
-    const [configLoading, setConfigLoading] = useState(!getFromLocal('app_config'));
+    const [configLoading, setConfigLoading] = useState(true);
+    const [portalMissing, setPortalMissing] = useState(false);
+    const [portalBrandKey, setPortalBrandKey] = useState('');
 
     const tokenData = getFromLocal("token")
     const website = getFromLocal("website")
@@ -22,21 +23,28 @@ const Index = () => {
     const role_type = useSelector((state: any) => state.login.role_type)
     const dispatch = useDispatch();
 
-    // Helper function to apply config from localStorage
+    const hostKey = () => window.location.hostname.split(':')[0];
+
+    // Apply cached config only when it matches this hostname (avoids wrong agency branding)
     const applyStoredConfig = () => {
         const existingConfig = getFromLocal('app_config');
-        if (existingConfig) {
-            // Re-apply config values from localStorage
+        if (!existingConfig) return;
+        try {
+            const cfg = JSON.parse(existingConfig);
+            if (cfg.PORTAL_HOST && cfg.PORTAL_HOST !== hostKey()) {
+                localStorage.removeItem('app_config');
+                return;
+            }
             initializeMetaTags();
             setThemeColors();
+            if (cfg.AGENT_UUID) setPortalBrandKey(`${hostKey()}:${cfg.AGENT_UUID}`);
+        } catch {
+            localStorage.removeItem('app_config');
         }
     };
 
-    // Check and apply existing config immediately, then fetch fresh config
     useEffect(() => {
-        // Apply existing config immediately if available
         applyStoredConfig();
-        // Always fetch fresh config to update if needed
         fetchAppConfig();
     }, []);
 
@@ -55,66 +63,40 @@ const Index = () => {
     }, [])
 
     const fetchAppConfig = async () => {
-        const hasCachedConfig = !!getFromLocal('app_config');
-        if (!hasCachedConfig) setConfigLoading(true);
+        setConfigLoading(true);
+        setPortalMissing(false);
         try {
-            // Extract domain and subdomain from current hostname
-            const hostname = window.location.hostname;
-            const hostnameWithoutPort = hostname.split(':')[0];
+            const hostnameWithoutPort = hostKey();
             const hostParts = hostnameWithoutPort.split('.');
-            
+            const isLocalHost = hostnameWithoutPort === 'localhost' || hostnameWithoutPort === '127.0.0.1';
+
             let domain = '';
             let subdomain = '';
-            
-            // Parse hostname to extract domain and subdomain
-            // Example: admin.techxuniverse.com -> subdomain: admin, domain: techxuniverse.com
             if (hostParts.length >= 3) {
-                // If hostname has 3+ parts (e.g., admin.techxuniverse.com)
-                subdomain = hostParts[0]; // 'admin'
-                domain = hostParts.slice(-2).join('.'); // 'techxuniverse.com'
+                subdomain = hostParts[0];
+                domain = hostParts.slice(-2).join('.');
             } else if (hostParts.length === 2) {
-                // If hostname has exactly 2 parts (e.g., techxuniverse.com)
-                domain = hostnameWithoutPort; // techxuniverse.com
-                // No subdomain in this case
+                domain = hostnameWithoutPort;
             }
-            
-            // Build query parameters
+
             const queryParams = new URLSearchParams();
-            if (domain) {
-                queryParams.append('domain', domain);
-            }
-            if (subdomain) {
-                queryParams.append('sudomain', subdomain); // Backend accepts 'sudomain'
-            }
-            
+            if (domain) queryParams.append('domain', domain);
+            if (subdomain) queryParams.append('sudomain', subdomain);
             const queryString = queryParams.toString();
-            const apiUrl = queryString 
-                ? `/agent/get_agency?${queryString}`
-                : '/agent/get_agency';
-            
-            // Fetch config from backend - adjust endpoint as needed
+            const apiUrl = queryString ? `/agent/get_agency?${queryString}` : '/agent/get_agency';
+
             const { data, success } = await commonPublicGetApiCalls(apiUrl);
-            
+
             if (success && data) {
-                console.log('Fetched config data:', data); // Debug log
-                
-                // Helper function to ensure full URL
                 const ensureFullUrl = (url: string) => {
                     if (!url) return '';
-                    if (url.startsWith('http://') || url.startsWith('https://')) {
-                        return url;
-                    }
-                    // If it's a relative path, try to construct full URL
-                    if (url.startsWith('www.')) {
-                        return `https://${url}`;
-                    }
+                    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+                    if (url.startsWith('www.')) return `https://${url}`;
                     return url;
                 };
-                console.log('data', data);
-                
-                // Map backend response to frontend config format
-                // Note: Backend returns 'uuid' field, not 'agent_uuid'
+
                 const config = {
+                    PORTAL_HOST: hostnameWithoutPort,
                     AGENT_UUID: data.uuid,
                     AGENT_ID: data.id || data.agent_id || data.agentId || '',
                     PRIMARY_COLOR: data.primary_color || data.primaryColor || '',
@@ -125,49 +107,44 @@ const Index = () => {
                     SUPPORT_EMAIL: data.support_email || data.supportEmail || '',
                     CERTIFICATE_URL: ensureFullUrl(data.certificate_url || data.certificateUrl || ''),
                     AGENCY_ADDRESS: data.agency_address || data.agencyAddress || '',
-                    // Use full URLs if available, otherwise fallback to relative paths
                     FAVICON_URL: data.favicon_url_full || data.faviconUrlFull || data.favicon_url || data.faviconUrl || '/logo.png',
                     META_DESCRIPTION: data.meta_description || data.metaDescription || '',
                     META_KEYWORDS: data.meta_keywords || data.metaKeywords || '',
                     OG_IMAGE: data.og_image_full || data.ogImageFull || data.og_image || data.ogImage || '/logo.png',
                     OG_URL: ensureFullUrl(data.og_url || data.ogUrl || ''),
-                    // optional modules in the agency's plan ("null" = all)
                     ADDONS: JSON.stringify(data.addons ?? null)
                 };
-                
-                console.log('Mapped config:', config); // Debug log
-                
-                // Store in localStorage
+
                 addToLocal('app_config', JSON.stringify(config));
-                
-                // Small delay to ensure localStorage is updated
-                setTimeout(() => {
-                    // Initialize meta tags, favicon, and title after config is loaded
-                    initializeMetaTags();
-                    
-                    // Also update theme colors after config is loaded
-                    setThemeColors();
-                    
-                    // Config loading complete
-                    setConfigLoading(false);
-                }, 100);
+                initializeMetaTags();
+                setThemeColors();
+                setPortalBrandKey(`${hostnameWithoutPort}:${config.AGENT_UUID}`);
+                setConfigLoading(false);
             } else {
-                // If API fails, still try to initialize with defaults from env
+                // Don't keep another agency's cached branding on this host
+                localStorage.removeItem('app_config');
+                if (!isLocalHost) setPortalMissing(true);
                 initializeMetaTags();
                 setConfigLoading(false);
             }
         } catch (error) {
             console.error('Failed to fetch app config:', error);
-            // Continue with default values from env if API fails
             const existingConfig = getFromLocal('app_config');
             if (existingConfig) {
-                // Use existing config if API fails
-                initializeMetaTags();
-                setThemeColors();
-            } else {
-                // No existing config, use defaults
-                initializeMetaTags();
+                try {
+                    const cfg = JSON.parse(existingConfig);
+                    if (cfg.PORTAL_HOST === hostKey()) {
+                        initializeMetaTags();
+                        setThemeColors();
+                        if (cfg.AGENT_UUID) setPortalBrandKey(`${hostKey()}:${cfg.AGENT_UUID}`);
+                        setConfigLoading(false);
+                        return;
+                    }
+                } catch { /* ignore */ }
+                localStorage.removeItem('app_config');
             }
+            if (hostKey() !== 'localhost' && hostKey() !== '127.0.0.1') setPortalMissing(true);
+            initializeMetaTags();
             setConfigLoading(false);
         }
     }
@@ -205,9 +182,22 @@ const Index = () => {
             // Don't clear app_config - keep it for consistent branding
         }
     }
-    // Show loader while config is being fetched
     if (configLoading) {
         return <AppLoader label="Loading" />
+    }
+
+    if (portalMissing && !token) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-6 bg-default-50">
+                <div className="max-w-md text-center space-y-3">
+                    <h1 className="text-2xl font-semibold">Portal not found</h1>
+                    <p className="text-default-500 text-sm">
+                        This address is not linked to an agency student portal. Ask your agency for their portal link
+                        (subdomain or custom domain).
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     if (token) {
@@ -217,7 +207,7 @@ const Index = () => {
         return role_type == "user" ? <StudentDashboard /> : null
     }
 
-    return <PublicDashboard />
+    return <PublicDashboard key={portalBrandKey || hostKey()} />
 }
 
 export default Index

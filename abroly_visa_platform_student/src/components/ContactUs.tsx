@@ -1,10 +1,10 @@
 import { Button, Input, Textarea } from '@nextui-org/react'
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mail, MapPin } from 'lucide-react'
+import { Mail, MapPin, Phone } from 'lucide-react'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { ErrorToast, SuccessToast } from '@/utils/Toaster'
-import { getAgentId, getAgencyAddress, getSupportEmail } from '@/utils/config'
+import { getAgentId, getAgencyAddress, getAppName, getSupportEmail, getSupportNumber } from '@/utils/config'
 import { phoneInputProps, sanitizePhoneInput } from "@/utils/phone";
 
 const ContactUs = () => {
@@ -15,6 +15,10 @@ const ContactUs = () => {
     const { commonPostPublicAPICall } = useApiCallUtils()
     const agentId = getAgentId()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const agencyName = getAppName() || 'us'
+    const supportEmail = getSupportEmail()
+    const supportNumber = getSupportNumber()
+    const agencyAddress = getAgencyAddress()
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -81,8 +85,8 @@ const ContactUs = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="max-w-3xl mb-10 lg:mb-14">
-                    <h2 className="font-semibold text-2xl md:text-4xl md:leading-tight">Contact us</h2>
-                    <p className="mt-1">Whatever your query, will get back to you within 2 business days</p>
+                    <h2 className="font-semibold text-2xl md:text-4xl md:leading-tight">Contact {agencyName}</h2>
+                    <p className="mt-1">Whatever your query, we&apos;ll get back to you within 2 business days.</p>
                 </motion.div>
 
                 <motion.div 
@@ -129,29 +133,48 @@ const ContactUs = () => {
                         </form>
                     </div>
 
-                    <div className="flex flex-col items-start gap-2">
-                        <div className="flex flex-row items-center gap-4">
-                            <MapPin className="text-primary shrink-0 size-12" />
-                            <div className='flex flex-col items-start'>
-                                <h4 className="font-semibold">Our address:</h4>
-                                <address className="text-sm not-italic">
-                                    {getAgencyAddress() || "Ahmedabad, Gujarat"}
-                                </address>
+                    <div className="flex flex-col items-start gap-6">
+                        {agencyAddress && (
+                            <div className="flex flex-row items-center gap-4">
+                                <MapPin className="text-primary shrink-0 size-12" />
+                                <div className='flex flex-col items-start'>
+                                    <h4 className="font-semibold">Our address</h4>
+                                    <address className="text-sm not-italic whitespace-pre-line text-default-600">
+                                        {agencyAddress}
+                                    </address>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div className="flex flex-row items-center gap-4">
-                            <Mail className="text-primary shrink-0 size-12" />
-                            <div className='flex flex-col items-start'>
-                                <h4 className="font-semibold">Email us:</h4>
-                                <a 
-                                    className="text-sm hover:text-primary focus:outline-none focus:text-primary" 
-                                    href={`mailto:${getSupportEmail() || 'contact@techxunivers.com'}`}
-                                >
-                                    {getSupportEmail() || 'contact@techxunivers.com'}
-                                </a>
+                        {supportEmail && (
+                            <div className="flex flex-row items-center gap-4">
+                                <Mail className="text-primary shrink-0 size-12" />
+                                <div className='flex flex-col items-start'>
+                                    <h4 className="font-semibold">Email us</h4>
+                                    <a
+                                        className="text-sm hover:text-primary focus:outline-none focus:text-primary"
+                                        href={`mailto:${supportEmail}`}
+                                    >
+                                        {supportEmail}
+                                    </a>
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {supportNumber && (
+                            <div className="flex flex-row items-center gap-4">
+                                <Phone className="text-primary shrink-0 size-12" />
+                                <div className='flex flex-col items-start'>
+                                    <h4 className="font-semibold">Call us</h4>
+                                    <a
+                                        className="text-sm hover:text-primary focus:outline-none focus:text-primary"
+                                        href={`tel:${supportNumber.replace(/\s/g, '')}`}
+                                    >
+                                        {supportNumber}
+                                    </a>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
             </div>

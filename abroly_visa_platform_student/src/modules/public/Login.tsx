@@ -5,17 +5,20 @@ import { ErrorToast } from '../../utils/Toaster'
 import { setAuthLoading, setProfile, setToken } from '../../redux/slices/loginSlice'
 import { addToLocal } from '../../utils/localstorage'
 import { GrEdit } from 'react-icons/gr'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
-import { getAppName } from '@/utils/config'
+import { getAgentUuid, getAppName, getSupportEmail, getSupportNumber } from '@/utils/config'
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
+import { AgencyLogo } from '@/components/AgencyBrand'
 
 const IS_LOCAL = import.meta.env.VITE_IS_LOCAL || false
 
 const Login = () => {
     const { commonPostPublicAPICall } = useApiCallUtils()
-
-
+    const agencyReady = Boolean(getAgentUuid())
+    const agencyName = getAppName() || "Student portal"
+    const supportPhone = getSupportNumber()
+    const supportEmail = getSupportEmail()
 
     useEffect(() => {
         window.scrollTo(0, 0)
@@ -77,6 +80,10 @@ const Login = () => {
     }
 
     const submitCall = async () => {
+        if (!agencyReady) {
+            ErrorToast("This portal is not linked to an agency. Open your agency's portal link.")
+            return
+        }
         setLoginLoading(true)
         const { success, data } = await commonPostPublicAPICall(
             { phone: numberAndCountryCode.phone_number, country_code: "+91" },
@@ -132,13 +139,21 @@ const Login = () => {
     }
 
     return (
-        <section className="min-h-[85vh] flex items-center justify-center bg-gray-100">
+        <section className="min-h-[85vh] flex items-center justify-center bg-gradient-to-b from-primary/10 to-default-100">
             <Card className="w-full max-w-md shadow-lg p-6 bg-white rounded-xl">
-                <CardHeader className="flex flex-col items-center">
-                    <h1 className="text-2xl font-semibold text-gray-800">Welcome to {getAppName()}</h1>
-                    <p className="text-sm text-gray-500 mt-1">Log in to manage your account</p>
+                <CardHeader className="flex flex-col items-center gap-3">
+                    <AgencyLogo size={56} />
+                    <div className="text-center">
+                        <h1 className="text-2xl font-semibold text-gray-800">{agencyName}</h1>
+                        <p className="text-sm text-gray-500 mt-1">Student login — track your visa case and documents</p>
+                    </div>
                 </CardHeader>
                 <CardBody>
+                    {!agencyReady && (
+                        <p className="text-sm text-warning-600 mb-4 text-center">
+                            Open the portal link from your agency (their subdomain or domain) so we can load their branding.
+                        </p>
+                    )}
                     {!OTPScreen ? (
                         <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
                             <div className="space-y-2">
@@ -166,10 +181,10 @@ const Login = () => {
                                 color="primary"
                                 onPress={submitCall}
                                 isLoading={loginLoading}
-                                isDisabled={numberAndCountryCode.phone_number.length < 10}
+                                isDisabled={!agencyReady || numberAndCountryCode.phone_number.length < 10}
                                 className="w-full bg-primary hover:bg-primary/80 text-white font-medium"
                             >
-                                Send OTP
+                                Continue
                             </Button>
                         </form>
                     ) : (
@@ -230,13 +245,17 @@ const Login = () => {
                             </div>
                         </div>
                     )}
-                    <hr className="my-6 border-gray-200" />
-                    <p className="text-center text-sm text-gray-600">
-                        Need an account?{" "}
-                        <Link to="/signup" className="text-blue-600 hover:underline font-medium">
-                            Sign Up
-                        </Link>
-                    </p>
+                    {(supportPhone || supportEmail) && (
+                        <>
+                            <hr className="my-6 border-gray-200" />
+                            <p className="text-center text-xs text-default-500">
+                                Need help?{" "}
+                                {supportPhone && <a className="text-primary font-medium" href={`tel:${supportPhone}`}>{supportPhone}</a>}
+                                {supportPhone && supportEmail && " · "}
+                                {supportEmail && <a className="text-primary font-medium" href={`mailto:${supportEmail}`}>{supportEmail}</a>}
+                            </p>
+                        </>
+                    )}
                 </CardBody>
             </Card>
         </section>

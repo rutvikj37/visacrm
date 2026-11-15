@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     Button, Checkbox, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination,
-    Select, SelectItem, Spinner, Tab, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, useDisclosure,
+    Radio, RadioGroup, Select, SelectItem, Spinner, Tab, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, useDisclosure,
 } from "@nextui-org/react";
 import {
     AlarmClock, Ban, Building2, CalendarPlus, Copy, Download, ExternalLink, Eye, Gift, KeyRound, Plus, Repeat, Search, ShieldCheck, Sparkles, XCircle,
@@ -10,13 +10,18 @@ import {
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import { BulkBar, CsvColumn, RowAction, RowActions, downloadCsv, fetchAllPages, today, useCrossPageSelection } from "@/components/ListTools";
-import { FormField, STATUS_META, fmtDate } from "./saasShared";
+import { FormField, METHOD_LABEL, STATUS_META, fmtDate } from "./saasShared";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 import LoginCodeDialog, { LoginCodeInfo } from "./LoginCodeDialog";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PLATFORM_PORTAL_DOMAIN = (import.meta as any).env?.VITE_PLATFORM_PORTAL_DOMAIN || "techxsolutions.io";
 
-const emptyForm = { name: "", owner_name: "", country_code: "+91", phone_number: "", email: "", sudomain: "", domain: "", plan_id: "", trial_days: "14" };
+const emptyForm = {
+    name: "", owner_name: "", country_code: "+91", phone_number: "", email: "",
+    portal_mode: "subdomain", sudomain: "", domain: "",
+    plan_id: "", activate: "paid", amount: "", method: "upi", reference: "", note: "", trial_days: "14",
+};
 
 type BulkAction = "trial" | "free_days" | "change_plan" | "suspend" | "reactivate" | "end_access";
 type ActionTarget = { mode: "trial" | "free_days" | "change_plan"; ids: string[]; label: string };
@@ -216,8 +221,27 @@ const SaasAgencies = () => {
     const submit = async (close: () => void) => {
         if (!form.owner_name.trim() || !form.phone_number.trim() || !form.email.trim()) return ErrorToast("Owner name, phone number and email are required");
         if (!EMAIL_RE.test(form.email.trim())) return ErrorToast("Please enter a valid email address");
+        if (form.activate === "paid" && !form.plan_id) return ErrorToast("Please choose a 6 or 12 month plan");
+        if (form.portal_mode === "subdomain" && !form.sudomain.trim()) return ErrorToast("Enter a subdomain for the student portal");
+        if (form.portal_mode === "custom" && !form.domain.trim()) return ErrorToast("Enter the agency's domain");
         setSaving(true);
-        const { success, data } = await commonPostAPICall({ ...form, email: form.email.trim(), trial_days: Number(form.trial_days || 0) }, "saas_admin/agencies", true);
+        const body = {
+            name: form.name,
+            owner_name: form.owner_name,
+            country_code: form.country_code,
+            phone_number: form.phone_number,
+            email: form.email.trim(),
+            sudomain: form.portal_mode === "subdomain" ? form.sudomain.trim().toLowerCase() : (form.sudomain.trim() || null),
+            domain: form.portal_mode === "subdomain" ? PLATFORM_PORTAL_DOMAIN : form.domain.trim().toLowerCase(),
+            plan_id: form.plan_id || undefined,
+            activate: form.activate,
+            amount: form.activate === "paid" ? Number(form.amount || 0) : undefined,
+            method: form.method,
+            reference: form.reference,
+            note: form.note,
+            trial_days: form.activate === "trial" ? Number(form.trial_days || 0) : 0,
+        };
+        const { success, data } = await commonPostAPICall(body, "saas_admin/agencies", true);
         setSaving(false);
         if (success) {
             close();
@@ -228,6 +252,8 @@ const SaasAgencies = () => {
         }
     };
     const set = (k: keyof typeof emptyForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+    const activePlans = plans.filter((p) => p.status === "active");
+    const selectedPlan = activePlans.find((p) => p.id === form.plan_id);
 
     const count = sel.ids.length;
     const selLabel = `${count} agenc${count === 1 ? "y" : "ies"}`;
@@ -245,7 +271,15 @@ const SaasAgencies = () => {
                 </div>
                 <div className="flex gap-2">
                     <Button variant="flat" startContent={<Download size={16} />} isLoading={busy === "export"} onPress={exportAll}>Export</Button>
-                    <Button color="primary" startContent={<Plus size={16} />} onPress={() => { setForm({ ...emptyForm, plan_id: plans.find((p) => p.status === "active" && Number(p.duration_months) === 12)?.id || plans.find((p) => p.status === "active")?.id || "" }); create.onOpen(); }}>
+                    <Button color="primary" startContent={<Plus size={16} />} onPress={() => {
+                        const plan12 = plans.find((p) => p.status === "active" && Number(p.duration_months) === 12);
+                        const plan = plan12 || plans.find((p) => p.status === "active");
+                        const price = plan
+                            ? (Number(plan.duration_months) === 12 ? Number(plan.price_yearly || plan.price_monthly || 0) : Number(plan.price_monthly || 0))
+                            : 0;
+                        setForm({ ...emptyForm, plan_id: plan?.id || "", amount: price ? String(price) : "" });
+                        create.onOpen();
+                    }}>
                         Create agency
                     </Button>
                 </div>
@@ -423,7 +457,7 @@ const SaasAgencies = () => {
                         <>
                             <ModalHeader>Create agency</ModalHeader>
                             <ModalBody>
-                                <p className="text-sm text-default-500">We email the owner a welcome message with their login details: this mobile number and a 6-digit login code.</p>
+                                <p className="text-sm text-default-500">After you receive payment, create the agency, set their portal, activate 6/12 months, and we email the owner a login code.</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <FormField label="Agency / brand name"><Input aria-label="Agency name" value={form.name} onValueChange={set("name")} /></FormField>
                                     <FormField label="Owner name *"><Input aria-label="Owner name" value={form.owner_name} onValueChange={set("owner_name")} /></FormField>
@@ -433,20 +467,74 @@ const SaasAgencies = () => {
                                             <Input aria-label="Phone" value={form.phone_number} {...phoneInputProps} onValueChange={(v) => set("phone_number")(toPhoneDigits(v))} />
                                         </div>
                                     </FormField>
-                                    <FormField label="Owner email *"><Input aria-label="Email" type="email" value={form.email} onValueChange={set("email")} description="Login details (mobile number + login code) are emailed here" /></FormField>
-                                    <FormField label="Student portal subdomain"><Input aria-label="Subdomain" placeholder="e.g. globalvisa" value={form.sudomain} onValueChange={set("sudomain")} /></FormField>
-                                    <FormField label="Portal domain"><Input aria-label="Domain" placeholder="e.g. yourplatform.com" value={form.domain} onValueChange={set("domain")} /></FormField>
-                                    <FormField label="Plan">
-                                        <Select aria-label="Plan" selectedKeys={form.plan_id ? [form.plan_id] : []} onChange={(e) => set("plan_id")(e.target.value)}>
-                                            {plans.map((p) => <SelectItem key={p.id}>{p.name}</SelectItem>)}
-                                        </Select>
-                                    </FormField>
-                                    <FormField label="Free trial (days)"><Input aria-label="Trial days" type="number" min={0} max={365} value={form.trial_days} onValueChange={set("trial_days")} description="0 = no trial (account stays inactive until you extend it)" /></FormField>
+                                    <FormField label="Owner email *"><Input aria-label="Email" type="email" value={form.email} onValueChange={set("email")} description="Login details are emailed here" /></FormField>
+                                </div>
+
+                                <div className="mt-2 space-y-2">
+                                    <div className="text-sm font-medium">Student portal</div>
+                                    <RadioGroup orientation="horizontal" value={form.portal_mode} onValueChange={(v) => set("portal_mode")(v)}>
+                                        <Radio value="subdomain">Our subdomain</Radio>
+                                        <Radio value="custom">Their own domain</Radio>
+                                    </RadioGroup>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {form.portal_mode === "subdomain" ? (
+                                            <FormField label="Subdomain *" className="sm:col-span-2">
+                                                <Input aria-label="Subdomain" placeholder="e.g. globalvisa" value={form.sudomain} onValueChange={(v) => set("sudomain")(v.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                                                    description={form.sudomain ? `Portal: ${form.sudomain}.${PLATFORM_PORTAL_DOMAIN}` : `We host: yourname.${PLATFORM_PORTAL_DOMAIN}`} />
+                                            </FormField>
+                                        ) : (
+                                            <>
+                                                <FormField label="Their domain *"><Input aria-label="Domain" placeholder="e.g. globalvisa.com" value={form.domain} onValueChange={set("domain")} /></FormField>
+                                                <FormField label="Optional host"><Input aria-label="Host" placeholder="e.g. portal or www" value={form.sudomain} onValueChange={set("sudomain")} description="Leave blank to use the bare domain" /></FormField>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-2 space-y-2">
+                                    <div className="text-sm font-medium">Plan & payment</div>
+                                    <RadioGroup orientation="horizontal" value={form.activate} onValueChange={(v) => set("activate")(v)}>
+                                        <Radio value="paid">Paid — activate now</Radio>
+                                        <Radio value="trial">Free trial</Radio>
+                                        <Radio value="none">Create only (activate later)</Radio>
+                                    </RadioGroup>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <FormField label="Plan *">
+                                            <Select aria-label="Plan" selectedKeys={form.plan_id ? [form.plan_id] : []}
+                                                onChange={(e) => {
+                                                    const plan_id = e.target.value;
+                                                    const p = activePlans.find((x) => x.id === plan_id);
+                                                    const price = p
+                                                        ? (Number(p.duration_months) === 12 ? Number(p.price_yearly || p.price_monthly || 0) : Number(p.price_monthly || 0))
+                                                        : 0;
+                                                    setForm((f) => ({ ...f, plan_id, amount: price ? String(price) : f.amount }));
+                                                }}>
+                                                {activePlans.map((p) => <SelectItem key={p.id}>{p.name} · full access</SelectItem>)}
+                                            </Select>
+                                        </FormField>
+                                        {form.activate === "paid" && (
+                                            <>
+                                                <FormField label="Amount received (₹)"><Input aria-label="Amount" type="number" min={0} value={form.amount} onValueChange={set("amount")} description={selectedPlan?.duration_months ? `${selectedPlan.duration_months} months access` : undefined} /></FormField>
+                                                <FormField label="Paid by">
+                                                    <Select aria-label="Method" selectedKeys={[form.method]} onChange={(e) => e.target.value && set("method")(e.target.value)}>
+                                                        {["upi", "bank_transfer", "cash", "cheque", "other"].map((m) => <SelectItem key={m}>{METHOD_LABEL[m]}</SelectItem>)}
+                                                    </Select>
+                                                </FormField>
+                                                <FormField label="Reference (UTR / cheque no.)"><Input aria-label="Reference" value={form.reference} onValueChange={set("reference")} /></FormField>
+                                            </>
+                                        )}
+                                        {form.activate === "trial" && (
+                                            <FormField label="Free trial (days)"><Input aria-label="Trial days" type="number" min={1} max={365} value={form.trial_days} onValueChange={set("trial_days")} /></FormField>
+                                        )}
+                                        <FormField label="Note" className="sm:col-span-2"><Input aria-label="Note" value={form.note} onValueChange={set("note")} /></FormField>
+                                    </div>
                                 </div>
                             </ModalBody>
                             <ModalFooter>
                                 <Button variant="light" onPress={onClose}>Cancel</Button>
-                                <Button color="primary" isLoading={saving} onPress={() => submit(onClose)}>Create agency</Button>
+                                <Button color="primary" isLoading={saving} onPress={() => submit(onClose)}>
+                                    {form.activate === "paid" ? "Create & activate" : "Create agency"}
+                                </Button>
                             </ModalFooter>
                         </>
                     )}
