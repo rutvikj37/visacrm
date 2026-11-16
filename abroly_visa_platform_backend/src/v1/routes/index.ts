@@ -116,6 +116,7 @@ v1_routes.use("/public/meta", publicMetaRoutes)
 
 // SaaS billing
 v1_routes.use("/saas_admin", saasAdminRoutes)
+v1_routes.get("/public/saas/plans", SubscriptionSaasController.publicPlans)
 v1_routes.post("/public/razorpay/webhook", SubscriptionSaasController.webhook)
 
 // calendar feed for Google / Apple / Outlook

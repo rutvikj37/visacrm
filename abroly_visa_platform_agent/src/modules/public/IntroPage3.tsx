@@ -1,878 +1,857 @@
-import { motion } from 'framer-motion';
-import { Shield, Award, Star, Clock, ClipboardCheck, Briefcase, Settings, ShieldCheck, Layers, CheckCircle, ArrowRightCircle, Circle } from 'lucide-react';
-import { Card, Avatar } from "@heroui/react";
+import { motion } from "framer-motion";
+import { Button } from "@heroui/react";
 import {
   Users,
-  BarChart2,
-  Calendar,
-  Mail,
-  FileText,
-  Bell
-} from 'lucide-react';
-import {
   BarChart3,
-  Globe,
-  ArrowRight,
+  BookOpen,
+  Briefcase,
+  Globe2,
+  CheckCircle2,
+  Inbox,
+  KanbanSquare,
+  Shield,
   Sparkles,
-  TrendingUp,
-  UserCheck,
-  FileCheck,
-  Zap,
-  BookOpen
-} from 'lucide-react';
-import { Quote } from 'lucide-react';
-import { Input, Button } from "@heroui/react";
-import { Calculator } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Progress } from 'rsuite';
-import { useNavigate } from 'react-router-dom';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js';
+  Smartphone,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { publicAsset } from "@/utils/appBase";
+import useApiCallUtils from "@/hooks/useApiCallUtils";
+import { openWhatsApp, WHATSAPP_MESSAGES } from "@/utils/whatsapp";
+import { WhatsAppIcon } from "@/components/WhatsAppFloat";
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
+const easeOut = [0.22, 1, 0.36, 1] as const;
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.25 },
+  transition: { duration: 0.55, ease: easeOut },
+};
+
+const staggerParent = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.09, delayChildren: 0.05 },
+  },
+};
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: easeOut },
+  },
+};
+
+const features = [
+  {
+    icon: Inbox,
+    title: "Lead inbox that stays tidy",
+    description:
+      "Capture inquiries from your website, WhatsApp, and walk-ins in one place — assign, follow up, and convert without losing anyone in Excel.",
+  },
+  {
+    icon: KanbanSquare,
+    title: "Visa & case tracking",
+    description:
+      "Move every student through clear stages, keep documents together, and see what is pending before a deadline slips.",
+  },
+  {
+    icon: BookOpen,
+    title: "Language prep built in",
+    description:
+      "Run IELTS, PTE, or TOEFL batches alongside consultancy work — one login for your whole team.",
+  },
+  {
+    icon: Briefcase,
+    title: "Jobs & opportunities",
+    description:
+      "Post roles and keep career options visible to students without juggling another tool.",
+  },
+  {
+    icon: Globe2,
+    title: "Your brand, your portal",
+    description:
+      "Give students a branded portal on your domain while your team works in the agency panel.",
+  },
+  {
+    icon: Smartphone,
+    title: "Agency & student mobile apps",
+    description:
+      "Native Android and iOS apps for your counselors and students — manage cases on the go and keep applicants updated from their phones.",
+  },
+  {
+    icon: BarChart3,
+    title: "Clear day-to-day view",
+    description:
+      "See today’s follow-ups, pipeline health, and team workload so owners know what needs attention now.",
+  },
+];
+
+const steps = [
+  {
+    n: "01",
+    title: "Set up your agency",
+    text: "Add your brand, branches, and team. Invite consultants with role-based access.",
+  },
+  {
+    n: "02",
+    title: "Bring leads in",
+    text: "Connect website forms, WhatsApp, or add walk-ins. Everything lands in one inbox.",
+  },
+  {
+    n: "03",
+    title: "Run the full journey",
+    text: "Track applications, visas, fees, and training — then report on what is working.",
+  },
+];
+
+const ProductPreview = () => (
+  <motion.div
+    className="relative mx-auto w-full max-w-xl md:mx-0"
+    initial={{ opacity: 0, y: 36, scale: 0.97 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.75, delay: 0.2, ease: easeOut }}
+  >
+    <motion.div
+      aria-hidden
+      className="absolute -inset-3 rounded-[2rem] bg-[radial-gradient(circle_at_30%_20%,rgba(15,91,216,0.18),transparent_55%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.14),transparent_50%)] sm:-inset-6"
+      animate={{ opacity: [0.7, 1, 0.7] }}
+      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+    />
+    <motion.div
+      className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_24px_60px_-28px_rgba(15,45,95,0.45)] backdrop-blur-sm"
+      animate={{ y: [0, -6, 0] }}
+      transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <img src={publicAsset("techx-crm-icon.png")} alt="" className="h-7 w-7 rounded-lg" />
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Agency panel</p>
+            <p className="text-xs text-slate-500">Today · pipeline · team</p>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+          <motion.span
+            className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+            animate={{ scale: [1, 1.35, 1], opacity: [1, 0.6, 1] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          Live
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 p-5">
+        {[
+          { label: "Open leads", value: "128", tone: "bg-sky-50 text-sky-800" },
+          { label: "Follow-ups", value: "24", tone: "bg-amber-50 text-amber-800" },
+          { label: "Visa pending", value: "17", tone: "bg-indigo-50 text-indigo-800" },
+        ].map((s, i) => (
+          <motion.div
+            key={s.label}
+            className={`rounded-xl px-3 py-3 ${s.tone}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 + i * 0.1, duration: 0.4, ease: easeOut }}
+            whileHover={{ y: -2, transition: { duration: 0.2 } }}
+          >
+            <p className="text-[11px] font-medium opacity-80">{s.label}</p>
+            <p className="mt-1 text-xl font-semibold tracking-tight">{s.value}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="space-y-2.5 px-5 pb-5">
+        {[
+          { name: "Ananya Shah", stage: "Documents", meta: "Canada · Study" },
+          { name: "Rahul Mehta", stage: "Interview", meta: "UK · Study" },
+          { name: "Priya Nair", stage: "Offer letter", meta: "Australia · Study" },
+        ].map((row, i) => (
+          <motion.div
+            key={row.name}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.7 + i * 0.14, duration: 0.45, ease: easeOut }}
+            whileHover={{ x: 4, backgroundColor: "rgba(248,250,252,1)" }}
+            className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-2.5"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0f5bd8]/10 text-sm font-semibold text-[#0f5bd8]">
+                {row.name.slice(0, 1)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{row.name}</p>
+                <p className="truncate text-xs text-slate-500">{row.meta}</p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-slate-700 ring-1 ring-slate-200">
+              {row.stage}
+            </span>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  </motion.div>
 );
 
-
-const TrustedPartners = () => {
-  const partners = [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png',
-    // Add more partner logos
-  ];
-
-  return (
-    <section className="py-16 bg-white">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center gap-2 justify-center mb-8">
-          <Shield className="text-blue-600" />
-          <h2 className="text-2xl font-semibold text-center">Trusted by Industry Leaders</h2>
-        </div>
-
-        <motion.div
-          className="flex flex-wrap justify-center items-center gap-12"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {partners.map((logo, index) => (
-            <img
-              key={index}
-              src={logo}
-              alt="Partner Logo"
-              className="h-12 grayscale hover:grayscale-0 transition-all"
-            />
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  );
-};
-
-// const FeatureShowcase = () => {
-
-//   const features = [
-//     {
-//       icon: <ClipboardCheck size={40} className="text-primary" />, // Unified Lead Management
-//       title: "Unified Lead Management",
-//       description: "All leads related to study, work permits, and job opportunities flow into a single portal for easy tracking and management."
-//     },
-//     {
-//       icon: <Briefcase size={40} className="text-primary" />, // Post Updates & Job Roles
-//       title: "Post Updates & Job Roles",
-//       description: "Agents can post the latest updates, job role requirements, and international opportunities instantly visible to students and career aspirants."
-//     },
-//     {
-//       icon: <Globe size={40} className="text-primary" />, // Visa Process Support
-//       title: "Visa Process Support",
-//       description: "Multiple agents available to handle visa processes, with easy tracking for students and consultants through the web portal."
-//     },
-//     {
-//       icon: <Settings size={40} className="text-primary" />, // Comprehensive CRM Integration
-//       title: "Comprehensive CRM Integration",
-//       description: "Full CRM capabilities to track inquiries, manage profiles, set reminders, and update lead status, ensuring better engagement and conversion."
-//     },
-//     {
-//       icon: <Users size={40} className="text-primary" />, // Team Management
-//       title: "Team Management",
-//       description: "Consultants can add team members, delegate tasks, and manage consultant profiles with detailed tracking of performance."
-//     },
-//     {
-//       icon: <ShieldCheck size={40} className="text-primary" />, // Customizable Consultant Profile
-//       title: "Customizable Consultant Profile",
-//       description: "Build and manage a detailed consultant profile that showcases your expertise, services, and success stories to attract potential clients."
-//     },
-//     {
-//       icon: <Layers size={40} className="text-primary" />, // Service Specialization
-//       title: "Service Specialization",
-//       description: "Showcase various services such as course options, job roles, work permits, and visa consultancy, each handled professionally through the platform."
-//     },
-//     {
-//       icon: <Bell size={40} className="text-primary" />, // RealTime Notifications
-//       title: "Real-Time Notifications",
-//       description: "Stay updated with new leads, inquiries, and important deadlines via real-time notifications."
-//     }
-//   ];
-
-//   return (
-//     <section className="py-20 bg-slate-50">
-//       <div className="container mx-auto px-4">
-//         <motion.div
-//           className="text-center mb-16"
-//           initial={{ opacity: 0, y: 20 }}
-//           whileInView={{ opacity: 1, y: 0 }}
-//           transition={{ duration: 0.5 }}
-//         >
-//           <h2 className="text-4xl font-bold text-gray-900 mb-4">Everything You Need to <span className='text-primary font-semibold'> Succeed </span></h2>
-//           <p className="text-slate-600 max-w-2xl mx-auto text-lg">
-//             Our comprehensive CRM solution provides all the tools you need to streamline your visa consultancy business.
-//           </p>
-//         </motion.div>
-
-//         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-//           {features.map((feature, index) => (
-//             <motion.div
-//               key={index}
-//               initial={{ opacity: 0, y: 20 }}
-//               whileInView={{ opacity: 1, y: 0 }}
-//               transition={{ duration: 0.5, delay: index * 0.1 }}
-//             >
-//               <Card className="p-6 shadow-md hover:shadow-xl transition border border-gray-200 rounded-2xl bg-white cursor-pointer duration-700">
-//                 <div className="mb-4">{feature.icon}</div>
-//                 <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
-//                 <p className="text-slate-600 text-base">{feature.description}</p>
-//               </Card>
-//             </motion.div>
-//           ))}
-//         </div>
-//       </div>
-//     </section>
-//   );
-// };
-
-const TestimonialsSection = () => {
-  const testimonials = [
-    {
-      name: "Sarah Johnson",
-      role: "CEO, Global Visa Services",
-      image: "https://images.pexels.com/photos/1987301/pexels-photo-1987301.jpeg",
-      quote: "TechX CRM has transformed how we manage our visa applications. The efficiency gains are remarkable."
-    },
-    // Add more testimonials
-  ];
-
-  return (
-    <section className="py-20 bg-white">
-      <div className="container mx-auto px-4">
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h2 className="text-3xl font-bold mb-4">What Our Clients Say</h2>
-          <p className="text-slate-600 max-w-2xl mx-auto">
-            Don't just take our word for it. Here's what successful agencies have achieved with TechX CRM.
-          </p>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <Card className="p-6">
-                <Quote className="text-blue-600 mb-4" size={24} />
-                <p className="text-slate-600 mb-6">{testimonial.quote}</p>
-                <div className="flex items-center gap-4">
-                  <Avatar src={testimonial.image} size="lg" />
-                  <div>
-                    <p className="font-semibold">{testimonial.name}</p>
-                    <p className="text-sm text-slate-600">{testimonial.role}</p>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
-
-
 const HeroSection = () => {
-  // Background floating icons animation
-  const floatingIconsVariants = {
-    animate: {
-      x: [0, -10, 0],
-      transition: {
-        duration: 1,
-        repeat: Infinity,
-        ease: "easeInOut"
-      }
-    }
-  };
-
   const navigate = useNavigate();
 
-  // Dashboard chart data
-  const chartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Leads',
-        data: [45, 52, 48, 61, 55, 68],
-        borderColor: '#f66b47',
-        backgroundColor: 'rgba(246, 107, 71, 0.1)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 4,
-        pointBackgroundColor: '#f66b47',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        padding: 12,
-        titleFont: { size: 14 },
-        bodyFont: { size: 13 },
-        cornerRadius: 8,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)',
-        },
-        ticks: {
-          font: { size: 11 },
-          color: '#64748b',
-        },
-      },
-      x: {
-        grid: {
-          display: false,
-        },
-        ticks: {
-          font: { size: 11 },
-          color: '#64748b',
-        },
-      },
-    },
-  };
-
   return (
-    <div className="relative bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
-      {/* Floating background icons */}
+    <section className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#f4f8ff_0%,#ffffff_55%,#f8fafc_100%)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.45]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 1px 1px, rgba(15,91,216,0.14) 1px, transparent 0)",
+          backgroundSize: "28px 28px",
+          maskImage: "linear-gradient(180deg, black 0%, transparent 75%)",
+        }}
+      />
       <motion.div
-        className="absolute inset-0 pointer-events-none"
-        initial="initial"
-        animate="animate"
-      >
+        aria-hidden
+        className="pointer-events-none absolute -top-24 right-[-10%] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(15,91,216,0.16),transparent_65%)] blur-2xl"
+        animate={{ x: [0, 18, 0], y: [0, 12, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:gap-8 md:pb-20 md:pt-16 lg:gap-12 lg:pb-24 lg:pt-20">
         <motion.div
-          variants={floatingIconsVariants}
-          className="absolute top-20 right-20 text-blue-200"
+          className="space-y-6 md:space-y-7"
+          variants={staggerParent}
+          initial="hidden"
+          animate="show"
         >
-          <Globe size={40} />
-        </motion.div>
-        {/* Add more floating icons as needed */}
-      </motion.div>
+          <motion.p
+            variants={staggerItem}
+            className="landing-display text-sm font-semibold uppercase tracking-[0.16em] text-[#0f5bd8]"
+          >
+            TechX CRM
+          </motion.p>
 
-      <div className="container mx-auto px-4 py-20 flex flex-col lg:flex-row items-center justify-between gap-12">
-        {/* Left Content */}
-        <motion.div
-          className="lg:w-1/2 space-y-8"
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h1 className="text-5xl lg:text-6xl font-bold text-slate-800 leading-tight">
-            Run Your Entire Visa <br />
-            Consultancy From One <br />
-            <span className="text-primary">Dashboard.</span>
-          </h1>
+          <motion.h1
+            variants={staggerItem}
+            className="landing-display max-w-xl text-[2.1rem] font-semibold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl lg:text-[3.25rem]"
+          >
+            The CRM built for visa & study-abroad agencies
+          </motion.h1>
 
-          <p className="text-lg text-slate-600 max-w-xl leading-relaxed">
-            Automate student management with visa tracking, language training, CRM, and job posting — all in one powerful platform.
-          </p>
+          <motion.p
+            variants={staggerItem}
+            className="max-w-lg text-base leading-relaxed text-slate-600 sm:text-lg"
+          >
+            Run leads, student cases, language prep, and your branded portal from one calm workspace — so your team spends less time chasing updates and more time closing.
+          </motion.p>
 
-          <div className="flex flex-wrap gap-4">
+          <motion.div
+            variants={staggerItem}
+            className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"
+          >
             <Button
               size="lg"
-              className="bg-primary text-white px-8 hover:opacity-90 transition-opacity"
-              endContent={<ArrowRight size={20} />}
+              className="w-full bg-[#25D366] px-7 font-semibold text-white sm:w-auto"
+              startContent={<WhatsAppIcon className="h-5 w-5" />}
+              onPress={() => openWhatsApp(WHATSAPP_MESSAGES.sales)}
             >
-              Start Free Demo
+              Chat on WhatsApp
             </Button>
             <Button
               size="lg"
               variant="bordered"
-              className="border-2 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 px-8"
-              onPress={() => {
-                navigate("/contact_us")
-              }}
+              className="w-full border-slate-300 bg-white/70 px-7 font-semibold text-slate-800 sm:w-auto"
+              onPress={() => navigate("/login")}
             >
-              Contact Us
+              Login to panel
             </Button>
-          </div>
+          </motion.div>
 
-          {/* Trust Stat Line */}
-          <div className="pt-4">
-            <p className="text-base text-slate-600 font-medium">
-              Trusted by <span className="font-bold text-slate-800">100+ consultancies</span> across India.
-            </p>
-          </div>
+          <motion.div
+            variants={staggerItem}
+            className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-sm text-slate-600"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Smartphone size={16} className="text-[#0f5bd8]" /> Agency & student apps · Android & iOS
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Shield size={16} className="text-[#0f5bd8]" /> Role-based team access
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Users size={16} className="text-[#0f5bd8]" /> Built for Indian consultancies
+            </span>
+          </motion.div>
         </motion.div>
 
-        {/* Right Content - Dashboard Preview */}
-        <motion.div
-          className="lg:w-1/2 mt-12 lg:mt-0 w-full"
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl p-6 relative border border-slate-200">
-            {/* Dashboard Header */}
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800">Dashboard Overview</h3>
-                <p className="text-sm text-slate-500">Last 30 days</p>
-              </div>
-              <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-medium text-green-700">Live</span>
-              </div>
-            </div>
+        <ProductPreview />
+      </div>
+    </section>
+  );
+};
 
-            {/* Stats Cards Grid */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <motion.div
-                className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Users className="text-blue-600" size={24} />
-                  <TrendingUp className="text-green-600" size={16} />
-                </div>
-                <p className="text-2xl font-bold text-slate-800">2,891</p>
-                <p className="text-xs text-slate-600 mt-1">Total Leads</p>
-              </motion.div>
+const FeaturesSection = () => (
+  <section className="border-t border-slate-200/80 bg-white py-16 sm:py-20">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <motion.div {...fadeUp} className="max-w-2xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#0f5bd8]">
+          What you get
+        </p>
+        <h2 className="landing-display mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          Everything your consultancy needs — without the clutter
+        </h2>
+        <p className="mt-3 text-base leading-relaxed text-slate-600">
+          TechX CRM replaces scattered spreadsheets, chat threads, and folders with one workflow your whole office can follow.
+        </p>
+      </motion.div>
 
-              <motion.div
-                className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <UserCheck className="text-green-600" size={24} />
-                  <TrendingUp className="text-green-600" size={16} />
-                </div>
-                <p className="text-2xl font-bold text-slate-800">1,245</p>
-                <p className="text-xs text-slate-600 mt-1">Active Students</p>
-              </motion.div>
-
-              <motion.div
-                className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <FileCheck className="text-orange-600" size={24} />
-                  <Clock className="text-orange-600" size={16} />
-                </div>
-                <p className="text-2xl font-bold text-slate-800">342</p>
-                <p className="text-xs text-slate-600 mt-1">Pending Visas</p>
-              </motion.div>
-
-              <motion.div
-                className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <BarChart3 className="text-purple-600" size={24} />
-                  <TrendingUp className="text-green-600" size={16} />
-                </div>
-                <p className="text-2xl font-bold text-slate-800">98%</p>
-                <p className="text-xs text-slate-600 mt-1">Success Rate</p>
-              </motion.div>
-            </div>
-
-            {/* Chart Section */}
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-sm font-semibold text-slate-700">Leads Growth</h4>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <span className="text-xs text-slate-600">Monthly Leads</span>
-                </div>
-              </div>
-              <div className="h-48">
-                <Line data={chartData} options={chartOptions} />
-              </div>
-            </div>
-
-            {/* Floating Stats Badge */}
+      <div className="mt-12 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        {features.map((feature, index) => {
+          const Icon = feature.icon;
+          return (
             <motion.div
-              className="absolute -right-4 -top-4 bg-white p-3 rounded-xl shadow-lg border border-slate-200"
-              whileHover={{ scale: 1.05, rotate: 2 }}
-              transition={{ type: "spring", stiffness: 300 }}
+              key={feature.title}
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: index * 0.05 }}
+              whileHover={{ y: -4 }}
+              className="group space-y-3"
             >
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Award className="text-primary" size={20} />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">This Month</p>
-                  <p className="text-sm font-bold text-slate-800">+24%</p>
-                </div>
-              </div>
+              <motion.div
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#0f5bd8]/10 text-[#0f5bd8] transition-colors group-hover:bg-[#0f5bd8] group-hover:text-white"
+                whileHover={{ rotate: [-2, 2, 0], scale: 1.06 }}
+                transition={{ duration: 0.35 }}
+              >
+                <Icon size={22} />
+              </motion.div>
+              <h3 className="text-lg font-semibold text-slate-900">{feature.title}</h3>
+              <p className="text-sm leading-relaxed text-slate-600">{feature.description}</p>
             </motion.div>
-          </div>
-        </motion.div>
+          );
+        })}
       </div>
     </div>
-  );
-};
+  </section>
+);
 
-const BenefitsSection = () => {
-  const benefits = [
-    {
-      icon: <Users className="text-primary" size={32} />,
-      title: "Smart CRM",
-      description: "Manage every student inquiry, track progress, and never miss a lead."
-    },
-    {
-      icon: <Zap className="text-primary" size={32} />,
-      title: "Automated Workflow",
-      description: "Simplify visa processing — organize stages, documents, and deadlines easily."
-    },
-    {
-      icon: <BarChart3 className="text-primary" size={32} />,
-      title: "Insight Dashboard",
-      description: "See your agency's performance, leads, and growth in one clear view."
-    },
-    {
-      icon: <BookOpen className="text-primary" size={32} />,
-      title: "Language Training",
-      description: "Run and manage IELTS, PTE, or TOEFL batches — everything in one place."
-    },
-    {
-      icon: <Briefcase className="text-primary" size={32} />,
-      title: "Job & Career Module",
-      description: "Post jobs and help your students find global work opportunities."
-    },
-    {
-      icon: <Sparkles className="text-primary" size={32} />,
-      title: "White-Label Branding",
-      description: "Launch under your own logo, domain, and identity — powered by TechX Universe."
-    }
-  ];
+const HowItWorksSection = () => (
+  <section className="border-t border-slate-200/80 bg-slate-50 py-16 sm:py-20">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <motion.div {...fadeUp} className="max-w-2xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#0f5bd8]">
+          How it works
+        </p>
+        <h2 className="landing-display mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          Up and running in three clear steps
+        </h2>
+      </motion.div>
 
-  return (
-    <section className="py-20 bg-white">
-      <div className="container mx-auto px-4">
+      <div className="relative mt-12 grid gap-8 md:grid-cols-3">
         <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Why <span className='text-primary font-semibold'>100+ Visa Agencies</span> Love TechX Universe
-          </h2>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {benefits.map((benefit, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -5 }}
+          aria-hidden
+          className="pointer-events-none absolute left-[16%] right-[16%] top-7 hidden h-px bg-gradient-to-r from-transparent via-[#0f5bd8]/30 to-transparent md:block"
+          initial={{ scaleX: 0, opacity: 0 }}
+          whileInView={{ scaleX: 1, opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.9, ease: easeOut, delay: 0.2 }}
+        />
+        {steps.map((step, index) => (
+          <motion.div
+            key={step.n}
+            {...fadeUp}
+            transition={{ ...fadeUp.transition, delay: index * 0.1 }}
+            whileHover={{ y: -3 }}
+            className="relative"
+          >
+            <motion.p
+              className="landing-display text-4xl font-semibold text-[#0f5bd8]/25"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.15 + index * 0.1, duration: 0.45 }}
             >
-              <Card className="p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 rounded-2xl bg-white h-full flex flex-col">
-                <div className="mb-4 flex items-center justify-center w-16 h-16 bg-primary/10 rounded-xl">
-                  {benefit.icon}
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">{benefit.title}</h3>
-                <p className="text-slate-600 leading-relaxed">{benefit.description}</p>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+              {step.n}
+            </motion.p>
+            <h3 className="mt-2 text-xl font-semibold text-slate-900">{step.title}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.text}</p>
+          </motion.div>
+        ))}
       </div>
-    </section>
-  );
+    </div>
+  </section>
+);
+
+type PublicPlan = {
+  id: string;
+  name: string;
+  description?: string | null;
+  duration_months?: number | null;
+  package_price?: number;
+  price_monthly?: number;
+  price_yearly?: number;
+  max_team_members?: number | null;
+  features?: { sources?: string[]; addons?: string[] };
 };
 
-const SocialProofSection = () => {
-  const testimonials = [
-    {
-      name: "Rajesh Kumar",
-      agency: "Global Path Visa",
-      city: "Ahmedabad",
-      photo: "https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-      quote: "Earlier, we used Excel to track 200+ students — now it's all automated! TechX Universe made our process 3x faster.",
-      rating: 5
+type FeatureMeta = { key: string; label: string };
+
+const FALLBACK_PLANS: PublicPlan[] = [
+  {
+    id: "6-months",
+    name: "6 Months",
+    description: "Full CRM access for growing consultancies — renew when you’re ready.",
+    duration_months: 6,
+    package_price: 0,
+    max_team_members: null,
+    features: { sources: ["website", "csv", "whatsapp", "facebook"], addons: ["language_prep", "jobs"] },
+  },
+  {
+    id: "12-months",
+    name: "12 Months",
+    description: "Best value for established agencies that want a full year of uninterrupted access.",
+    duration_months: 12,
+    package_price: 0,
+    max_team_members: null,
+    features: {
+      sources: ["website", "csv", "whatsapp", "facebook", "google", "indiamart"],
+      addons: ["language_prep", "jobs", "event_banners", "side_banner"],
     },
-    {
-      name: "Priya Sharma",
-      agency: "EduConnect International",
-      city: "Mumbai",
-      photo: "https://images.pexels.com/photos/3184405/pexels-photo-3184405.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-      quote: "The dashboard gives us complete visibility into our operations. Managing leads and tracking visa status has never been easier.",
-      rating: 5
-    },
-    {
-      name: "Amit Patel",
-      agency: "Study Abroad Solutions",
-      city: "Delhi",
-      photo: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-      quote: "TechX Universe transformed our consultancy. We've increased our student intake by 40% since implementing the platform.",
-      rating: 5
-    }
-  ];
+  },
+];
+
+const CORE_INCLUDES = [
+  "Lead inbox & follow-ups",
+  "Visa / case tracking",
+  "Team & branch access",
+  "Branded student portal",
+];
+
+const MOBILE_APP_INCLUDES = [
+  "Agency mobile app — Android & iOS",
+  "Student mobile app — Android & iOS",
+];
+
+const rupees = (n: number) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+
+const planPriceLabel = (plan: PublicPlan) => {
+  const amount = Number(plan.package_price ?? 0);
+  if (amount > 0) {
+    const months = Number(plan.duration_months || 0);
+    return {
+      amount: rupees(amount),
+      period: months === 12 ? "per year" : months === 6 ? "for 6 months" : months > 0 ? `for ${months} months` : "per plan",
+    };
+  }
+  return { amount: "Custom", period: "talk to us for pricing" };
+};
+
+const PricingSection = () => {
+  const { commonPublicGetApiCalls } = useApiCallUtils();
+  const [plans, setPlans] = useState<PublicPlan[]>(FALLBACK_PLANS);
+  const [featureLabels, setFeatureLabels] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { success, data } = await commonPublicGetApiCalls("/public/saas/plans");
+      if (cancelled) return;
+      if (success && Array.isArray(data?.plans) && data.plans.length) {
+        setPlans(data.plans);
+      }
+      const labels: Record<string, string> = {};
+      for (const f of (data?.features?.sources || []) as FeatureMeta[]) labels[f.key] = f.label;
+      for (const f of (data?.features?.addons || []) as FeatureMeta[]) labels[f.key] = f.label;
+      if (Object.keys(labels).length) setFeatureLabels(labels);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const featuredId =
+    plans.find((p) => Number(p.duration_months) === 12)?.id ||
+    plans[plans.length - 1]?.id;
 
   return (
-    <section className="py-20 bg-slate-50">
-      <div className="container mx-auto px-4">
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            From Manual to <span className="text-primary">Magical</span> — See What Agencies Are Saying
+    <section id="pricing" className="scroll-mt-20 border-t border-slate-200/80 bg-slate-50 py-14 sm:py-16 md:py-20">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#0f5bd8]">
+            Pricing
+          </p>
+          <h2 className="landing-display mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            Simple plans for visa agencies
           </h2>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-12">
-          {testimonials.map((testimonial, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <Card className="p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 rounded-2xl bg-white h-full flex flex-col">
-                <div className="flex items-center gap-2 mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="text-yellow-400 fill-yellow-400" size={18} />
-                  ))}
-                </div>
-                <Quote className="text-primary mb-3" size={24} />
-                <p className="text-slate-700 mb-6 leading-relaxed flex-grow">{testimonial.quote}</p>
-                <div className="flex items-center gap-4 pt-4 border-t border-gray-200">
-                  <Avatar 
-                    src={testimonial.photo} 
-                    size="lg"
-                    className="border-2 border-primary/20"
-                  />
-                  <div>
-                    <p className="font-semibold text-gray-900">{testimonial.name}</p>
-                    <p className="text-sm text-slate-600">{testimonial.agency}</p>
-                    <p className="text-xs text-slate-500">{testimonial.city}</p>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Mini Counter */}
-        <motion.div
-          className="text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <div className="inline-flex flex-wrap items-center justify-center gap-6 md:gap-12 bg-white px-8 py-6 rounded-2xl shadow-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="text-primary" size={24} />
-              <div className="text-left">
-                <p className="text-2xl font-bold text-gray-900">10,000+</p>
-                <p className="text-sm text-slate-600">students managed</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <FileText className="text-primary" size={24} />
-              <div className="text-left">
-                <p className="text-2xl font-bold text-gray-900">500+</p>
-                <p className="text-sm text-slate-600">active leads</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Globe className="text-primary" size={24} />
-              <div className="text-left">
-                <p className="text-2xl font-bold text-gray-900">30+</p>
-                <p className="text-sm text-slate-600">cities served</p>
-              </div>
-            </div>
+          <p className="mt-3 text-base leading-relaxed text-slate-600">
+            Every plan includes the web CRM plus agency and student mobile apps on Android and iOS — so your team and students can work from anywhere.
+          </p>
+          <div className="mt-5 flex flex-col items-center justify-center gap-2 text-sm font-medium text-slate-700 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+            <span className="inline-flex items-center gap-1.5">
+              <Smartphone size={16} className="text-[#0f5bd8]" /> Agency app · Android & iOS
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Smartphone size={16} className="text-[#0f5bd8]" /> Student app · Android & iOS
+            </span>
           </div>
         </motion.div>
+
+        <div
+          className={`mt-10 grid gap-5 sm:mt-12 sm:gap-6 ${
+            plans.length === 1
+              ? "mx-auto max-w-md"
+              : plans.length === 2
+                ? "mx-auto max-w-4xl md:grid-cols-2"
+                : "md:grid-cols-2 xl:grid-cols-3"
+          }`}
+        >
+          {(loading ? FALLBACK_PLANS : plans).map((plan, index) => {
+            const price = planPriceLabel(plan);
+            const isFeatured = plan.id === featuredId;
+            const sourceCount = plan.features?.sources?.length || 0;
+            const addonCount = plan.features?.addons?.length || 0;
+            const highlightExtras = [
+              ...(plan.features?.addons || []).map((k) => featureLabels[k] || k),
+            ].slice(0, 4);
+            const blurb =
+              Number(plan.duration_months) === 12
+                ? "Best value — web CRM plus agency & student apps (Android & iOS) for a full year."
+                : Number(plan.duration_months) === 6
+                  ? "Web CRM plus agency & student apps (Android & iOS) for half a year."
+                  : plan.description || "Full CRM access with agency & student mobile apps.";
+
+            return (
+              <motion.div
+                key={plan.id}
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: index * 0.06 }}
+                whileHover={{ y: -6, transition: { duration: 0.25 } }}
+                className={`relative flex flex-col rounded-2xl border bg-white p-6 sm:p-7 ${
+                  isFeatured
+                    ? "border-[#0f5bd8] shadow-[0_24px_50px_-28px_rgba(15,91,216,0.55)]"
+                    : "border-slate-200 shadow-[0_16px_40px_-32px_rgba(15,45,95,0.35)]"
+                }`}
+              >
+                {isFeatured ? (
+                  <span className="absolute -top-3 left-6 inline-flex items-center gap-1 rounded-md bg-[#0f5bd8] px-2.5 py-1 text-xs font-semibold text-white">
+                    <Sparkles size={12} /> Most popular
+                  </span>
+                ) : null}
+
+                <div className="space-y-1">
+                  <h3 className="landing-display text-xl font-semibold text-slate-900">{plan.name}</h3>
+                  <p className="text-sm leading-relaxed text-slate-600">{blurb}</p>
+                </div>
+
+                <div className="mt-6">
+                  <p className="landing-display text-3xl font-semibold tracking-tight text-slate-900">
+                    {price.amount}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">{price.period}</p>
+                </div>
+
+                <ul className="mt-6 flex-1 space-y-2.5">
+                  {MOBILE_APP_INCLUDES.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm font-medium text-slate-800">
+                      <Smartphone size={16} className="mt-0.5 shrink-0 text-[#0f5bd8]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                  {CORE_INCLUDES.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-700">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#0f5bd8]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                  {plan.max_team_members == null ? (
+                    <li className="flex items-start gap-2 text-sm text-slate-700">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#0f5bd8]" />
+                      <span>Unlimited team members</span>
+                    </li>
+                  ) : (
+                    <li className="flex items-start gap-2 text-sm text-slate-700">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#0f5bd8]" />
+                      <span>Up to {plan.max_team_members} team members</span>
+                    </li>
+                  )}
+                  {sourceCount > 0 ? (
+                    <li className="flex items-start gap-2 text-sm text-slate-700">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#0f5bd8]" />
+                      <span>
+                        {sourceCount === 1
+                          ? "1 lead source (website, WhatsApp, ads & more)"
+                          : `${sourceCount} lead sources (website, WhatsApp, ads & more)`}
+                      </span>
+                    </li>
+                  ) : null}
+                  {highlightExtras.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-700">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#0f5bd8]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                  {addonCount > highlightExtras.length ? (
+                    <li className="flex items-start gap-2 text-sm text-slate-700">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#0f5bd8]" />
+                      <span>+{addonCount - highlightExtras.length} more add-on{addonCount - highlightExtras.length === 1 ? "" : "s"}</span>
+                    </li>
+                  ) : null}
+                </ul>
+
+                <Button
+                  size="lg"
+                  className={`mt-8 w-full font-semibold text-white ${
+                    isFeatured ? "bg-[#25D366]" : "bg-[#128C7E]"
+                  }`}
+                  startContent={<WhatsAppIcon className="h-5 w-5" />}
+                  onPress={() =>
+                    openWhatsApp(
+                      Number(plan.duration_months) === 12
+                        ? WHATSAPP_MESSAGES.pricing12
+                        : Number(plan.duration_months) === 6
+                          ? WHATSAPP_MESSAGES.pricing6
+                          : WHATSAPP_MESSAGES.pricing
+                    )
+                  }
+                >
+                  Talk to sales on WhatsApp
+                </Button>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <motion.p
+          {...fadeUp}
+          className="mx-auto mt-8 max-w-2xl text-center text-sm text-slate-500"
+        >
+          Need a custom setup for multiple branches?{" "}
+          <button
+            type="button"
+            className="font-medium text-[#25D366] hover:underline"
+            onClick={() => openWhatsApp(WHATSAPP_MESSAGES.pricing)}
+          >
+            WhatsApp us
+          </button>{" "}
+          and we’ll tailor a plan.
+        </motion.p>
       </div>
     </section>
   );
 };
-const HowItWorksSection = () => {
-  const steps = [
-    { step: "Agent Registration", description: "Sign up on TechX CRM as a consultant by filling out your professional details." },
-    { step: "Post Opportunities", description: "List courses, job roles, visa services, and offerings to attract leads." },
-    { step: "Manage Leads", description: "Use CRM features to monitor, manage, and communicate with leads." },
-    { step: "Team Collaboration", description: "Add team members and delegate tasks for efficient consultancy." },
-    { step: "Regular Updates", description: "Post updates on jobs, courses, and visa processes to keep your audience informed." }
-  ];
 
-  return (
-    <section className="py-20 bg-slate-50">
-      <div className="container mx-auto px-4">
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">How TechX CRM  <span className='text-primary font-semibold'>Works</span></h2>
-          <p className="text-slate-600 max-w-2xl mx-auto text-lg">
-            Get started in just a few simple steps and watch your consultancy thrive.
-          </p>
-        </motion.div>
+const outcomes = [
+  {
+    before: "Leads buried in WhatsApp & Excel",
+    after: "One inbox your whole team can work from",
+    icon: Inbox,
+  },
+  {
+    before: "“Where is this student’s file?”",
+    after: "Cases, docs & stages in one clear timeline",
+    icon: KanbanSquare,
+  },
+  {
+    before: "Owners chasing updates all day",
+    after: "A calm daily view of what needs attention",
+    icon: BarChart3,
+  },
+];
 
-        <div className="relative max-w-3xl mx-auto space-y-12">
-          {/* Vertical Timeline Line - Hidden on mobile */}
-          <div className="hidden md:block absolute left-8 top-0 h-full w-1 bg-gray-200 rounded-full transform -translate-x-1/2"></div>
+const AudienceSection = () => (
+  <section className="relative overflow-hidden border-t border-slate-200/80 py-14 sm:py-16 md:py-20">
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 bg-[linear-gradient(165deg,#eef5ff_0%,#ffffff_42%,#f8fafc_100%)]"
+    />
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -left-20 top-10 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(15,91,216,0.14),transparent_70%)] blur-2xl"
+    />
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -right-16 bottom-0 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(37,211,102,0.12),transparent_70%)] blur-2xl"
+    />
 
-          {steps.map((step, index) => (
+    <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+      <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#0f5bd8]">
+          Life with TechX CRM
+        </p>
+        <h2 className="landing-display mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          Less chasing. More closing.
+        </h2>
+        <p className="mt-3 text-base leading-relaxed text-slate-600">
+          Replace scattered chats and spreadsheets with one shared workspace — so every counselor knows the next step, and every student stays on track.
+        </p>
+      </motion.div>
+
+      <div className="mx-auto mt-10 max-w-3xl space-y-4 sm:mt-12 sm:space-y-5">
+        {outcomes.map((row, index) => {
+          const Icon = row.icon;
+          return (
             <motion.div
-              key={index}
+              key={row.after}
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="relative flex flex-col md:flex-row items-center md:items-start"
+              viewport={{ once: true, amount: 0.4 }}
+              transition={{ duration: 0.5, delay: index * 0.1, ease: easeOut }}
+              whileHover={{ scale: 1.01 }}
+              className="grid items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-4 backdrop-blur-sm sm:grid-cols-[1fr_auto_1.15fr] sm:gap-4 sm:px-5 sm:py-5"
             >
-              {/* Step Number Circle - Adjusted for mobile */}
-              <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 relative z-10 mb-4 md:mb-0">
-                <motion.div
-                  className="absolute w-12 h-12 md:w-16 md:h-16 bg-primary text-white rounded-full flex items-center justify-center text-lg md:text-xl font-bold shadow-lg"
-                  whileHover={{ scale: 1.1, rotate: 10 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                >
-                  {index + 1}
-                </motion.div>
-                <Circle className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200 w-16 h-16 md:w-20 md:h-20 hidden md:block" />
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                  <Icon size={18} />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Before</p>
+                  <p className="mt-0.5 text-sm text-slate-500 line-through decoration-slate-300">{row.before}</p>
+                </div>
               </div>
 
-              {/* Card Content - Full width on mobile */}
-              <Card className="w-full md:ml-8 p-6 flex-1 shadow-md hover:shadow-xl transition border border-gray-200 rounded-2xl bg-white transform hover:-translate-y-1 duration-300">
-                <div className="flex items-center">
-                  <ArrowRightCircle className="text-primary mr-4 flex-shrink-0" size={28} />
-                  <div>
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">{step.step}</h3>
-                    <p className="text-slate-600 text-sm md:text-base">{step.description}</p>
-                  </div>
-                </div>
-              </Card>
+              <div className="hidden justify-center sm:flex" aria-hidden>
+                <motion.span
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#0f5bd8]/10 text-[#0f5bd8]"
+                  animate={{ rotate: [0, 12, -8, 0] }}
+                  transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: index * 0.4 }}
+                >
+                  <Sparkles size={14} />
+                </motion.span>
+              </div>
+
+              <motion.div
+                className="rounded-xl bg-[#0f5bd8]/5 px-3 py-2.5 sm:px-4"
+                initial={{ opacity: 0, x: 12 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 + index * 0.1, duration: 0.45 }}
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#0f5bd8]">With TechX CRM</p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-900">{row.after}</p>
+              </motion.div>
             </motion.div>
-          ))}
-        </div>
+          );
+        })}
       </div>
-    </section>
-  );
-};
-const CallToActionSection = () => {
-  const navigate = useNavigate();
 
-  return (
-    <section className="py-20 bg-gradient-to-br ">
-      <div className="container mx-auto px-4 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+      <motion.div {...fadeUp} className="mt-10 flex flex-col items-center gap-3 text-center sm:mt-12">
+        <p className="max-w-md text-sm text-slate-600">
+          Want to see this with your own agency workflow?
+        </p>
+        <Button
+          size="lg"
+          className="w-full bg-[#25D366] font-semibold text-white sm:w-auto sm:px-8"
+          startContent={<WhatsAppIcon className="h-5 w-5" />}
+          onPress={() => openWhatsApp(WHATSAPP_MESSAGES.walkthrough)}
         >
-          <h2 className="text-4xl font-bold mb-4">Ready to Elevate Your Consultancy?</h2>
-          <p className="text-lg max-w-2xl mx-auto mb-8">
-            Join TechX CRM today and unlock a world of possibilities for your consultancy business. Register now and start managing all your leads and services with ease!
-          </p>
-          {/* <Button
-            size="lg"
-            className="bg-white text-primary px-8 font-semibold"
-            endContent={<ArrowRight />}
-            // onPress={() => navigate("/signup")} // Adjust route as needed
-          >
-            Get Started Now
-          </Button> */}
-        </motion.div>
-      </div>
-    </section>
-  );
-};
-
-const ConclusionSection = () => {
-  return (
-    <section className="py-20 bg-white">
-      <div className="container mx-auto px-4 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Revolutionize Your  <span className='text-primary font-semibold'>Consultancy</span> with TechX CRM</h2>
-          <p className="text-slate-600 max-w-3xl mx-auto text-lg">
-            TechX CRM is transforming the consultancy experience for agents and students alike. With a centralized platform, advanced CRM tools, team management features, and a vast network of opportunities, we help agents achieve greater success while empowering students and career aspirants to make informed decisions. Let us help you grow your consultancy with ease and efficiency.
-          </p>
-        </motion.div>
-      </div>
-    </section>
-  );
-};
-
-const WhyChooseUsSection = () => {
-  const reasons = [
-    { title: "Comprehensive Platform", description: "A one-stop solution for managing courses, jobs, and visa processes." },
-    { title: "Advanced CRM Tools", description: "Boost efficiency and lead conversion with seamless tracking and management." },
-    { title: "Real-Time Updates", description: "Stay informed and connected with your clients at all times." },
-    { title: "Global Opportunities", description: "Access a wide range of international education and career options." },
-    { title: "Trustworthy Support", description: "Backed by a team of experts committed to your success." }
-  ];
-
-  return (
-    <section className="py-20 bg-slate-50">
-      <div className="container mx-auto px-4">
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h2 className="text-3xl font-bold text-gray-900 mb-4"> <span className='text-primary font-semibold'>Why Choose</span> TechX CRM?</h2>
-          <p className="text-slate-600 max-w-2xl mx-auto text-lg">
-            Here’s what sets us apart and makes TechX CRM the ultimate choice for your consultancy.
-          </p>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {reasons.map((reason, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <Card className="p-6 shadow-md hover:shadow-xl transition border border-gray-200 rounded-2xl bg-white">
-                <div className="flex items-center mb-4">
-                  <Star className="text-primary mr-3" size={24} />
-                  <h3 className="text-xl font-semibold text-gray-900">{reason.title}</h3>
-                </div>
-                <p className="text-slate-600">{reason.description}</p>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
+          Get a free walkthrough on WhatsApp
+        </Button>
+      </motion.div>
+    </div>
+  </section>
+);
 
 const CTAFinal = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="py-20 bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto px-4 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="max-w-3xl mx-auto"
-        >
-          <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-            Ready to <span className="text-primary">Digitize</span> Your Visa Consultancy?
-          </h2>
-          <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto">
-            Get access to the future of visa operations — today.
-          </p>
-          
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <Button
-              size="lg"
-              className="bg-primary text-white px-8 py-6 text-lg hover:opacity-90 transition-opacity"
-              endContent={<ArrowRight size={20} />}
-            >
-              Start Free Demo
-            </Button>
-            <Button
-              size="lg"
-              variant="bordered"
-              className="border-2 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 px-8 py-6 text-lg"
-              onPress={() => {
-                navigate("/login")
-              }}
-            >
-              Login to Dashboard
-            </Button>
-          </div>
-        </motion.div>
-      </div>
+    <section id="cta" className="border-t border-slate-200/80 bg-[linear-gradient(180deg,#f4f8ff_0%,#eef4ff_100%)] py-16 sm:py-20">
+      <motion.div {...fadeUp} className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+        <h2 className="landing-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          Ready to simplify how your agency runs?
+        </h2>
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-slate-600">
+          Start a conversation with TechX Solutions, or log in if you already have an agency panel.
+        </p>
+        <div className="mt-8 flex w-full flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button
+            size="lg"
+            className="bg-[#25D366] px-8 font-semibold text-white"
+            startContent={<WhatsAppIcon className="h-5 w-5" />}
+            onPress={() => openWhatsApp(WHATSAPP_MESSAGES.sales)}
+          >
+            WhatsApp sales
+          </Button>
+          <Button
+            size="lg"
+            variant="bordered"
+            className="border-slate-300 bg-white px-8 font-semibold text-slate-800"
+            onPress={() => navigate("/login")}
+          >
+            Agency login
+          </Button>
+        </div>
+        <p className="mt-6 text-sm text-slate-500">
+          Questions?{" "}
+          <button
+            type="button"
+            className="font-medium text-[#25D366] hover:underline"
+            onClick={() => openWhatsApp(WHATSAPP_MESSAGES.contact)}
+          >
+            WhatsApp
+          </button>{" "}
+          ·{" "}
+          <a className="font-medium text-[#0f5bd8] hover:underline" href="mailto:contact@techxsolutions.in">
+            contact@techxsolutions.in
+          </a>{" "}
+          ·{" "}
+          <a className="font-medium text-[#0f5bd8] hover:underline" href="tel:+919227048595">
+            +91 92270 48595
+          </a>
+        </p>
+      </motion.div>
     </section>
   );
 };
+
 const IntroPage3 = () => {
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [])
-  return (
-    <main>
-      <HeroSection />
-      {/* <TrustedPartners /> */}
-      {/* <FeatureShowcase /> */}
-      {/* <TestimonialsSection /> */}
-      <BenefitsSection />
-      <SocialProofSection />
-      <CTAFinal/>
-      {/* <HowItWorksSection /> */}
-      {/* <WhyChooseUsSection /> */}
-      {/* <ConclusionSection /> */}
-      {/* <CallToActionSection /> */}
+    if (window.location.hash === "#pricing") {
+      requestAnimationFrame(() => {
+        document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, []);
 
+  return (
+    <main className="landing-page light bg-white text-slate-900" style={{ colorScheme: "light" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&display=swap');
+        .landing-page .landing-display {
+          font-family: "Outfit", "Quicksand", system-ui, sans-serif;
+        }
+        .landing-page h1,
+        .landing-page h2,
+        .landing-page h3 {
+          color: #0f172a;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .landing-page *,
+          .landing-page *::before,
+          .landing-page *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
+      `}</style>
+      <HeroSection />
+      <FeaturesSection />
+      <HowItWorksSection />
+      <PricingSection />
+      <AudienceSection />
+      <CTAFinal />
     </main>
   );
-}
+};
 
-export default IntroPage3
+export default IntroPage3;

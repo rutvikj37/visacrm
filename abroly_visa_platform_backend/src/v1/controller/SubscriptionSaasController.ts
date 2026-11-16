@@ -4,8 +4,8 @@ import { returnHelper } from "../../helpers/returnHelper";
 import SaasPlan from "../../model/SaasPlan";
 import SaasPayment from "../../model/SaasPayment";
 import {
-    ADDON_FEATURES, LEAD_SOURCE_FEATURES, SaasError, createRazorpayOrder, fulfillRazorpayOrder, getAgencyAccess, presentPlan,
-    razorpayEnabled, verifyCheckoutSignature, verifyRazorpayWebhook,
+    ADDON_FEATURES, LEAD_SOURCE_FEATURES, SaasError, createRazorpayOrder, ensureDefaultPlans, fulfillRazorpayOrder, getAgencyAccess, presentPlan,
+    planPackagePrice, razorpayEnabled, verifyCheckoutSignature, verifyRazorpayWebhook,
 } from "../../services/saas";
 import sequelize from "../../config/dbconfig";
 import { recordPaymentFailure } from "../../services/saasFollowups";
@@ -155,6 +155,30 @@ class SubscriptionSaasController {
         } catch (error: any) {
             if (error instanceof SaasError) return returnHelper(res, 200, false, error.message);
             console.error("razorpay verify failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    /** Public marketing catalog: active plans for the company landing page (no login). */
+    async publicPlans(_req: Request, res: Response) {
+        try {
+            await ensureDefaultPlans();
+            const plans = (await SaasPlan.findAll({
+                where: { status: "active" },
+                order: [["sort_order", "ASC"], ["id", "ASC"]],
+            })).map((p: any) => {
+                const plan = presentPlan(p);
+                return {
+                    ...plan,
+                    package_price: planPackagePrice(p),
+                };
+            });
+            return returnHelper(res, 200, true, "Plans", {
+                plans,
+                features: { sources: LEAD_SOURCE_FEATURES, addons: ADDON_FEATURES },
+            });
+        } catch (error) {
+            console.error("public plans failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

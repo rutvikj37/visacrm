@@ -70,6 +70,10 @@ const ContactUs = lazy(() => import("../components/ContactUs"))
 const Login = lazy(() => import("../modules/public/Login"))
 const IntroPage3 = lazy(() => import("@/modules/public/IntroPage3"))
 const Faq = lazy(() => import("@/modules/public/Faq"))
+const AboutPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.AboutPage })))
+const TermsPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.TermsPage })))
+const PrivacyPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.PrivacyPage })))
+const RefundPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.RefundPage })))
 
 export const PublicRoutes = [
     {
@@ -83,6 +87,22 @@ export const PublicRoutes = [
     {
         path: "/contact_us",
         element: ContactUs
+    },
+    {
+        path: "/about",
+        element: AboutPage
+    },
+    {
+        path: "/terms",
+        element: TermsPage
+    },
+    {
+        path: "/privacy",
+        element: PrivacyPage
+    },
+    {
+        path: "/refund",
+        element: RefundPage
     },
     {
         path: "/static/:id",

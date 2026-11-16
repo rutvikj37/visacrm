@@ -145,18 +145,16 @@ import {
 import { motion } from 'framer-motion';
 import {
     Building2,
-    ChevronDown,
-    BarChart2,
-    Users,
-    FileText,
     Phone,
     HelpCircle,
-    LogIn
+    LogIn,
+    Tags,
 } from 'lucide-react';
 import React, { Suspense } from 'react';
 import { Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import { PublicRoutes } from '../../routes/AuthRoutes';
 import Footer from '../../components/Footer';
+import WhatsAppFloat from '../../components/WhatsAppFloat';
 import aborlyIcon from "../../assets/logo.png"
 
 import { publicAsset } from "@/utils/appBase";
@@ -169,39 +167,49 @@ const PublicDashboard = () => {
         {
             title: "Home",
             to: "/",
-            icon: <Building2 size={18} />
+            icon: <Building2 size={18} />,
         },
-        // {
-        //     title: "Solutions",
-        //     items: [
-        //         { title: "Visa Processing", description: "Streamline visa applications" },
-        //         { title: "Client Management", description: "Manage client relationships" },
-        //         { title: "Document Handling", description: "Secure document management" },
-        //         { title: "Analytics", description: "Business insights dashboard" }
-        //     ],
-        //     icon: <BarChart2 size={18} />
-        // },
-        // {
-        //     title: "Pricing",
-        //     to: "/packages",
-        //     icon: <FileText size={18} />
-        // },
+        {
+            title: "Pricing",
+            to: "/#pricing",
+            icon: <Tags size={18} />,
+            hash: "pricing",
+        },
         {
             title: "FAQs",
             to: "/faqs",
-            icon: <HelpCircle size={18} />
+            icon: <HelpCircle size={18} />,
         },
         {
             title: "Contact",
             to: "/contact_us",
-            icon: <Phone size={18} />
+            icon: <Phone size={18} />,
         },
     ];
 
-    const isActive = (path: string) => location.pathname === path;
+    const goTo = (item: (typeof SideMenu)[number]) => {
+        if (item.hash) {
+            if (location.pathname === "/" || location.pathname === "") {
+                document.getElementById(item.hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+            } else {
+                navigate("/#pricing");
+            }
+            setIsMenuOpen(false);
+            return;
+        }
+        navigate(item.to);
+        setIsMenuOpen(false);
+    };
+
+    const isActive = (item: (typeof SideMenu)[number]) => {
+        if (item.hash) {
+            return (location.pathname === "/" || location.pathname === "") && location.hash === `#${item.hash}`;
+        }
+        return location.pathname === item.to;
+    };
 
     return (
-        <div>
+        <div className="min-h-screen overflow-x-hidden bg-white">
             <Navbar
                 onMenuOpenChange={setIsMenuOpen}
                 isMenuOpen={isMenuOpen}
@@ -223,24 +231,23 @@ const PublicDashboard = () => {
                         >
                             {/* <Building2 className="text-primary h-6 w-6" /> */}
                             {/* <span className="font-bold text-inherit text-xl">TechX CRM</span> */}
-                            <img src={publicAsset("techx-logo.png")} alt="TechX CRM" className="h-9 w-auto dark:hidden" />
-                            <img src={publicAsset("techx-logo-dark.png")} alt="TechX CRM" className="h-9 w-auto hidden dark:block" />
+                            <img src={publicAsset("techx-crm-logo.png")} alt="TechX CRM" className="h-9 w-auto dark:hidden" />
+                            <img src={publicAsset("techx-crm-logo-dark.png")} alt="TechX CRM" className="h-9 w-auto hidden dark:block" />
                         </motion.div>
                     </NavbarBrand>
                 </NavbarContent>
 
                 <NavbarContent className="hidden sm:flex gap-4" justify="center">
                     {SideMenu.map((item, index) => (
-
                         <NavbarItem key={index}>
                             <Button
-                                className={`${isActive(item?.to) ? 'text-primary' : 'text-default-600'}`}
+                                className={`${isActive(item) ? "text-primary" : "text-default-600"}`}
                                 variant="light"
                                 disableRipple
-                                startContent={item?.icon}
-                                onPress={() => navigate(item?.to)}
+                                startContent={item.icon}
+                                onPress={() => goTo(item)}
                             >
-                                {item?.title}
+                                {item.title}
                             </Button>
                         </NavbarItem>
                     ))}
@@ -262,14 +269,11 @@ const PublicDashboard = () => {
 
                 <NavbarMenu className="pt-6">
                     {SideMenu.map((item, index) => (
-                        <NavbarMenuItem key={`${item}-${index}`}>
+                        <NavbarMenuItem key={`${item.title}-${index}`}>
                             <Link
-                                className={`w-full ${isActive(item.to) ? 'text-primary' : 'text-default-700'}`}
+                                className={`w-full ${isActive(item) ? "text-primary" : "text-default-700"}`}
                                 size="lg"
-                                onPress={() => {
-                                    navigate(item.to);
-                                    setIsMenuOpen(false);
-                                }}
+                                onPress={() => goTo(item)}
                             >
                                 <div className="flex items-center gap-2">
                                     {item.icon}
@@ -281,7 +285,7 @@ const PublicDashboard = () => {
                 </NavbarMenu>
             </Navbar>
 
-            <section className="flex-grow overflow-auto">
+            <section className="flex-grow overflow-x-hidden pb-20 sm:pb-24">
                 <Suspense fallback={<div className="min-h-[40vh] w-full" aria-busy="true" aria-label="Loading page" />}>
                     <Routes>
                         {PublicRoutes.map((item: any) => (
@@ -291,6 +295,7 @@ const PublicDashboard = () => {
                 </Suspense>
                 <Footer />
             </section>
+            <WhatsAppFloat />
         </div>
     );
 };
