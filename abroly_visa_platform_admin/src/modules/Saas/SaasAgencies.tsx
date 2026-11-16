@@ -509,7 +509,7 @@ const SaasAgencies = () => {
                                                         : 0;
                                                     setForm((f) => ({ ...f, plan_id, amount: price ? String(price) : f.amount }));
                                                 }}>
-                                                {activePlans.map((p) => <SelectItem key={p.id}>{p.name} · full access</SelectItem>)}
+                                                {activePlans.map((p) => <SelectItem key={p.id} textValue={p.name}>{`${p.name} · full access`}</SelectItem>)}
                                             </Select>
                                         </FormField>
                                         {form.activate === "paid" && (

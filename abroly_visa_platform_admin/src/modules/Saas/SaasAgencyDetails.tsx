@@ -252,7 +252,7 @@ const SaasAgencyDetails = () => {
                                                 const meta = planMeta(plan_id);
                                                 setExt({ ...ext, plan_id, months: String(meta.months), amount: meta.amount });
                                             }}>
-                                            {activePlans.map((p) => <SelectItem key={p.id}>{p.name} · {p.duration_months || "?"} months · full access</SelectItem>)}
+                                            {activePlans.map((p) => <SelectItem key={p.id} textValue={p.name}>{`${p.name} · ${p.duration_months || "?"} months · full access`}</SelectItem>)}
                                         </Select>
                                     </FormField>
                                     <FormField label="Access period">
