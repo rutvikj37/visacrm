@@ -1,9 +1,36 @@
 # Meta setup: Facebook / Instagram Lead Ads + WhatsApp
 
 You do this **once for the whole platform**. After that, every agency connects its own
-Facebook Pages with one click, and its own WhatsApp number from **Lead Sources**.
+Facebook Pages with one click (or a Page access token), and its own WhatsApp number from **Lead Sources**.
 
 Replace `https://api.yourdomain.com/api` below with your real `PUBLIC_API_URL`.
+
+**Why agencies see “Facebook is not switched on”:** the platform Meta app credentials are empty.
+`GET /crm/meta/status` returns `{ facebook: false }` until `META_APP_ID` + `META_APP_SECRET` + `PUBLIC_API_URL`
+are set (env **or** Admin → **SaaS → Meta / Facebook**). Agencies can still paste a Page token and use
+**Fetch last 7 days** without OAuth; real-time webhooks need the platform app + leadgen subscription.
+
+---
+
+## 0. Fastest enable path (TechX / production)
+
+1. Ensure backend `.env` has `PUBLIC_API_URL=https://api.yourdomain.com/api` (deploy already sets this).
+2. Open the **platform admin** panel → **SaaS → Meta / Facebook**.
+3. Paste **App ID**, **App secret**, and a **webhook verify token** → Save.
+4. Copy the OAuth redirect URI and webhook URL shown on that page into the Meta app dashboard (steps below).
+5. In an agency panel → **Lead Sources → Facebook & Instagram Lead Ads → Connect Facebook Pages**.
+
+Alternatively set env (takes priority over the admin UI):
+
+```
+META_APP_ID=...
+META_APP_SECRET=...
+META_WEBHOOK_VERIFY_TOKEN=...
+META_LOGIN_CONFIG_ID=...        # optional
+META_GRAPH_VERSION=v21.0
+```
+
+Restart the backend after changing env. Admin UI saves apply within ~15 seconds (no restart).
 
 ---
 
@@ -39,7 +66,7 @@ Replace `https://api.yourdomain.com/api` below with your real `PUBLIC_API_URL`.
 3. (For WhatsApp numbers onboarded through *your* app in future) choose object
    **WhatsApp Business Account** with the same URL and token, field **messages**.
 
-## 4. Backend `.env`
+## 4. Backend `.env` (optional if using admin UI)
 
 ```
 PUBLIC_API_URL=https://api.yourdomain.com/api
@@ -50,8 +77,11 @@ META_LOGIN_CONFIG_ID=...        # optional
 META_GRAPH_VERSION=v21.0
 ```
 
-Restart the backend. In the agency panel, **Lead Sources → Facebook & Instagram Lead Ads**
-now shows **Connect Facebook Pages**.
+Or skip env and use **SaaS → Meta / Facebook** in the platform admin (App secret is stored encrypted).
+
+Restart only if you changed `.env`. In the agency panel, **Lead Sources → Facebook & Instagram Lead Ads**
+now shows **Connect Facebook Pages**. Agencies can also **Connect with Page access token** and
+**Fetch last 7 days** without waiting for App Review (testers / system users).
 
 ## 5. Test before review (works immediately)
 

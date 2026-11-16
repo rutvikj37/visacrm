@@ -87,6 +87,13 @@ PLATFORM_PORTAL_DOMAIN=techxsolutions.io
 RESEND_API_KEY=$(secret RESEND_API_KEY)
 MAIL_FROM=$(secret MAIL_FROM)
 MAIL_FROM_NAME=TechX CRM
+
+# Meta Lead Ads (optional here — can also be set in Admin → SaaS → Meta / Facebook)
+META_APP_ID=$(secret META_APP_ID)
+META_APP_SECRET=$(secret META_APP_SECRET)
+META_WEBHOOK_VERIFY_TOKEN=$(secret META_WEBHOOK_VERIFY_TOKEN)
+META_LOGIN_CONFIG_ID=$(secret META_LOGIN_CONFIG_ID)
+META_GRAPH_VERSION=v21.0
 ENV
     chmod 600 "$BACKEND_ENV"
 fi
