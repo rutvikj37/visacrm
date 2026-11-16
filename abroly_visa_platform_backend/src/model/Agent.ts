@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/dbconfig";
+import { PORTAL_FIELDS, requestCertificatesAfter } from "../services/certTrigger";
 
 const Agent = sequelize.define('Agent', {
     id: {
@@ -241,5 +242,19 @@ const Agent = sequelize.define('Agent', {
     defaultScope: { attributes: { exclude: ["login_pin", "login_pin_attempts", "login_pin_locked_until"] } },
     scopes: { withLoginPin: {} },
 });
+
+// A new agency, or a changed web address / status, gets its HTTPS certificate right away (services/certTrigger.ts)
+const touchesPortal = (fields?: string[]) => !fields || fields.some((f) => PORTAL_FIELDS.includes(f));
+Agent.addHook("afterCreate", (row: any, options: any) => {
+    if (row?.get?.("role") === "agent" && row?.get?.("domain")) requestCertificatesAfter(options);
+});
+Agent.addHook("afterUpdate", (row: any, options: any) => {
+    if (row?.get?.("role") === "agent" && touchesPortal(row?.changed?.() || undefined)) requestCertificatesAfter(options);
+});
+Agent.addHook("afterBulkUpdate", (options: any) => {
+    if (touchesPortal(options?.fields)) requestCertificatesAfter(options);
+});
+Agent.addHook("afterDestroy", (_row: any, options: any) => requestCertificatesAfter(options));
+Agent.addHook("afterBulkDestroy", (options: any) => requestCertificatesAfter(options));
 
 export default Agent;

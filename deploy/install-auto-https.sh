@@ -74,10 +74,25 @@ OnUnitActiveSec=1min
 [Install]
 WantedBy=timers.target
 UNIT
+# instant run: the API writes /var/lib/visacrm-certs/trigger whenever an agency's address is created or
+# changed (abroly_visa_platform_backend/src/services/certTrigger.ts), so its certificate is issued in seconds
+touch /var/lib/visacrm-certs/trigger
+cat > /etc/systemd/system/visacrm-certs.path <<'UNIT'
+[Unit]
+Description=TechX CRM - HTTPS certificates as soon as an agency address is added
+
+[Path]
+PathModified=/var/lib/visacrm-certs/trigger
+Unit=visacrm-certs.service
+
+[Install]
+WantedBy=multi-user.target
+UNIT
 mkdir -p /etc/letsencrypt/renewal-hooks/deploy
 printf '#!/bin/sh\nsystemctl reload nginx\n' > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 chmod 755 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 systemctl daemon-reload
 systemctl enable --now visacrm-certs.timer >/dev/null
+systemctl enable --now visacrm-certs.path >/dev/null
 systemctl start visacrm-certs.service || true
 journalctl -u visacrm-certs.service -n 20 --no-pager -o cat | grep visacrm-certs || true
