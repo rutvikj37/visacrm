@@ -32,6 +32,9 @@ studentRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberV
 studentRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), UserController.studentLoginCustom)
 studentRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), UserController.studentValidateOTP)
 studentRoutes.route("/validate_otp_custom").post(localOnly, UserController.studentValidateOTPCUstom)
+studentRoutes.route("/request_passcode_reset").post(validationBodyMw(loginWithNumberValidation), UserController.studentRequestPasscodeReset)
+studentRoutes.route("/verify_passcode_reset").post(UserController.studentVerifyPasscodeReset)
+studentRoutes.route("/set_passcode").post(UserController.studentSetPasscode)
 
 userRoutes.use("/student",studentRoutes)
 

@@ -12,8 +12,24 @@ import nodemailer from 'nodemailer'
 import axios from "axios";
 import UserDevices from "../../model/UserDevices";
 import Admin from "../../model/Admin";
-import { LOGIN_CODE_MARKER, adminUsesLoginCode, checkAdminLoginCode, checkStudentLoginCode, studentUsesLoginCode } from "../../services/agencyLogin";
+import {
+    LOGIN_CODE_MARKER,
+    adminUsesLoginCode,
+    checkAdminLoginCode,
+    checkStudentLoginCode,
+    checkStudentResetCode,
+    issueSetupToken,
+    issueStudentResetCode,
+    loginCodePrompt,
+    sendPasscodeResetEmail,
+    setStudentPasscode,
+    studentUsesLoginCode,
+    validatePasscodeShape,
+    verifySetupToken,
+} from "../../services/agencyLogin";
 import { isLocalDev } from "../../middleware/localOnly";
+import Agent from "../../model/Agent";
+import { sharedPanel } from "../../services/panelUrl";
 
 /** Fire-and-forget: show student portal login on the CRM lead timeline. */
 const notePortalLogin = (user: any) => {
@@ -52,11 +68,27 @@ const studentLoginSuccess = async (res: Response, user: any) => {
     });
 };
 
-/** Students with a fixed login code (e.g. demo students) log in with it instead of an SMS OTP. */
+/** Students with an invite code or personal passcode log in with it instead of an SMS OTP. */
 const tryStudentLoginCode = async (res: Response, user: any, otp: unknown) => {
     const pin = await checkStudentLoginCode(user.dataValues.id, otp);
     if (!pin.applies) return null;
     if (!pin.ok) return returnHelper(res, 200, false, pin.message);
+    // first login with invite code: force set personal passcode before issuing a session JWT
+    if (!pin.passcodeSet) {
+        const u = user.dataValues;
+        const setup_token = issueSetupToken({ audience: "student", id: u.id, uuid: u.uuid });
+        return res.status(200).json({
+            success: true,
+            message: "Set a passcode to finish signing in.",
+            data: {
+                must_set_passcode: true,
+                setup_token,
+                name: u.username,
+                phone: u.phone_number,
+                country_code: u.country_code,
+            },
+        });
+    }
     return studentLoginSuccess(res, user);
 };
 
@@ -1479,44 +1511,12 @@ class UserController {
                 }
             })
             if (findUser && (await studentUsesLoginCode(findUser.dataValues.id))) {
-                return returnHelper(res, 200, true, "Enter the 6-digit login code you were given.", LOGIN_CODE_MARKER)
+                const prompt = await loginCodePrompt("student", findUser.dataValues.id);
+                return returnHelper(res, 200, true, prompt.message, prompt.marker);
             }
 
 
             if (findUser) {
-
-                // function generateOTP() {
-                //     // Generate a random 6-digit number
-                //     const otp = Math.floor(100000 + Math.random() * 900000);
-                //     return otp;
-                // }
-
-                // const createotp = generateOTP()
-
-                // console.log(createotp, "THE OTP");
-
-                // const otp = await bcrypt.hash(createotp + "", 10)
-
-                // function generateExpiryTime() {
-                //     // Get the current time
-                //     const currentTime = new Date();
-
-                //     // Add 5 minutes to the current time to get the expiration time
-                //     const expiryTime = new Date(currentTime.getTime() + 5 * 60000); // 5 minutes in milliseconds
-
-                //     return expiryTime;
-                // }
-
-                // const otp_expire = generateExpiryTime()
-
-                // await User.update({
-                //     otp,
-                //     otp_expire
-                // }, {
-                //     where: {
-                //         uuid: findUser.dataValues.uuid
-                //     }
-                // })
 
                 if (isLocalDev() && (phone_number == "9799999999" || phone_number == "9799999998")) {
                     return res.status(200).json({
@@ -1598,7 +1598,8 @@ class UserController {
                 }
             })
             if (findUser && (await studentUsesLoginCode(findUser.dataValues.id))) {
-                return returnHelper(res, 200, true, "Enter the 6-digit login code you were given.", LOGIN_CODE_MARKER)
+                const prompt = await loginCodePrompt("student", findUser.dataValues.id);
+                return returnHelper(res, 200, true, prompt.message, prompt.marker);
             }
 
 
@@ -1660,6 +1661,108 @@ class UserController {
             })
         }
     }
+
+    /** POST /user/student/request_passcode_reset — email a short-lived reset code. */
+    async studentRequestPasscodeReset(req: Request, res: Response) {
+        try {
+            const { phone: phone_number, country_code } = req.body;
+            const findUser = await User.findOne({
+                where: { phone_number, country_code, ...studentAgencyScope(req) },
+            });
+            if (!findUser) return returnHelper(res, 200, false, "Phone number not registered.");
+            if (!(await studentUsesLoginCode(findUser.dataValues.id))) {
+                return returnHelper(res, 200, false, "This account uses SMS login. Use the OTP flow instead.");
+            }
+            const email = (findUser.dataValues.email || "").trim();
+            if (!email) {
+                return returnHelper(
+                    res,
+                    200,
+                    false,
+                    "No email on this account. Ask your agency to send the portal invite again.",
+                );
+            }
+            const code = await issueStudentResetCode(findUser.dataValues.id);
+            let loginUrl: string | null = null;
+            let brandName: string | null = null;
+            if (findUser.dataValues.agency_uuid) {
+                const agency: any = await Agent.findOne({
+                    where: { uuid: findUser.dataValues.agency_uuid },
+                    attributes: ["app_name", "username", "domain"],
+                });
+                brandName = agency?.dataValues?.app_name || agency?.dataValues?.username || null;
+                const domain = (agency?.dataValues?.domain || "").replace(/\/+$/, "");
+                if (domain) loginUrl = domain.startsWith("http") ? `${domain}/login` : `https://${domain}/login`;
+            }
+            if (!loginUrl) {
+                const panel = sharedPanel().replace(/\/+$/, "");
+                loginUrl = panel ? panel.replace(/\/agency$/, "") + "/login" : null;
+            }
+            const sent = await sendPasscodeResetEmail({
+                to: email,
+                name: findUser.dataValues.username || "there",
+                phone: `${country_code || ""} ${phone_number}`.trim(),
+                code,
+                loginUrl,
+                panelLabel: "student portal",
+                brandName,
+            });
+            if (!sent) {
+                return returnHelper(res, 200, false, "Could not send the reset email. Ask your agency for help.");
+            }
+            return returnHelper(res, 200, true, `A reset code was emailed to ${email}. Check your inbox.`, {
+                email_hint: email.replace(/(.{2}).+(@.+)/, "$1***$2"),
+            });
+        } catch (error: any) {
+            return returnHelper(res, 200, false, error.message || "Could not request a reset.");
+        }
+    }
+
+    /** POST /user/student/verify_passcode_reset */
+    async studentVerifyPasscodeReset(req: Request, res: Response) {
+        try {
+            const { phone: phone_number, phone_number: phoneAlt, country_code, code, otp } = req.body;
+            const phone = phone_number || phoneAlt;
+            const findUser = await User.findOne({
+                where: { phone_number: phone, country_code, ...studentAgencyScope(req) },
+            });
+            if (!findUser) return returnHelper(res, 200, false, "Phone number not registered.");
+            const checked = await checkStudentResetCode(findUser.dataValues.id, code || otp);
+            if (!checked.ok) return returnHelper(res, 200, false, checked.message);
+            const u = findUser.dataValues;
+            const setup_token = issueSetupToken({ audience: "student", id: u.id, uuid: u.uuid });
+            return returnHelper(res, 200, true, "Reset code verified. Set your new passcode.", {
+                must_set_passcode: true,
+                setup_token,
+                name: u.username,
+                phone: u.phone_number,
+                country_code: u.country_code,
+            });
+        } catch (error: any) {
+            return returnHelper(res, 200, false, error.message || "Could not verify the reset code.");
+        }
+    }
+
+    /** POST /user/student/set_passcode — first login or after forgot. */
+    async studentSetPasscode(req: Request, res: Response) {
+        try {
+            const setup = verifySetupToken(req.body?.setup_token, "student");
+            if (!setup) return returnHelper(res, 200, false, "Your session to set a passcode expired. Log in again.");
+            const shape = validatePasscodeShape(req.body?.passcode ?? req.body?.pin, req.body?.confirm_passcode ?? req.body?.confirm);
+            if (!shape.ok) return returnHelper(res, 200, false, shape.message);
+
+            const user = await User.findOne({
+                where: { id: setup.id, uuid: setup.uuid, ...studentAgencyScope(req) },
+            });
+            if (!user) return returnHelper(res, 200, false, "Account not found.");
+
+            await setStudentPasscode(setup.id, shape.pin);
+            return studentLoginSuccess(res, user);
+        } catch (error: any) {
+            return returnHelper(res, 200, false, error.message || "Could not set passcode.");
+        }
+    }
+
     async kycTokenType(req: RequestWithUser, res: Response) {
 
         try {

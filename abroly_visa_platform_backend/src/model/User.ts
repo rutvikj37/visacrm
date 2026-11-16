@@ -75,10 +75,14 @@ const User = sequelize.define(
       allowNull: true,
       defaultValue: null
     },
-    // optional fixed login code (bcrypt hash) - e.g. demo students; see services/agencyLogin.ts
+    // invite login code or personal passcode (bcrypt); see services/agencyLogin.ts
     login_pin: { type: DataTypes.STRING, allowNull: true, defaultValue: null },
     login_pin_attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     login_pin_locked_until: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
+    // false = login_pin is the emailed invite code; true = user-set daily passcode
+    passcode_set: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    login_reset_code: { type: DataTypes.STRING, allowNull: true, defaultValue: null },
+    login_reset_expires: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
   },
   {
     tableName: 'user',
@@ -87,8 +91,19 @@ const User = sequelize.define(
     indexes: [
       { fields: ['agency_uuid', 'phone_number'] }
     ],
-    // never send the login code hash in API responses; read it only via User.scope("withLoginPin")
-    defaultScope: { attributes: { exclude: ["login_pin", "login_pin_attempts", "login_pin_locked_until"] } },
+    // never send pin / reset hashes in API responses; read them only via User.scope("withLoginPin")
+    defaultScope: {
+      attributes: {
+        exclude: [
+          "login_pin",
+          "login_pin_attempts",
+          "login_pin_locked_until",
+          "passcode_set",
+          "login_reset_code",
+          "login_reset_expires",
+        ],
+      },
+    },
     scopes: { withLoginPin: {} },
   }
 )

@@ -1,8 +1,19 @@
 import { Request, Response } from "express";
 import { getAgencyAccess } from "../../services/saas";
-import { LOGIN_CODE_MARKER, checkLoginCode, usesLoginCode } from "../../services/agencyLogin";
+import {
+    checkAgentResetCode,
+    checkLoginCode,
+    issueAgentResetCode,
+    issueSetupToken,
+    loginCodePrompt,
+    sendPasscodeResetEmail,
+    setAgentPasscode,
+    usesLoginCode,
+    validatePasscodeShape,
+    verifySetupToken,
+} from "../../services/agencyLogin";
+import { agencyByPortalHost, sharedPanel } from "../../services/panelUrl";
 import { isLocalDev } from "../../middleware/localOnly";
-import { agencyByPortalHost } from "../../services/panelUrl";
 import Agent from "../../model/Agent";
 import { returnHelper } from "../../helpers/returnHelper";
 import Jwt from "jsonwebtoken";
@@ -63,7 +74,7 @@ const agentLoginSuccess = async (res: Response, user: any) => {
     });
 };
 
-/** Agency owners created by the platform admin log in with a fixed code from their welcome email. */
+/** Agency owners / team: invite code or personal passcode instead of SMS OTP. */
 const tryLoginCode = async (res: Response, user: any, otp: unknown) => {
     const pin = await checkLoginCode(user.dataValues.id, otp);
     if (!pin.applies) return null;
@@ -77,8 +88,27 @@ const tryLoginCode = async (res: Response, user: any, otp: unknown) => {
             return returnHelper(res, 200, false, "Your agency's subscription has ended. Please ask your agency owner to renew.");
         }
     }
+    // first login with invite code: force set personal passcode before issuing a session JWT
+    if (!pin.passcodeSet) {
+        const u = user.dataValues;
+        const setup_token = issueSetupToken({ audience: "agent", id: u.id, uuid: u.uuid });
+        return res.status(200).json({
+            success: true,
+            message: "Set a passcode to finish signing in.",
+            data: {
+                must_set_passcode: true,
+                setup_token,
+                name: u.username,
+                phone: u.phone_number,
+                country_code: u.country_code,
+            },
+        });
+    }
     return agentLoginSuccess(res, user);
 };
+
+const findActiveAgentByPhone = async (phone_number: string, country_code: string) =>
+    Agent.findOne({ where: { phone_number, country_code, status: "active" } });
 
 class AgentController {
     async validateOTP(req: Request, res: Response) {
@@ -422,7 +452,8 @@ class AgentController {
                 }
 
                 if (await usesLoginCode(findUser.dataValues.id)) {
-                    return returnHelper(res, 200, true, "Enter the 6-digit login code from your welcome email.", LOGIN_CODE_MARKER)
+                    const prompt = await loginCodePrompt("agent", findUser.dataValues.id);
+                    return returnHelper(res, 200, true, prompt.message, prompt.marker);
                 }
 
                 if (TEST_NUMBERS_SKIP_GENERATION.includes(phone_number)) {
@@ -534,7 +565,8 @@ class AgentController {
                     }
                 }
                 if (await usesLoginCode(findUser.dataValues.id)) {
-                    return returnHelper(res, 200, true, "Enter the 6-digit login code from your welcome email.", LOGIN_CODE_MARKER)
+                    const prompt = await loginCodePrompt("agent", findUser.dataValues.id);
+                    return returnHelper(res, 200, true, prompt.message, prompt.marker);
                 }
 
                 function generateOTP() {
@@ -602,6 +634,92 @@ class AgentController {
                 success: false,
                 message: error.message
             })
+        }
+    }
+
+    /** POST /agent/request_passcode_reset — email a short-lived reset code (not an SMS OTP). */
+    async requestPasscodeReset(req: Request, res: Response) {
+        try {
+            const { phone: phone_number, country_code } = req.body;
+            const findUser = await findActiveAgentByPhone(phone_number, country_code);
+            if (!findUser) return returnHelper(res, 200, false, "Phone number not registered.");
+            const wrongAgency = await wrongAgencyMessage(findUser, req.body?.agency_host);
+            if (wrongAgency) return returnHelper(res, 200, false, wrongAgency);
+            if (!(await usesLoginCode(findUser.dataValues.id))) {
+                return returnHelper(res, 200, false, "This account uses SMS login. Use the OTP flow instead.");
+            }
+            const email = (findUser.dataValues.email || "").trim();
+            if (!email) {
+                return returnHelper(
+                    res,
+                    200,
+                    false,
+                    "No email on this account. Ask your agency admin to send a new login code, or add an email first.",
+                );
+            }
+            const code = await issueAgentResetCode(findUser.dataValues.id);
+            const panel = sharedPanel().replace(/\/+$/, "");
+            const sent = await sendPasscodeResetEmail({
+                to: email,
+                name: findUser.dataValues.username || "there",
+                phone: `${country_code || ""} ${phone_number}`.trim(),
+                code,
+                loginUrl: panel ? `${panel}/login` : null,
+                panelLabel: "agency panel",
+            });
+            if (!sent) {
+                return returnHelper(res, 200, false, "Could not send the reset email. Try again or ask an admin for help.");
+            }
+            return returnHelper(res, 200, true, `A reset code was emailed to ${email}. Check your inbox.`, {
+                email_hint: email.replace(/(.{2}).+(@.+)/, "$1***$2"),
+            });
+        } catch (error: any) {
+            return returnHelper(res, 200, false, error.message || "Could not request a reset.");
+        }
+    }
+
+    /** POST /agent/verify_passcode_reset — verify emailed reset code → setup_token for set_passcode. */
+    async verifyPasscodeReset(req: Request, res: Response) {
+        try {
+            const { phone: phone_number, phone_number: phoneAlt, country_code, code, otp } = req.body;
+            const phone = phone_number || phoneAlt;
+            const findUser = await findActiveAgentByPhone(phone, country_code);
+            if (!findUser) return returnHelper(res, 200, false, "Phone number not registered.");
+            const wrongAgency = await wrongAgencyMessage(findUser, req.body?.agency_host);
+            if (wrongAgency) return returnHelper(res, 200, false, wrongAgency);
+            const checked = await checkAgentResetCode(findUser.dataValues.id, code || otp);
+            if (!checked.ok) return returnHelper(res, 200, false, checked.message);
+            const u = findUser.dataValues;
+            const setup_token = issueSetupToken({ audience: "agent", id: u.id, uuid: u.uuid });
+            return returnHelper(res, 200, true, "Reset code verified. Set your new passcode.", {
+                must_set_passcode: true,
+                setup_token,
+                name: u.username,
+                phone: u.phone_number,
+                country_code: u.country_code,
+            });
+        } catch (error: any) {
+            return returnHelper(res, 200, false, error.message || "Could not verify the reset code.");
+        }
+    }
+
+    /** POST /agent/set_passcode — first login or after forgot; requires setup_token (not a session JWT). */
+    async setPasscode(req: Request, res: Response) {
+        try {
+            const setup = verifySetupToken(req.body?.setup_token, "agent");
+            if (!setup) return returnHelper(res, 200, false, "Your session to set a passcode expired. Log in again.");
+            const shape = validatePasscodeShape(req.body?.passcode ?? req.body?.pin, req.body?.confirm_passcode ?? req.body?.confirm);
+            if (!shape.ok) return returnHelper(res, 200, false, shape.message);
+
+            const user = await Agent.findOne({ where: { id: setup.id, uuid: setup.uuid, status: "active" } });
+            if (!user) return returnHelper(res, 200, false, "Account not found.");
+            const wrongAgency = await wrongAgencyMessage(user, req.body?.agency_host);
+            if (wrongAgency) return returnHelper(res, 200, false, wrongAgency);
+
+            await setAgentPasscode(setup.id, shape.pin);
+            return agentLoginSuccess(res, user);
+        } catch (error: any) {
+            return returnHelper(res, 200, false, error.message || "Could not set passcode.");
         }
     }
 

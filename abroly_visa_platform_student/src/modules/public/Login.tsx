@@ -13,6 +13,8 @@ import { AgencyLogo } from '@/components/AgencyBrand'
 
 const IS_LOCAL = import.meta.env.VITE_IS_LOCAL || false
 
+type Screen = "phone" | "code" | "set_passcode" | "forgot" | "reset_code"
+
 const Login = () => {
     const { commonPostPublicAPICall } = useApiCallUtils()
     const agencyReady = Boolean(getAgentUuid())
@@ -27,23 +29,49 @@ const Login = () => {
     const dispatch = useDispatch()
     const navigate = useNavigate()
     const [loginLoading, setLoginLoading] = useState(false)
-    const [OTPScreen, setOTPScreeen] = useState(false)
+    const [screen, setScreen] = useState<Screen>("phone")
     const [verificationId, setVerificationId] = useState("")
-    // the agency's portal invite link opens /login?phone=XXXXXXXXXX - pre-fill it
+    const [setupToken, setSetupToken] = useState("")
     const [numberAndCountryCode, setNumberAndCountryCode] = useState(() => ({
         phone_number: (new URLSearchParams(window.location.search).get("phone") || "").replace(/\D/g, "").slice(-10),
         country_code: "+91"
     }))
-    // SMS OTPs are 4 digits; students given a fixed login code (e.g. demo students) type 6
     const [codeLength, setCodeLength] = useState(4)
-    const usesLoginCode = codeLength === 6
-    const initialValues = Array(4).fill('')
-    const [otpValues, setValues] = useState<string[]>(initialValues)
+    const usesLoginCode = verificationId === 'LOGIN_CODE'
+    const usesPasscode = verificationId === 'PASSCODE'
+    const usesDigitLogin = usesLoginCode || usesPasscode
+    const [otpValues, setValues] = useState<string[]>(Array(4).fill(''))
+    const [passcode, setPasscode] = useState("")
+    const [confirmPasscode, setConfirmPasscode] = useState("")
     const inputRefs = Array(6).fill(0).map(() => useRef<HTMLInputElement>(null))
+
     const startCodeEntry = (verification: string) => {
-        const len = verification === 'LOGIN_CODE' ? 6 : 4
+        const len = verification === 'LOGIN_CODE' || verification === 'PASSCODE' ? 6 : 4
         setCodeLength(len)
         setValues(Array(len).fill(''))
+        setVerificationId(verification || '')
+        if (verification === 'PASSCODE') setPasscode("")
+    }
+
+    const finishLogin = (data: any) => {
+        dispatch(setToken(data.token))
+        dispatch(setProfile({ phone: data.country_code + " " + data.phone, user_name: data.name }))
+        addToLocal("token", data.token)
+        addToLocal("phone_with_code", data.country_code + " " + data.phone)
+        addToLocal("name", data.name)
+        dispatch(setAuthLoading('false'))
+        navigate("/")
+    }
+
+    const handleMustSetPasscode = (data: any) => {
+        if (data?.must_set_passcode && data?.setup_token) {
+            setSetupToken(data.setup_token)
+            setPasscode("")
+            setConfirmPasscode("")
+            setScreen("set_passcode")
+            return true
+        }
+        return false
     }
 
     const handleChange = (event: any, index: number) => {
@@ -52,8 +80,7 @@ const Login = () => {
             newValues[index] = event.target.value
             setValues(newValues)
             if (event.target.value && index < codeLength - 1) {
-                const nextInput = inputRefs[index + 1].current
-                if (nextInput) nextInput.focus()
+                inputRefs[index + 1].current?.focus()
             }
         }
     }
@@ -79,6 +106,9 @@ const Login = () => {
         if (firstEmptyIndex !== -1) inputRefs[firstEmptyIndex].current?.focus()
     }
 
+    const loginPath = () => `user/student/${IS_LOCAL == 'true' ? 'login_with_number_custom' : 'login_with_number'}`
+    const validatePath = () => `user/student/${IS_LOCAL == 'true' ? 'validate_otp_custom' : 'validate_otp'}`
+
     const submitCall = async () => {
         if (!agencyReady) {
             ErrorToast("This portal is not linked to an agency. Open your agency's portal link.")
@@ -87,13 +117,12 @@ const Login = () => {
         setLoginLoading(true)
         const { success, data } = await commonPostPublicAPICall(
             { phone: numberAndCountryCode.phone_number, country_code: "+91" },
-            `user/student/${IS_LOCAL == 'true' ? 'login_with_number_custom' : 'login_with_number'}`,
+            loginPath(),
             true
         )
         if (success) {
-            startCodeEntry(data)
-            setOTPScreeen(true)
-            setVerificationId(data)
+            startCodeEntry(typeof data === 'string' ? data : data || '')
+            setScreen("code")
         }
         setLoginLoading(false)
     }
@@ -101,41 +130,103 @@ const Login = () => {
     const resendOTPCall = async () => {
         const { success, data } = await commonPostPublicAPICall(
             { country_code: numberAndCountryCode.country_code, phone: numberAndCountryCode.phone_number },
-            `user/student/${IS_LOCAL == 'true' ? 'login_with_number_custom' : 'login_with_number'}`,
+            loginPath(),
             true
         )
         if (success) {
-            startCodeEntry(data)
-            setOTPScreeen(true)
-            setVerificationId(data)
+            startCodeEntry(typeof data === 'string' ? data : data || '')
+            setScreen("code")
         }
     }
 
+    const enteredCode = () => (usesPasscode ? passcode.replace(/\D/g, "") : otpValues.join(""))
+
+    const codeComplete = () => {
+        const code = enteredCode()
+        if (usesPasscode) return code.length >= 4 && code.length <= 6
+        return otpValues.slice(0, codeLength).every((v) => v !== "") && code.length === codeLength
+    }
+
     const verifyOTP = async () => {
-        let emptyOTP = otpValues.some((item) => item === "")
-        if (emptyOTP) {
-            ErrorToast("Please Enter OTP")
+        if (!codeComplete()) {
+            ErrorToast(usesPasscode ? "Enter your 4–6 digit passcode" : usesLoginCode ? "Enter your login code" : "Please Enter OTP")
             return
         }
+        setLoginLoading(true)
         const { success, data } = await commonPostPublicAPICall(
             {
                 country_code: numberAndCountryCode.country_code,
-                otp: otpValues.join(""),
+                otp: enteredCode(),
                 phone_number: numberAndCountryCode.phone_number,
-                verificationId
+                verificationId: verificationId || "PASSCODE"
             },
-            `user/student/${IS_LOCAL == 'true' ? 'validate_otp_custom' : 'validate_otp'}`,
+            validatePath(),
             true
         )
         if (success) {
-            dispatch(setToken(data.token))
-            dispatch(setProfile({ phone: data.country_code + " " + data.phone, user_name: data.name }))
-            addToLocal("token", data.token)
-            addToLocal("phone_with_code", data.country_code + " " + data.phone)
-            addToLocal("name", data.name)
-            dispatch(setAuthLoading('false'))
-            navigate("/")
+            if (handleMustSetPasscode(data)) {
+                setLoginLoading(false)
+                return
+            }
+            if (data?.token) finishLogin(data)
         }
+        setLoginLoading(false)
+    }
+
+    const requestReset = async () => {
+        setLoginLoading(true)
+        const { success } = await commonPostPublicAPICall(
+            {
+                phone: numberAndCountryCode.phone_number,
+                country_code: numberAndCountryCode.country_code || "+91"
+            },
+            "user/student/request_passcode_reset",
+            true
+        )
+        if (success) {
+            startCodeEntry("LOGIN_CODE")
+            setScreen("reset_code")
+        }
+        setLoginLoading(false)
+    }
+
+    const verifyResetCode = async () => {
+        if (!otpValues.every((v) => v !== "")) {
+            ErrorToast("Enter the 6-digit reset code from your email")
+            return
+        }
+        setLoginLoading(true)
+        const { success, data } = await commonPostPublicAPICall(
+            {
+                phone: numberAndCountryCode.phone_number,
+                country_code: numberAndCountryCode.country_code || "+91",
+                code: otpValues.join("")
+            },
+            "user/student/verify_passcode_reset",
+            true
+        )
+        if (success) handleMustSetPasscode(data)
+        setLoginLoading(false)
+    }
+
+    const savePasscode = async () => {
+        const pin = passcode.replace(/\D/g, "")
+        if (pin.length < 4 || pin.length > 6) {
+            ErrorToast("Passcode must be 4–6 digits")
+            return
+        }
+        if (pin !== confirmPasscode.replace(/\D/g, "")) {
+            ErrorToast("Passcodes do not match")
+            return
+        }
+        setLoginLoading(true)
+        const { success, data } = await commonPostPublicAPICall(
+            { setup_token: setupToken, passcode: pin, confirm_passcode: pin },
+            "user/student/set_passcode",
+            true
+        )
+        if (success && data?.token) finishLogin(data)
+        setLoginLoading(false)
     }
 
     return (
@@ -154,27 +245,26 @@ const Login = () => {
                             Open the portal link from your agency (their subdomain or domain) so we can load their branding.
                         </p>
                     )}
-                    {!OTPScreen ? (
+
+                    {screen === "phone" && (
                         <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-                            <div className="space-y-2">
-                                <Input
-                                    label="Enter your phone number"
-                                    labelPlacement='outside-left'
-                                    startContent={<span className="text-sm text-gray-500">+91</span>}
-                                    type="tel"
-                                    {...phoneInputProps}
-                                    value={numberAndCountryCode.phone_number}
-                                    onChange={(e) =>
-                                        setNumberAndCountryCode({
-                                            ...numberAndCountryCode,
-                                            phone_number: toPhoneDigits(e.target.value)
-                                        })
-                                    }
-                                    className="w-full block"
-                                    variant="bordered"
-                                    placeholder="1234567890"
-                                />
-                            </div>
+                            <Input
+                                label="Enter your phone number"
+                                labelPlacement='outside-left'
+                                startContent={<span className="text-sm text-gray-500">+91</span>}
+                                type="tel"
+                                {...phoneInputProps}
+                                value={numberAndCountryCode.phone_number}
+                                onChange={(e) =>
+                                    setNumberAndCountryCode({
+                                        ...numberAndCountryCode,
+                                        phone_number: toPhoneDigits(e.target.value)
+                                    })
+                                }
+                                className="w-full block"
+                                variant="bordered"
+                                placeholder="1234567890"
+                            />
                             <Button
                                 type="submit"
                                 variant="solid"
@@ -187,24 +277,122 @@ const Login = () => {
                                 Continue
                             </Button>
                         </form>
-                    ) : (
+                    )}
+
+                    {screen === "code" && (
                         <div className="space-y-6">
                             <div className="text-center flex items-center justify-center gap-2">
                                 <p className="text-sm text-gray-600">
-                                    {usesLoginCode ? 'Enter your 6-digit login code for' : 'Enter the OTP sent to'}{" "}
+                                    {usesPasscode
+                                        ? 'Enter your passcode for'
+                                        : usesLoginCode
+                                            ? 'Enter your 6-digit login code for'
+                                            : 'Enter the OTP sent to'}{" "}
                                     <span className="font-medium">
                                         {numberAndCountryCode.country_code} {numberAndCountryCode.phone_number}
                                     </span>
                                 </p>
-                                <Button
-                                    isIconOnly
-                                    variant="light"
-                                    onPress={() => setOTPScreeen(false)}
-                                    className=""
-                                >
+                                <Button isIconOnly variant="light" onPress={() => setScreen("phone")}>
                                     <GrEdit className="text-gray-500" />
                                 </Button>
                             </div>
+                            {usesPasscode ? (
+                                <Input
+                                    type="password"
+                                    inputMode="numeric"
+                                    label="Passcode"
+                                    labelPlacement="outside"
+                                    placeholder="4–6 digits"
+                                    variant="bordered"
+                                    value={passcode}
+                                    onChange={(e) => setPasscode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') verifyOTP() }}
+                                />
+                            ) : (
+                                <div className="flex justify-center gap-2">
+                                    {otpValues.map((value: string, index: number) => (
+                                        <input
+                                            key={index}
+                                            autoFocus={index === 0}
+                                            ref={inputRefs[index]}
+                                            type="number"
+                                            maxLength={1}
+                                            value={value}
+                                            onChange={(e) => handleChange(e, index)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && index === codeLength - 1) verifyOTP()
+                                                else handleBackspace(e, index)
+                                            }}
+                                            onPaste={handlePaste}
+                                            className="w-11 h-12 sm:w-12 text-center text-lg border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex justify-between gap-2">
+                                <Button
+                                    variant="flat"
+                                    color="primary"
+                                    onPress={verifyOTP}
+                                    isLoading={loginLoading}
+                                    className="w-full font-medium bg-primary hover:bg-primary/80 text-white"
+                                >
+                                    {usesDigitLogin ? 'Log in' : 'Verify OTP'}
+                                </Button>
+                                {!usesDigitLogin && (
+                                    <Button
+                                        variant="bordered"
+                                        onPress={resendOTPCall}
+                                        className="w-full text-gray-600 hover:text-blue-600 font-medium border border-primary"
+                                    >
+                                        Resend OTP
+                                    </Button>
+                                )}
+                            </div>
+                            {usesLoginCode && (
+                                <p className="text-xs text-center text-default-500">
+                                    Lost your invite code? Ask your agency to send the portal invite again.
+                                </p>
+                            )}
+                            {usesPasscode && (
+                                <button
+                                    type="button"
+                                    className="text-sm text-primary font-medium w-full text-center"
+                                    onClick={() => setScreen("forgot")}
+                                >
+                                    Forgot passcode?
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {screen === "forgot" && (
+                        <div className="space-y-6">
+                            <p className="text-sm text-gray-600 text-center">
+                                We will email a short-lived reset code to the address on your account for{" "}
+                                <span className="font-medium">
+                                    {numberAndCountryCode.country_code} {numberAndCountryCode.phone_number}
+                                </span>.
+                            </p>
+                            <Button
+                                color="primary"
+                                className="w-full bg-primary text-white"
+                                isLoading={loginLoading}
+                                onPress={requestReset}
+                            >
+                                Email me a reset code
+                            </Button>
+                            <Button variant="light" className="w-full" onPress={() => setScreen("code")}>
+                                Back to passcode
+                            </Button>
+                        </div>
+                    )}
+
+                    {screen === "reset_code" && (
+                        <div className="space-y-6">
+                            <p className="text-sm text-gray-600 text-center">
+                                Enter the 6-digit reset code from your email, then choose a new passcode.
+                            </p>
                             <div className="flex justify-center gap-2">
                                 {otpValues.map((value: string, index: number) => (
                                     <input
@@ -216,35 +404,55 @@ const Login = () => {
                                         value={value}
                                         onChange={(e) => handleChange(e, index)}
                                         onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && index === codeLength - 1) verifyOTP()
+                                            if (e.key === 'Enter' && index === codeLength - 1) verifyResetCode()
                                             else handleBackspace(e, index)
                                         }}
                                         onPaste={handlePaste}
-                                        className="w-11 h-12 sm:w-12 text-center text-lg border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                        className="w-11 h-12 sm:w-12 text-center text-lg border border-gray-300 rounded-md"
                                     />
                                 ))}
                             </div>
-                            <div className="flex justify-between gap-2">
-                                <Button
-                                    variant="flat"
-                                    color="primary"
-                                    onPress={verifyOTP}
-                                    className="w-full font-medium bg-primary hover:bg-primary/80 text-white"
-                                >
-                                    {usesLoginCode ? 'Log in' : 'Verify OTP'}
-                                </Button>
-                                {!usesLoginCode && (
-                                    <Button
-                                        variant="bordered"
-                                        onPress={resendOTPCall}
-                                        className="w-full text-gray-600 hover:text-blue-600 font-medium border border-primary"
-                                    >
-                                        Resend OTP
-                                    </Button>
-                                )}
-                            </div>
+                            <Button color="primary" className="w-full bg-primary text-white" isLoading={loginLoading} onPress={verifyResetCode}>
+                                Continue
+                            </Button>
+                            <button type="button" className="text-sm text-primary font-medium w-full text-center" onClick={requestReset}>
+                                Resend reset email
+                            </button>
                         </div>
                     )}
+
+                    {screen === "set_passcode" && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-gray-600 text-center">
+                                Choose a 4–6 digit passcode for future logins.
+                            </p>
+                            <Input
+                                type="password"
+                                inputMode="numeric"
+                                label="New passcode"
+                                labelPlacement="outside"
+                                placeholder="4–6 digits"
+                                variant="bordered"
+                                value={passcode}
+                                onChange={(e) => setPasscode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            />
+                            <Input
+                                type="password"
+                                inputMode="numeric"
+                                label="Confirm passcode"
+                                labelPlacement="outside"
+                                placeholder="Re-enter passcode"
+                                variant="bordered"
+                                value={confirmPasscode}
+                                onChange={(e) => setConfirmPasscode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                onKeyDown={(e) => { if (e.key === 'Enter') savePasscode() }}
+                            />
+                            <Button color="primary" className="w-full bg-primary text-white" isLoading={loginLoading} onPress={savePasscode}>
+                                Save passcode & continue
+                            </Button>
+                        </div>
+                    )}
+
                     {(supportPhone || supportEmail) && (
                         <>
                             <hr className="my-6 border-gray-200" />
@@ -277,287 +485,3 @@ const agencyLoginUrl = () => {
 };
 
 export default Login
-// import { Button, Input } from '@nextui-org/react'
-// import React, { useEffect, useRef, useState } from 'react'
-// import { useDispatch } from 'react-redux'
-// import { ErrorToast } from '../../utils/Toaster'
-// import { setAuthLoading, setProfile, setToken } from '../../redux/slices/loginSlice'
-// import { addToLocal } from '../../utils/localstorage'
-// import { GrEdit } from 'react-icons/gr'
-// import { Link, useNavigate } from 'react-router-dom'
-// import { Carousel } from 'rsuite'
-// import useApiCallUtils from '@/hooks/useApiCallUtils'
-
-
-// const IS_LOCAL = import.meta.env.VITE_IS_LOCAL || false
-
-// const Login = () => {
-
-//     const { commonPostPublicAPICall } = useApiCallUtils()
-
-
-//     useEffect(() => {
-//         window.scrollTo(0, 0)
-//     }, [])
-
-//     const dispatch = useDispatch()
-
-//     const [loginLoading, setLoginLoading] = useState(false)
-
-//     // for OTP
-
-//     const [OTPScreen, setOTPScreeen] = useState(false)
-//     const [verificationId, setVerificationId] = useState("")
-//     const [numberAndCountryCode, setNumberAndCountryCode] = useState({
-//         phone_number: "",
-//         country_code: "+91"
-//     })
-//     const initialValues = Array(4).fill('');
-//     const [otpValues, setValues] = useState<string[]>(initialValues);
-//     const inputRefs = Array(4).fill(0).map(() => useRef<HTMLInputElement>(null));
-
-//     // handle change of otp
-//     const handleChange = (event: any, index: number) => {
-//         // Allow only single digit input
-//         if (/^\d?$/.test(event.target.value)) {
-//             const newValues = [...otpValues];
-//             newValues[index] = event.target.value;
-//             setValues(newValues);
-//             if (event.target.value && index < 5) {
-//                 const nextInput = inputRefs[index + 1].current;
-//                 if (nextInput) {
-//                     nextInput.focus();
-//                 }
-//             }
-//         }
-
-//     };
-
-//     // for handle backspace 
-//     const handleBackspace = (event: any, index: number) => {
-//         if (event.key === 'Backspace' && !otpValues[index] && index > 0) {
-//             inputRefs[index - 1].current?.focus();
-//         }
-//     };
-//     // use for handle paste
-//     const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
-//         event.preventDefault();
-//         const pasteData = event.clipboardData.getData('text').slice(0, 4).split('');
-//         pasteData.forEach((value: string, index: number) => {
-//             if (index < otpValues.length) {
-//                 otpValues[index] = value;
-//                 const inputEl = inputRefs[index].current; // Get a reference to the current input element
-//                 if (inputEl !== null) { // Check if the input element is not null
-//                     inputEl.value = value; // Directly set the value of the input element
-//                 }
-//             }
-//         });
-
-//         setValues([...otpValues]);
-//         const firstEmptyIndex = pasteData.length < 4 ? pasteData.length : -1;
-//         if (firstEmptyIndex !== -1) {
-//             inputRefs[firstEmptyIndex].current?.focus();
-//         }
-//     };
-
-//     const submitCall =
-//         async () => {
-//             setLoginLoading(true)
-//             const { success, data } = await commonPostPublicAPICall({ phone: numberAndCountryCode.phone_number, country_code: "+91" }, `user/student/${IS_LOCAL == 'true' ? 'login_with_number_custom' : 'login_with_number'}`, true);
-//             // console.log(data);
-
-//             if (success == true) {
-
-//                 setOTPScreeen(true)
-
-//                 setVerificationId(data)
-
-//             }
-//             setLoginLoading(false)
-//         }
-//     const resendOTPCall =
-//         async () => {
-
-//             const { success, data } = await commonPostPublicAPICall({ country_code: numberAndCountryCode.country_code, phone: numberAndCountryCode.phone_number }, `user/student/${IS_LOCAL == 'true' ? 'login_with_number_custom' : 'login_with_number'}`, true);
-//             // console.log(data);
-
-//             if (success == true) {
-
-//                 setOTPScreeen(true)
-//                 setNumberAndCountryCode({
-//                     country_code: numberAndCountryCode.country_code,
-//                     phone_number: numberAndCountryCode.phone_number
-//                 })
-
-//                 setVerificationId(data)
-
-//             }
-//         }
-//     const navigate = useNavigate()
-//     return (
-//         <section className="grid h-[85vh] grid-cols-1 md:grid-cols-2 justify-center items-center">
-
-//             <div className="hidden md:block p-4">
-//                 {/* <img src="https://images.pexels.com/photos/2859169/pexels-photo-2859169.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" alt="" className="w-full h-full object-cover rounded-3xl" /> */}
-//                 <Carousel
-//                     placement={"right"}
-//                     shape={"bar"}
-//                     autoplay={true}
-//                     className="custom-slider rounded-lg h-fill"
-//                 >
-//                     <img src="https://images.pexels.com/photos/20139116/pexels-photo-20139116/free-photo-of-jonkoping-university.jpeg" className='object-cover rounded-md' />
-//                     <img src="https://images.pexels.com/photos/5714059/pexels-photo-5714059.jpeg" className='object-cover rounded-md' />
-//                     <img src="https://images.pexels.com/photos/2570062/pexels-photo-2570062.jpeg" className='object-cover rounded-md' />
-//                 </Carousel>
-
-//             </div>
-
-//             <div className="w-full px-6 flex items-center justify-center">
-
-//                 <div className="w-full">
-//                     <h1 className="text-xl md:text-2xl font-bold leading-tight mt-12">Log in to your account</h1>
-
-//                     {
-//                         OTPScreen == false ?
-//                             <form className="mt-6 space-y-4" onSubmit={(e) => {
-//                                 e.preventDefault()
-//                                 // submitCall()
-//                             }}>
-//                                 <Input
-//                                     label="Phone Number"
-//                                     startContent={<p className='text-sm'>+91</p>}
-//                                     value={numberAndCountryCode.phone_number}
-//                                     onChange={(e) => {
-//                                         setNumberAndCountryCode({
-//                                             ...numberAndCountryCode,
-//                                             phone_number: e.target.value
-//                                         })
-//                                     }}
-//                                     className='max-w-xl'
-//                                 />
-//                                 <Button
-//                                     type='submit'
-//                                     variant='flat'
-//                                     color='warning'
-//                                     onPress={submitCall}
-//                                     isLoading={loginLoading}
-//                                     isDisabled={numberAndCountryCode.phone_number.length < 10}
-//                                 >Send OTP</Button>
-//                             </form>
-//                             :
-//                             <div className="flex items-start justify-start sm:px-1 lg:px-1 ">
-//                                 <div className="xl:mx-auto xl:w-full py-10 rounded-2xl">
-//                                     <p className="text-base ">
-//                                         Enter the OTP that was sent to your phone number{" "}
-//                                     </p>
-//                                     <section className="text-sm flex flex-row itms-center justify-start gap-2">
-//                                         <p className='flex items-center'> {"+91"}{" "}{numberAndCountryCode.phone_number}</p>
-//                                         <Button isIconOnly variant='light' onPress={() => { setOTPScreeen(false) }}>
-//                                             <GrEdit className="text-sm " />
-//                                         </Button>
-//                                     </section>
-//                                     <div className="flex flex-row items-center gap-x-2 gap-y-2">
-//                                         {otpValues.map((value: string, index: number) => (
-//                                             <input
-//                                                 key={index}
-//                                                 autoFocus={index == 0}
-//                                                 ref={inputRefs[index]}
-//                                                 type="number"
-//                                                 maxLength={1}
-//                                                 max={9}
-//                                                 value={value}
-//                                                 onChange={(e) => handleChange(e, index)}
-//                                                 onKeyDown={async (e) => {
-//                                                     if (e.key === 'Enter' && index == 3) {
-//                                                         let emptyOTP = false
-//                                                         otpValues.forEach((item: any) => {
-//                                                             if (item == "") {
-//                                                                 emptyOTP = true
-//                                                             }
-//                                                         })
-//                                                         if (emptyOTP) {
-//                                                             ErrorToast("Please Enter OTP")
-//                                                         } else {
-//                                                             const { success, data } = await commonPostPublicAPICall({ country_code: numberAndCountryCode.country_code, otp: otpValues.join(""), phone_number: "" + numberAndCountryCode.phone_number, verificationId: verificationId }, `user/student/${IS_LOCAL == 'true' ? 'validate_otp_custom' : 'validate_otp'}`, true);
-//                                                             if (success == true) {
-//                                                                 dispatch(setToken(data.token))
-//                                                                 dispatch(setProfile({
-//                                                                     phone: data.country_code + " " + data.phone,
-//                                                                     user_name: data.name
-//                                                                 }))
-//                                                                 addToLocal("token", data.token)
-//                                                                 addToLocal("phone_with_code", data.country_code + " " + data.phone)
-//                                                                 addToLocal("name", data.name)
-//                                                                 dispatch(setAuthLoading('false'))
-//                                                                 navigate("/")
-//                                                             }
-//                                                         }
-
-//                                                     } else {
-//                                                         handleBackspace(e, index)
-//                                                     }
-//                                                 }
-
-//                                                 }
-//                                                 onPaste={handlePaste}
-//                                                 className="h-10 w-10 text-center text-gray-900 border border-gray-300 rounded-lg bg-gray-50 text-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 inline-block"
-//                                             />
-//                                         ))}
-//                                     </div>
-//                                     <div className='flex flex-row gap-2 my-2'>
-//                                         <Button
-//                                             // disabled={isSubmitting}
-//                                             //   className="inline-flex w-fit items-center justify-center rounded-lg bg-black px-3.5 py-2.5 font-semibold leading-7 text-white hover:bg-black/80"
-//                                             onPress={async () => {
-//                                                 // console.log(otpValues)
-//                                                 let emptyOTP = false
-//                                                 otpValues.forEach((item: any) => {
-//                                                     if (item == "") {
-//                                                         emptyOTP = true
-//                                                     }
-//                                                 })
-//                                                 if (emptyOTP) {
-//                                                     ErrorToast("Please Enter OTP")
-//                                                 } else {
-//                                                     const { success, data } = await commonPostPublicAPICall({ country_code: numberAndCountryCode.country_code, otp: otpValues.join(""), phone_number: "" + numberAndCountryCode.phone_number, verificationId }, `user/student/${IS_LOCAL == 'true' ? 'validate_otp_custom' : 'validate_otp'}`, true);
-//                                                     if (success == true) {
-//                                                         dispatch(setToken(data.token))
-//                                                         dispatch(setProfile({
-//                                                             phone: data.country_code + " " + data.phone,
-//                                                             user_name: data.name
-//                                                         }))
-//                                                         addToLocal("token", data.token)
-//                                                         addToLocal("phone_with_code", data.country_code + " " + data.phone)
-//                                                         addToLocal("name", data.name)
-//                                                         dispatch(setAuthLoading('false'))
-//                                                         navigate("/")
-//                                                     }
-//                                                 }
-//                                             }}
-//                                         >
-//                                             Verify
-//                                         </Button>
-//                                         <Button
-//                                             onPress={resendOTPCall}
-//                                         >
-//                                             Resend
-//                                         </Button>
-//                                     </div>
-//                                 </div>
-//                             </div>
-//                     }
-//                     <hr className="my-6 border-gray-300 w-full" />
-
-
-//                     <p className="mt-8">Need an account? <Link to="/signup" className="text-blue-500 hover:text-blue-700 font-semibold">Create an
-//                         account</Link></p>
-
-
-//                 </div>
-//             </div>
-
-//         </section>
-//     )
-// }
-
-// export default Login

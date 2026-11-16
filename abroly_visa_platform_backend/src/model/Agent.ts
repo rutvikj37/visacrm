@@ -57,7 +57,7 @@ const Agent = sequelize.define('Agent', {
         allowNull: true,
         defaultValue: null
     },
-    // fixed login code for the agency owner (sent in the welcome email), bcrypt hash; see services/agencyLogin.ts
+    // invite login code or personal passcode (bcrypt); see services/agencyLogin.ts
     login_pin: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -69,6 +69,23 @@ const Agent = sequelize.define('Agent', {
         defaultValue: 0
     },
     login_pin_locked_until: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
+    },
+    // false = login_pin is the emailed invite code; true = user-set daily passcode
+    passcode_set: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    },
+    // short-lived "forgot passcode" email code (bcrypt) + expiry
+    login_reset_code: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: null
+    },
+    login_reset_expires: {
         type: DataTypes.DATE,
         allowNull: true,
         defaultValue: null
@@ -238,8 +255,19 @@ const Agent = sequelize.define('Agent', {
     tableName: 'agent',
     timestamps: true,
     paranoid:true,
-    // never send the login code hash in API responses; read it only via Agent.scope("withLoginPin")
-    defaultScope: { attributes: { exclude: ["login_pin", "login_pin_attempts", "login_pin_locked_until"] } },
+    // never send pin / reset hashes in API responses; read them only via Agent.scope("withLoginPin")
+    defaultScope: {
+        attributes: {
+            exclude: [
+                "login_pin",
+                "login_pin_attempts",
+                "login_pin_locked_until",
+                "passcode_set",
+                "login_reset_code",
+                "login_reset_expires",
+            ],
+        },
+    },
     scopes: { withLoginPin: {} },
 });
 

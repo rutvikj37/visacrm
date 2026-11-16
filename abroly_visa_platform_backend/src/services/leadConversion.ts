@@ -243,14 +243,15 @@ export const sendPortalInviteEmail = async (agencyUuid: string, lead: any, count
             ? `Track your progress, upload documents and pay fees in the student portal:\n${invite.portal_url}\n\n`
             : "Your agency will share the student portal link with you.\n\n") +
         (code
-            ? `How to log in:\n1. Enter your mobile number: ${phone || "(the number on file)"}\n2. Enter your 6-digit login code: ${code}\n\nKeep this code private. If you lose it, ask ${agencyName} to send the invite again.\n\n`
+            ? `How to log in:\n1. Enter your mobile number: ${phone || "(the number on file)"}\n2. Enter your 6-digit login code: ${code}\n3. On first login, set your own passcode (4–6 digits) for future sign-ins\n\nKeep this code private. If you lose it before setting a passcode, ask ${agencyName} to send the invite again. After you set a passcode, use Forgot passcode on the login screen.\n\n`
             : `Log in with your mobile number ${phone || "(the number on file)"}.\n\n`) +
         `If you did not expect this email, you can ignore it.`;
     const card = code
         ? `<table role="presentation" style="margin:16px 0;border:1px solid #e5e7eb;border-radius:10px;border-collapse:separate;width:100%">` +
           `<tr><td style="padding:12px 16px;color:#555;font-size:13px">Mobile number</td><td style="padding:12px 16px;font-weight:bold;font-size:15px">${phone}</td></tr>` +
           `<tr><td style="padding:12px 16px;color:#555;font-size:13px;border-top:1px solid #e5e7eb">Login code</td>` +
-          `<td style="padding:12px 16px;border-top:1px solid #e5e7eb"><span style="font-family:monospace;font-size:24px;font-weight:bold;letter-spacing:6px">${code}</span></td></tr></table>`
+          `<td style="padding:12px 16px;border-top:1px solid #e5e7eb"><span style="font-family:monospace;font-size:24px;font-weight:bold;letter-spacing:6px">${code}</span></td></tr></table>` +
+          `<p style="color:#555;font-size:13px;margin:0">After you log in once, you will set a personal passcode for everyday use.</p>`
         : undefined;
     const brand = await agencyBrand(agencyUuid);
     const sent = await sendMail(

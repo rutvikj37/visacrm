@@ -13,6 +13,9 @@ agentRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), AgentCo
 agentRoutes.route("/validate_otp_custom").post(localOnly, AgentController.validateOTPCustom)
 agentRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberValidation), AgentController.loginWithNumber)
 agentRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), AgentController.loginWithNumberCustom)
+agentRoutes.route("/request_passcode_reset").post(validationBodyMw(loginWithNumberValidation), AgentController.requestPasscodeReset)
+agentRoutes.route("/verify_passcode_reset").post(AgentController.verifyPasscodeReset)
+agentRoutes.route("/set_passcode").post(AgentController.setPasscode)
 // agentRoutes.route("/signup").post(validationBodyMw(sinupWithNumberValidation), AgentNumberExistMw, AgentController.signup)
 // agentRoutes.route("/signup_custom").post(validationBodyMw(sinupWithNumberValidation), AgentNumberExistMw, AgentController.signupCustom)
 
