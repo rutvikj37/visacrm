@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, Popover, PopoverContent, PopoverTrigger, Spinner, Switch } from "@heroui/react";
 import {
-    AlarmClock, AtSign, Bell, CalendarClock, CheckCheck, CreditCard, FileUp, Inbox, MessageCircle, Sun, UserPlus, Briefcase,
+    AlarmClock, AtSign, Bell, CalendarClock, CheckCheck, CheckSquare, CreditCard, FileUp, Inbox, MessageCircle, Sun, UserPlus, Briefcase,
     Megaphone,
 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
@@ -11,6 +11,8 @@ const ICONS: Record<string, any> = {
     new_lead: Inbox,
     lead_assigned: UserPlus,
     case_assigned: Briefcase,
+    task_assigned: CheckSquare,
+    portal_chat: MessageCircle,
     whatsapp_message: MessageCircle,
     follow_up_due: CalendarClock,
     daily_digest: Sun,

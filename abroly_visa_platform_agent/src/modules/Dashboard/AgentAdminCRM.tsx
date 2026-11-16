@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsUpDown, FileText, Inbox, LogOut, SquareTerminal, Users, Home, KanbanSquare, Settings } from "lucide-react"
+import { ChevronRight, ChevronsUpDown, Inbox, LogOut, SquareTerminal, Users, Home, KanbanSquare, Settings } from "lucide-react"
 
 
 import {
@@ -108,6 +108,7 @@ const AgentCRM = () => {
         items: [
           { title: "Lead Inbox", url: "/crm/leads" },
           { title: "Chats", url: "/crm/chats" },
+          { title: "Tasks", url: "/crm/tasks" },
           { title: "Follow-ups today", url: "/crm/leads?follow_up=today" },
           { title: "Calendar", url: "/crm/calendar" },
           // Messages (broadcast templates) hidden for now
@@ -156,17 +157,7 @@ const AgentCRM = () => {
         ],
       },
       // paid add-ons (shown only when the plan includes them)
-      {
-        title: "Service requests",
-        addon: "service_requests",
-        url: "#",
-        icon: FileText,
-        isActive: false,
-        items: [
-          { title: "Health insurance", url: "/service_request/health" },
-          { title: "SIM cards", url: "/service_request/data" },
-        ],
-      },
+      // Service requests (health/SIM) removed — covered by Services store under Visa cases
       {
         title: "Jobs",
         addon: "jobs",

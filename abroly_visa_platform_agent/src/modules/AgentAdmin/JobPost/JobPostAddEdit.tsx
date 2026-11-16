@@ -1,433 +1,274 @@
 import BackButton from '@/components/BackButton';
-import { SuccessToast } from '@/utils/Toaster';
-import { Button, Input, Select, SelectItem } from "@heroui/react";
-import { ArrowLeft, Briefcase, Plus, Edit } from 'lucide-react';
-import React, { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom';
-
+import { SuccessToast, ErrorToast } from '@/utils/Toaster';
+import { Button, Checkbox, Input, Select, SelectItem } from "@heroui/react";
+import { Briefcase, Plus, Edit, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
 import ReactFlagsSelect from 'react-flags-select';
-import { PRIMARY_COLOR, BRAND_TEXT, PRIMARY_COLOR_LIGHT, PRIMARY_COLOR_DARK, getPrimaryGradient } from '@/lib/theme';
+
+const JOB_TYPES = ["Full-time", "Part-time", "Temporary/Contract", "Internship"];
+const WORK_PERMITS = ["Employment Visa (ECR)", "Employment Visa (ECNR)"];
+
+type CustomField = { id: string; label: string; value: string };
+
+const toDateInput = (v: any) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const emptyForm = {
+    jobType: "Full-time",
+    country: "",
+    jobRole: "",
+    salaryMin: "",
+    salaryMax: "",
+    experienceRequired: "",
+    educationLevel: "",
+    workPermit: "Employment Visa (ECR)",
+    overtime: false,
+    accommodation: false,
+    transportation: false,
+    food: "",
+    medicalInsurance: false,
+    workHours: "",
+    agentCharges: "",
+    skillsRequired: "",
+    applicationDeadline: "",
+    description: "",
+    uuid: "",
+};
+
+/** Create or edit a job post, including agency-defined custom fields. */
 const JobPostAddEdit = () => {
-    const { commonPostAPICall } = useApiCallUtils()
+    const { commonPostAPICall } = useApiCallUtils();
+    const navigate = useNavigate();
+    const { state }: any = useLocation();
+    const [params] = useSearchParams();
+    const seed = state?.jobPost;
+    const uuidFromQuery = params.get("uuid") || "";
 
-    const navigate = useNavigate()
+    const [formData, setFormData] = useState({ ...emptyForm });
+    const [customFields, setCustomFields] = useState<CustomField[]>([]);
+    const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const { state }: any = useLocation()
+    const hydrate = (jobPost: any) => {
+        if (!jobPost) return;
+        setFormData({
+            jobType: jobPost.jobType || "Full-time",
+            country: jobPost.country || "",
+            jobRole: jobPost.jobRole || "",
+            salaryMin: jobPost.salaryMin ?? "",
+            salaryMax: jobPost.salaryMax ?? "",
+            experienceRequired: jobPost.experienceRequired ?? "",
+            educationLevel: jobPost.educationLevel || "",
+            workPermit: jobPost.workPermit || "Employment Visa (ECR)",
+            overtime: !!jobPost.overtime,
+            accommodation: !!jobPost.accommodation,
+            transportation: !!jobPost.transportation,
+            food: jobPost.food || "",
+            medicalInsurance: !!jobPost.medicalInsurance,
+            workHours: jobPost.workHours || "",
+            agentCharges: jobPost.agentCharges || "",
+            skillsRequired: jobPost.skillsRequired || "",
+            applicationDeadline: toDateInput(jobPost.applicationDeadline),
+            description: jobPost.description || "",
+            uuid: jobPost.uuid || "",
+        });
+        const fields = Array.isArray(jobPost.custom_fields) ? jobPost.custom_fields : [];
+        setCustomFields(fields.map((f: any, i: number) => ({
+            id: String(f.id || `cf_${i}`),
+            label: String(f.label || ""),
+            value: String(f.value ?? ""),
+        })));
+    };
 
-    const jobPost = state.jobPost
+    useEffect(() => {
+        if (seed?.uuid) {
+            hydrate(seed);
+            return;
+        }
+        const uuid = uuidFromQuery;
+        if (!uuid) return;
+        (async () => {
+            setLoading(true);
+            const { success, data } = await commonPostAPICall({ uuid }, "job_post/details", false);
+            setLoading(false);
+            if (success && data) hydrate(data);
+            else ErrorToast("Could not load job post");
+        })();
+    }, []);
 
-    // console.log(jobPost,"JOBPOST");
+    const isEditMode = !!formData.uuid;
 
+    const setField = (name: string, value: any) => setFormData((prev) => ({ ...prev, [name]: value }));
 
-    const [formData, setFormData] = useState({
-        jobType: jobPost?.jobType || "Full-time",
-        country: jobPost?.country || "",
-        jobRole: jobPost?.jobRole || "",
-        salaryMin: jobPost?.salaryMin || "",
-        salaryMax: jobPost?.salaryMax || "",
-        experienceRequired: jobPost?.experienceRequired || "",
-        educationLevel: jobPost?.educationLevel || "",
-        workPermit: jobPost?.workPermit || "Employment Visa (ECR)",
-        overtime: jobPost?.overtime || false,
-        accommodation: jobPost?.accommodation || false,
-        transportation: jobPost?.transportation || false,
-        food: jobPost?.food || "",
-        medicalInsurance: jobPost?.medicalInsurance || false,
-        workHours: jobPost?.workHours || "",
-        agentCharges: jobPost?.agentCharges || "",
-        skillsRequired: jobPost?.skillsRequired || "",
-        applicationDeadline: jobPost?.applicationDeadline || "",
-        description: jobPost?.description || "",
-        uuid: jobPost?.uuid || ""
-    });
+    const addCustomField = () => {
+        setCustomFields((prev) => [...prev, { id: `cf_${Date.now()}_${prev.length}`, label: "", value: "" }]);
+    };
+    const updateCustomField = (id: string, patch: Partial<CustomField>) => {
+        setCustomFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    };
+    const removeCustomField = (id: string) => {
+        setCustomFields((prev) => prev.filter((f) => f.id !== id));
+    };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log(formData);
-        // here handle submit operation
-
-        const { data, success } = await commonPostAPICall(
-            { ...formData },
-            formData.uuid !== "" ? "job_post/update" : "/job_post/create")
-        if (success && success == true) {
-            SuccessToast("Job Post Created")
-            navigate(-1)
+        if (!formData.country || !formData.jobRole) {
+            ErrorToast("Country and job role are required");
+            return;
+        }
+        setSaving(true);
+        const payload = {
+            ...formData,
+            salaryMin: Number(formData.salaryMin),
+            salaryMax: Number(formData.salaryMax),
+            experienceRequired: Number(formData.experienceRequired),
+            custom_fields: customFields.filter((f) => f.label.trim()),
+        };
+        const { success } = await commonPostAPICall(
+            payload,
+            isEditMode ? "job_post/update" : "job_post/create",
+            true,
+        );
+        setSaving(false);
+        if (success) {
+            SuccessToast(isEditMode ? "Job post updated" : "Job post created");
+            navigate("/job_post/find/active");
         }
     };
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData({
-            ...formData,
-            [name]: type === "checkbox" ? checked : value,
-        });
-    };
+    const fieldClass = useMemo(() => ({
+        inputWrapper: "border-default-300",
+        label: "text-sm font-medium text-default-700",
+    }), []);
 
-    const handleChangeDescription = (e) => {
-        setFormData({
-            ...formData,
-            description: e
-        })
+    if (loading) {
+        return <div className="p-8 text-sm text-default-500">Loading job post…</div>;
     }
 
-
-    const isEditMode = jobPost?.id;
-
     return (
-        <div className="w-full min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/30">
-            <style>{`
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                @keyframes shimmer {
-                    0% {
-                        background-position: -1000px 0;
-                    }
-                    100% {
-                        background-position: 1000px 0;
-                    }
-                }
-            `}</style>
-
-            {/* Premium Header Section */}
-            <div className="relative mb-2">
-                <div className="relative py-1">
-                    <div className="max-w-[1920px] mx-auto">
-                        <div className="flex items-center gap-3">
-                            <BackButton
-                                title=""
-                            />
-                            <div className="flex-1">
-                                <h1 className="text-xl sm:text-2xl font-semibold text-foreground mb-1 
-                                             tracking-tight leading-tight">
-                                    {isEditMode ? "Edit Job Post" : "Add Job Post"}
-                                </h1>
-                                <p className="text-default-500 text-xs sm:text-sm font-medium">
-                                    {isEditMode ? "Update job post details" : "Create a new job posting"}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+        <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-5xl">
+            <div className="flex items-start gap-3">
+                <BackButton title="" />
+                <div>
+                    <h1 className="text-xl sm:text-2xl font-semibold">{isEditMode ? "Edit job post" : "Add job post"}</h1>
+                    <p className="text-sm text-default-500">
+                        {isEditMode ? "Update this opening" : "Create an opening for your student portal"} — add custom fields your agency needs.
+                    </p>
                 </div>
-                </div>
+            </div>
 
-            <div className="p-4 sm:p-6 lg:p-8">
-                <div className="max-w-[1920px] mx-auto">
-                    <form className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg p-6 sm:p-8" onSubmit={handleSubmit} style={{ animation: 'fadeInUp 0.6s ease-out' }}>
-                        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-6 sm:gap-6">
-                    <div className="space-y-1">
-                        <Select
-                        placeholder="Select Job Type"
-                            // label="Select Job Type"
-                            // placeholder="Select Job Type"
-                            labelPlacement="outside"
-                            value={formData.jobType}
-                            defaultSelectedKeys={["Full-time"]}
-                            onChange={handleChange}
-                            classNames={{
-                                trigger: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                        >
-                            {[
-                                "Full-time",
-                                "Part-time",
-                                "Temporary/Contract",
-                                "Internship"].map((items) => <SelectItem key={items}>{items}</SelectItem>)}
-                        </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                        <Select
-                            // label="Select Work Permit"
-                            placeholder="Select Work Permit"
-                            labelPlacement="outside"
-                            value={formData.workPermit}
-                            onChange={handleChange}
-                            defaultSelectedKeys={["Employment Visa (ECR)"]}
-                            classNames={{
-                                trigger: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                        >
-                            {[
-                                "Employment Visa (ECR)",
-                                "Employment Visa (ECNR)"].map((items) => <SelectItem key={items}>{items}</SelectItem>)}
-                        </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Country</label>
+            <form className="rounded-xl border border-default-200 bg-content1 p-4 sm:p-6 flex flex-col gap-5" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Select
+                        label="Job type"
+                        selectedKeys={[formData.jobType]}
+                        onSelectionChange={(keys) => {
+                            const v = Array.from(keys)[0];
+                            if (v) setField("jobType", String(v));
+                        }}
+                    >
+                        {JOB_TYPES.map((t) => <SelectItem key={t}>{t}</SelectItem>)}
+                    </Select>
+                    <Select
+                        label="Work permit"
+                        selectedKeys={[formData.workPermit]}
+                        onSelectionChange={(keys) => {
+                            const v = Array.from(keys)[0];
+                            if (v) setField("workPermit", String(v));
+                        }}
+                    >
+                        {WORK_PERMITS.map((t) => <SelectItem key={t}>{t}</SelectItem>)}
+                    </Select>
+                    <div>
+                        <label className="block text-sm font-medium text-default-700 mb-1">Country</label>
                         <ReactFlagsSelect
                             selected={formData.country}
                             searchable
-                            onSelect={(e) => setFormData({ ...formData, country: e })}
+                            onSelect={(c) => setField("country", c)}
                         />
                     </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="text"
-                            name="jobRole"
-                            // label="Job Role"
-                            placeholder="Enter job role"
-                            labelPlacement="outside"
-                            value={formData.jobRole}
-                            onChange={handleChange}
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="number"
-                            name="salaryMin"
-                            // label="~Salary Min / Month (INR)"
-                            placeholder="Enter minimum salary in INR"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            value={formData.salaryMin}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="number"
-                            name="salaryMax"
-                            // label="~Salary Max / Month (INR)"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            placeholder="Enter maximum salary in INR"
-                            value={formData.salaryMax}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="number"
-                            // label="Experience Required (Years)"
-                            name="experienceRequired"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            placeholder="Enter years of experience"
-                            value={formData.experienceRequired}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            // label="Education Level"
-                            type="text"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            name="educationLevel"
-                            placeholder="Enter education level"
-                            value={formData.educationLevel}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="text"
-                            name="food"
-                            // label="Food"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            placeholder="Enter food details"
-                            value={formData.food}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="text"
-                            name="workHours"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            // label="Working Hours / Month"
-                            placeholder="Enter working hours per month"
-                            value={formData.workHours}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            // label="Agent Charges"
-                            type="text"
-                            name="agentCharges"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            placeholder="Enter agent charges"
-                            value={formData.agentCharges}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="text"
-                            // label="Skills Required"
-                            name="skillsRequired"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            placeholder="Communication, Problem Solving, etc."
-                            value={formData.skillsRequired}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Input
-                            type="date"
-                            // label="Application Deadline"
-                            name="applicationDeadline"
-                            labelPlacement="outside"
-                            classNames={{
-                                inputWrapper: "border-gray-300 hover:border-primary focus-within:border-primary transition-colors",
-                                label: "text-sm font-medium text-gray-700 mb-1"
-                            }}
-                            value={formData.applicationDeadline}
-                            onChange={handleChange}
-                        />
-                    </div>
-
+                    <Input label="Job role" value={formData.jobRole} onValueChange={(v) => setField("jobRole", v)} isRequired classNames={fieldClass} />
+                    <Input type="number" label="Salary min (INR / month)" value={String(formData.salaryMin)} onValueChange={(v) => setField("salaryMin", v)} isRequired classNames={fieldClass} />
+                    <Input type="number" label="Salary max (INR / month)" value={String(formData.salaryMax)} onValueChange={(v) => setField("salaryMax", v)} isRequired classNames={fieldClass} />
+                    <Input type="number" label="Experience (years)" value={String(formData.experienceRequired)} onValueChange={(v) => setField("experienceRequired", v)} isRequired classNames={fieldClass} />
+                    <Input label="Education level" value={formData.educationLevel} onValueChange={(v) => setField("educationLevel", v)} isRequired classNames={fieldClass} />
+                    <Input label="Food" value={formData.food} onValueChange={(v) => setField("food", v)} isRequired classNames={fieldClass} />
+                    <Input label="Working hours / month" value={formData.workHours} onValueChange={(v) => setField("workHours", v)} isRequired classNames={fieldClass} />
+                    <Input label="Agent charges" value={formData.agentCharges} onValueChange={(v) => setField("agentCharges", v)} isRequired classNames={fieldClass} />
+                    <Input label="Skills required" value={formData.skillsRequired} onValueChange={(v) => setField("skillsRequired", v)} placeholder="Communication, Excel…" classNames={fieldClass} />
+                    <Input type="date" label="Application deadline" value={formData.applicationDeadline} onValueChange={(v) => setField("applicationDeadline", v)} isRequired classNames={fieldClass} />
                 </div>
 
-                        <section className='p-4 sm:p-6 bg-gray-50/50 rounded-xl border border-gray-200/50 space-y-3 col-span-full'>
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${PRIMARY_COLOR}15` }}>
-                                    <Briefcase className="h-4 w-4" style={{ color: BRAND_TEXT }} />
-                                </div>
-                                <p className="text-base font-semibold text-gray-800">Description</p>
-                            </div>
-                            <ReactQuill
-                                theme="snow"
-                                value={formData.description}
-                                onChange={handleChangeDescription}
-                                className="bg-white rounded-lg"
-                            />
-                        </section>
+                <div className="flex flex-wrap gap-4 rounded-lg border border-default-200 bg-default-50 p-3">
+                    {([
+                        ["overtime", "Overtime"],
+                        ["accommodation", "Accommodation"],
+                        ["transportation", "Transportation"],
+                        ["medicalInsurance", "Medical insurance"],
+                    ] as const).map(([key, label]) => (
+                        <Checkbox key={key} isSelected={!!formData[key]} onValueChange={(v) => setField(key, v)}>
+                            {label}
+                        </Checkbox>
+                    ))}
+                </div>
 
-                        <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 px-2 py-4 col-span-full bg-gray-50/50 rounded-xl border border-gray-200/50'>
-                            <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-primary/30 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    name="overtime"
-                                    checked={formData.overtime}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 rounded border-gray-300"
-                                    style={{ accentColor: PRIMARY_COLOR }}
-                                />
-                                <label className="ml-2 block text-sm font-medium text-gray-700">Overtime</label>
-                            </div>
-
-                            <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-primary/30 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    name="accommodation"
-                                    checked={formData.accommodation}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 rounded border-gray-300"
-                                    style={{ accentColor: PRIMARY_COLOR }}
-                                />
-                                <label className="ml-2 block text-sm font-medium text-gray-700">Accommodation</label>
-                            </div>
-
-                            <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-primary/30 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    name="transportation"
-                                    checked={formData.transportation}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 rounded border-gray-300"
-                                    style={{ accentColor: PRIMARY_COLOR }}
-                                />
-                                <label className="ml-2 block text-sm font-medium text-gray-700">Transportation</label>
-                            </div>
-
-                            <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-primary/30 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    name="medicalInsurance"
-                                    checked={formData.medicalInsurance}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 rounded border-gray-300"
-                                    style={{ accentColor: PRIMARY_COLOR }}
-                                />
-                                <label className="ml-2 block text-sm font-medium text-gray-700">Medical Insurance</label>
-                            </div>
+                <div className="rounded-lg border border-default-200 p-3 sm:p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <div>
+                            <div className="font-medium flex items-center gap-2"><Briefcase size={16} /> Custom fields</div>
+                            <p className="text-xs text-default-500">Add any extra details your agency needs for this job (e.g. language, shift, city).</p>
                         </div>
-
-                        <div className="col-span-full flex justify-end mt-6">
-                            <Button
-                                type="submit"
-                                className="font-semibold shadow-lg hover:shadow-xl transition-all min-w-[180px]"
-                                style={{ 
-                                    background: getPrimaryGradient('to-r'),
-                                    color: 'white'
-                                }}
-                            >
-                                {isEditMode ? (
-                                    <>
-                                        <Edit className="w-4 h-4 mr-2" />
-                                        Update Job Post
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        Create Job Post
-                                    </>
-                                )}
+                        <Button size="sm" variant="flat" startContent={<Plus size={14} />} onPress={addCustomField}>Add field</Button>
+                    </div>
+                    {!customFields.length && (
+                        <p className="text-sm text-default-400">No custom fields yet.</p>
+                    )}
+                    {customFields.map((f) => (
+                        <div key={f.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                            <Input
+                                size="sm"
+                                label="Field name"
+                                placeholder="e.g. Preferred language"
+                                value={f.label}
+                                onValueChange={(v) => updateCustomField(f.id, { label: v })}
+                            />
+                            <Input
+                                size="sm"
+                                label="Value"
+                                placeholder="e.g. English / Hindi"
+                                value={f.value}
+                                onValueChange={(v) => updateCustomField(f.id, { value: v })}
+                            />
+                            <Button isIconOnly size="sm" variant="light" color="danger" aria-label="Remove field" onPress={() => removeCustomField(f.id)}>
+                                <Trash2 size={16} />
                             </Button>
                         </div>
-                    </form>
+                    ))}
                 </div>
-            </div>
-        </div>
-    )
-}
 
-export default JobPostAddEdit
+                <div className="flex flex-col gap-2">
+                    <span className="text-sm font-medium">Description</span>
+                    <ReactQuill theme="snow" value={formData.description} onChange={(v) => setField("description", v)} className="bg-content1 rounded-lg" />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-default-100">
+                    <Button variant="flat" onPress={() => navigate(-1)}>Cancel</Button>
+                    <Button type="submit" color="primary" isLoading={saving} startContent={!saving && (isEditMode ? <Edit size={16} /> : <Plus size={16} />)}>
+                        {isEditMode ? "Update job post" : "Create job post"}
+                    </Button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+export default JobPostAddEdit;

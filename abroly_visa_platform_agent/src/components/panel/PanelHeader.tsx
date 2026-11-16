@@ -9,7 +9,7 @@ import ThemeModeButton from "./ThemeModeButton";
 /** Page titles for the top bar, by path prefix (longest match wins). */
 const TITLES: [string, string][] = [
     ["/today", "Today"], ["/dashboard", "Reports"], ["/reports", "Branch report"],
-    ["/crm/leads", "Lead Inbox"], ["/crm/chats", "Chats"], ["/crm/calendar", "Calendar"], ["/crm/sources", "Lead sources"], ["/crm/templates", "Visa templates"],
+    ["/crm/leads", "Lead Inbox"], ["/crm/chats", "Chats"], ["/crm/tasks", "Tasks"], ["/crm/calendar", "Calendar"], ["/crm/sources", "Lead sources"], ["/crm/templates", "Visa templates"],
     ["/cases/board", "Case board"], ["/leads/progress", "Visa case"], ["/leads", "Visa cases"], ["/fees", "Client fees"], ["/services", "Services store"], ["/services/orders", "Service order"], ["/settings/payments", "Payments"],
     ["/branches", "Branches"], ["/activity", "Activity log"], ["/team/roles", "Roles & branches"], ["/sub_agent", "Team"], ["/subscription", "Subscription"], ["/branding", "Branding"],
     ["/profile", "Profile"], ["/contact_us", "Contact us"],

@@ -15,7 +15,7 @@ const TABS = [
 ];
 
 // pages where the "+" button would cover a form or the page's own actions
-const NO_FAB = ["/crm/chats", "/crm/leads/", "/leads/progress/", "/fees/", "/subscription", "/branding", "/crm/messages", "/crm/templates"];
+const NO_FAB = ["/crm/chats", "/crm/tasks", "/crm/leads/", "/leads/progress/", "/fees/", "/subscription", "/branding", "/crm/messages", "/crm/templates"];
 
 const PanelBottomNav = () => {
     const navigate = useNavigate();

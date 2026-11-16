@@ -65,16 +65,14 @@ const JobPost = () => {
                             {status === 'active' ? 'Active openings on your portal' : 'Inactive openings'}
                         </p>
                     </div>
-                    {status == "active" && (
-                        <Button
-                            color="primary"
-                            className="w-full sm:w-auto"
-                            startContent={<Plus className="w-4 h-4" />}
-                            onPress={() => navigate("/job_post/edit", { state: {} })}
-                        >
-                            Add job post
-                        </Button>
-                    )}
+                    <Button
+                        color="primary"
+                        className="w-full sm:w-auto"
+                        startContent={<Plus className="w-4 h-4" />}
+                        onPress={() => navigate("/job_post/edit")}
+                    >
+                        Add job post
+                    </Button>
                 </div>
 
                 <div className="rounded-xl border border-default-200 bg-content1 overflow-hidden">
@@ -187,13 +185,14 @@ const JobPost = () => {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-wider border shadow-sm ${
-                                                        post?.status?.toLowerCase() === 'active' 
-                                                            ? `bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-300`
-                                                            : `bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border-gray-300`
-                                                    }`}>
-                                                        {post?.status}
-                                                    </span>
+                                                    {(() => {
+                                                        const active = post?.job_post_end_date && new Date(post.job_post_end_date) >= new Date();
+                                                        return (
+                                                            <Chip size="sm" variant="flat" color={active ? "success" : "default"}>
+                                                                {active ? "Active" : "Inactive"}
+                                                            </Chip>
+                                                        );
+                                                    })()}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Button
@@ -218,7 +217,7 @@ const JobPost = () => {
                                                                 variant='light'
                                                                 style={{ color: BRAND_TEXT }}
                                                                 onPress={() => {
-                                                                    navigate("/job_post/edit", {
+                                                                    navigate(`/job_post/edit?uuid=${post?.uuid}`, {
                                                                         state: { jobPost: post }
                                                                     })
                                                                 }}

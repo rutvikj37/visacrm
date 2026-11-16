@@ -275,6 +275,25 @@ const JobDetails = () => {
                                         </div>
                                     </div>
 
+                                    {Array.isArray(details?.custom_fields) && details.custom_fields.length > 0 && (
+                                        <div className="border-t border-gray-200 pt-6 mb-6">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="p-2 rounded-lg" style={{ background: getPrimaryGradient('to-r') }}>
+                                                    <Info className="h-5 w-5 text-white" />
+                                                </div>
+                                                <h2 className="text-2xl font-bold text-gray-800">Additional details</h2>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {details.custom_fields.map((f: any) => (
+                                                    <div key={f.id || f.label} className="p-3 bg-gray-50/50 rounded-lg border border-gray-200/50">
+                                                        <p className="text-xs text-gray-500 mb-1">{f.label}</p>
+                                                        <p className="text-sm font-semibold text-gray-700 whitespace-pre-wrap">{f.value || "—"}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Job Description */}
                                     <div className="border-t border-gray-200 pt-6">
                                         <div className="flex items-center gap-3 mb-4">

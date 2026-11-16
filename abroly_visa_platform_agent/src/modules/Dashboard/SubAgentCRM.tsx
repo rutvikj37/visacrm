@@ -121,6 +121,10 @@ const SubAgentCRM = () => {
             url: "/crm/chats",
           },
           {
+            title: "Tasks",
+            url: "/crm/tasks",
+          },
+          {
             title: "Follow-ups Today",
             url: "/crm/leads?follow_up=today",
           },

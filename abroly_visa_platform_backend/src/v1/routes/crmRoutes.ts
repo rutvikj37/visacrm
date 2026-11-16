@@ -3,6 +3,7 @@ import ServiceStoreController from "../controller/ServiceStoreController"
 import ActivityLogController from "../controller/ActivityLogController"
 import ConversationController from "../controller/ConversationController"
 import PortalChatController from "../controller/PortalChatController"
+import TaskController from "../controller/TaskController"
 import OnboardingController from "../controller/OnboardingController"
 import TodayController from "../controller/TodayController"
 import AnnouncementController from "../controller/AnnouncementController"
@@ -51,6 +52,14 @@ crmRoutes.route("/portal_chats").get(validateAgent, PortalChatController.agentLi
 crmRoutes.route("/portal_chats/unread").get(validateAgent, PortalChatController.agentUnread)
 crmRoutes.route("/portal_chats/:studentId").get(validateAgent, PortalChatController.agentThread)
 crmRoutes.route("/portal_chats/:studentId/send").post(validateAgent, PortalChatController.agentSend)
+
+// Internal team tasks (Kanban)
+crmRoutes.route("/tasks").get(validateAgent, TaskController.list).post(validateAgent, TaskController.create)
+crmRoutes.route("/tasks/counts").get(validateAgent, TaskController.counts)
+crmRoutes.route("/tasks/:id").get(validateAgent, TaskController.details)
+crmRoutes.route("/tasks/:id/update").post(validateAgent, TaskController.update)
+crmRoutes.route("/tasks/:id/status").post(validateAgent, TaskController.setStatus)
+crmRoutes.route("/tasks/:id/delete").post(validateAgent, TaskController.remove)
 crmRoutes.route("/services").get(validateAgent, ServiceStoreController.list).post(validateAgent, ServiceStoreController.save)
 crmRoutes.route("/service_orders").get(validateAgent, ServiceOrderController.list)
 crmRoutes.route("/service_orders/:uuid").get(validateAgent, ServiceOrderController.details)

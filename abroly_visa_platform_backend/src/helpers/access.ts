@@ -71,3 +71,35 @@ export const canAssignTo = (req: RequestWithUser, agentId: number) => {
     const a = accessOf(req);
     return a.isOwner || (a.isManager && (a.seesAll || a.memberIds.includes(agentId)));
 };
+
+/**
+ * Where-clause for agency tasks.
+ * Owners/accounts: all agency tasks.
+ * Branch managers: tasks assigned to / created by their people (or all if seesAll).
+ * Others: tasks assigned to them or created by them.
+ */
+export const taskScope = (req: RequestWithUser): Record<string, any> => {
+    const a = accessOf(req);
+    if (a.isOwner || a.teamRole === "accounts") return { agency_uuid: a.agencyUuid };
+    if (a.teamRole === "branch_manager") {
+        if (a.seesAll) return { agency_uuid: a.agencyUuid };
+        return {
+            agency_uuid: a.agencyUuid,
+            [Op.and]: [{
+                [Op.or]: [
+                    { assignee_id: { [Op.in]: a.memberIds } },
+                    { created_by: { [Op.in]: a.memberIds } },
+                ],
+            }],
+        };
+    }
+    return {
+        agency_uuid: a.agencyUuid,
+        [Op.and]: [{
+            [Op.or]: [
+                { assignee_id: a.userId },
+                { created_by: a.userId },
+            ],
+        }],
+    };
+};

@@ -54,7 +54,9 @@ const SideBanner = () => {
                     {find_for == "current" ? "Active campaigns" : "Campaign history"}
                   </h1>
                   <p className="text-sm text-default-500">
-                    {find_for == "current" ? "Side banners currently shown on the portal" : "Past banner campaigns"}
+                    {find_for == "current"
+                      ? "Live and upcoming banners — students only see them between start and end"
+                      : "Past banner campaigns"}
                   </p>
                 </div>
               {find_for == "current" && (
@@ -206,33 +208,30 @@ const SideBanner = () => {
                                 <div className="flex items-center gap-2">
                                   <Calendar className="w-4 h-4 text-gray-400" />
                                   <span className="text-sm font-medium text-gray-700">
-                                    {new Date(getKeyValue(item, columnKey)).toLocaleDateString('en-US', {
-                                      day: 'numeric',
-                                      month: 'short',
-                                      year: 'numeric'
+                                    {new Date(getKeyValue(item, columnKey)).toLocaleString(undefined, {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                      hour: "numeric",
+                                      minute: "2-digit",
                                     })}
                                   </span>
                                 </div>
                               </TableCell>
                             )
                           } else if (columnKey == "status") {
-                            const status = getKeyValue(item, columnKey)
-                            const isActive = status?.toLowerCase() === 'active'
+                            const schedule = String(item?.schedule_status || "").toLowerCase()
+                            const label = schedule === "live" ? "Live" : schedule === "scheduled" ? "Scheduled" : schedule === "ended" ? "Ended" : (getKeyValue(item, columnKey) || "N/A")
+                            const live = schedule === "live"
                             return (
                               <TableCell>
                                 <Chip
                                   variant="flat"
                                   size="sm"
+                                  color={live ? "success" : schedule === "scheduled" ? "warning" : "default"}
                                   className="font-bold"
-                                  style={isActive ? {
-                                    background: `linear-gradient(to right, ${PRIMARY_COLOR}15, ${PRIMARY_COLOR_LIGHT}15)`,
-                                    color: BRAND_TEXT
-                                  } : {
-                                    background: 'linear-gradient(to right, #f3f4f6, #e5e7eb)',
-                                    color: '#6b7280'
-                                  }}
                                 >
-                                  {status || 'N/A'}
+                                  {label}
                                 </Chip>
                               </TableCell>
                             )

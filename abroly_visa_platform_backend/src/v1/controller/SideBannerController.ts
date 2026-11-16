@@ -12,66 +12,57 @@ import SideBannerResponses from "../../model/SideBannerResponses";
 
 class SideBannerController {
 
-    // get avalible slots
+    // get available positions for a date/time window (or a whole month)
     async availableSlot(req: RequestWithUser, res: Response) {
         try {
-            const { requestedMonth, target_type }: any = req.body; // User passes requestedMonth (e.g., "2025-02")
+            const { requestedMonth, start_date: rawStart, end_date: rawEnd, target_type }: any = req.body;
 
             if (!target_type) {
                 return returnHelper(res, 200, false, "Please Select Target");
             }
 
-            if (!requestedMonth) {
-                return returnHelper(res, 200, false, "Please provide requestedMonth in 'YYYY-MM' format.");
+            let start_date: Date;
+            let end_date: Date;
+            if (rawStart && rawEnd) {
+                start_date = moment(rawStart).toDate();
+                end_date = moment(rawEnd).toDate();
+                if (!moment(start_date).isValid() || !moment(end_date).isValid()) {
+                    return returnHelper(res, 200, false, "Invalid start or end date/time.");
+                }
+                if (end_date <= start_date) {
+                    return returnHelper(res, 200, false, "End must be after start.");
+                }
+            } else if (requestedMonth) {
+                start_date = moment(requestedMonth, "YYYY-MM").startOf("month").toDate();
+                end_date = moment(requestedMonth, "YYYY-MM").endOf("month").toDate();
+            } else {
+                return returnHelper(res, 200, false, "Provide start_date and end_date, or requestedMonth (YYYY-MM).");
             }
 
-            // Parse the start and end of the requested month
-            const start_date = moment(requestedMonth, 'YYYY-MM').startOf('month').toDate();
-            const end_date = moment(requestedMonth, 'YYYY-MM').endOf('month').toDate();
+            const overlapWhere = {
+                target_type,
+                agent_uuid: req?.uuid,
+                status: { [Op.ne]: "reject" },
+                start_date: { [Op.lte]: end_date },
+                end_date: { [Op.gte]: start_date },
+            };
 
-            // Fetch the latest banner for position 1 within the requested month
             const lastPosition1Banner = await SideBanner.findOne({
-                where: {
-                    position: "1",
-                    target_type,
-                    start_date: { [Op.lte]: end_date },
-                    end_date: { [Op.gte]: start_date },
-                    status: {
-                        [Op.ne]: 'reject'
-                    },
-                    agent_uuid: req?.uuid,
-                },
+                where: { ...overlapWhere, position: "1" },
                 order: [["end_date", "DESC"]],
             });
-
-            // Fetch the latest banner for position 2 within the requested month
             const lastPosition2Banner = await SideBanner.findOne({
-                where: {
-                    position: "2",
-                    target_type,
-                    start_date: { [Op.lte]: end_date },
-                    end_date: { [Op.gte]: start_date },
-                    status: {
-                        [Op.ne]: 'reject'
-                    },
-                    agent_uuid: req?.uuid,
-                },
+                where: { ...overlapWhere, position: "2" },
                 order: [["end_date", "DESC"]],
             });
 
-            // Prepare the slot object for the requested month
             const monthSlot = {
                 start_date,
                 end_date,
-                position_1: {
-                    isAvailable: !lastPosition1Banner, // Position 1 is available if no banner is found
-                },
-                position_2: {
-                    isAvailable: !lastPosition2Banner, // Position 2 is available if no banner is found
-                },
+                position_1: { isAvailable: !lastPosition1Banner },
+                position_2: { isAvailable: !lastPosition2Banner },
             };
 
-            // Return the available slot for the requested month
             return returnHelper(res, 200, true, "Available Slot", [monthSlot]);
         } catch (error: any) {
             return returnHelper(res, 500, false, error.message);
@@ -85,6 +76,14 @@ class SideBannerController {
         // Validate input fields
         if (!campaign_title || !start_date || !end_date || !position || !target_type) {
             return returnHelper(res, 200, false, "Please Provide Required Fields")
+        }
+        const startAt = moment(start_date);
+        const endAt = moment(end_date);
+        if (!startAt.isValid() || !endAt.isValid()) {
+            return returnHelper(res, 200, false, "Invalid start or end date/time");
+        }
+        if (!endAt.isAfter(startAt)) {
+            return returnHelper(res, 200, false, "End must be after start");
         }
 
         // // here check for active subscription 
@@ -112,29 +111,15 @@ class SideBannerController {
 
 
         try {
-            // Check for overlapping slots
+            // Check for overlapping slots in the same position / target
             const conflictingBanner = await SideBanner.findOne({
                 where: {
-                    position, // Same position
+                    position,
                     target_type,
                     agent_uuid: req?.uuid,
-                    status: {
-                        [Op.ne]: 'reject'
-                    },
-                    [Op.or]: [
-                        {
-                            start_date: { [Op.between]: [start_date, end_date] }, // Overlaps with the provided range
-                        },
-                        {
-                            end_date: { [Op.between]: [start_date, end_date] }, // Overlaps with the provided range
-                        },
-                        {
-                            [Op.and]: [
-                                { start_date: { [Op.lte]: start_date } }, // Starts before and ends after
-                                { end_date: { [Op.gte]: end_date } },
-                            ],
-                        },
-                    ],
+                    status: { [Op.ne]: "reject" },
+                    start_date: { [Op.lte]: endAt.toDate() },
+                    end_date: { [Op.gte]: startAt.toDate() },
                 },
             });
 
@@ -147,8 +132,8 @@ class SideBannerController {
                 agent_uuid: req?.uuid,
                 campaign_title,
                 image,
-                start_date,
-                end_date,
+                start_date: startAt.toDate(),
+                end_date: endAt.toDate(),
                 position,
                 target_type: target_type,
                 // status: "pending", // Default status
@@ -192,23 +177,33 @@ class SideBannerController {
                 find_for = "current"
             }
 
+            const now = new Date();
+            // current = not yet ended (live + scheduled); past = already ended
             let whereCondition = find_for == "current" ? {
-                end_date: {
-                    [Op.gt]: new Date()
-                },
+                end_date: { [Op.gte]: now },
                 agent_uuid: req?.uuid
             } : {
-                end_date: {
-                    [Op.lt]: new Date()
-                },
+                end_date: { [Op.lt]: now },
                 agent_uuid: req?.uuid
             }
 
             const findAll = await SideBanner.findAll({
                 where: whereCondition,
+                order: [["start_date", "ASC"]],
             })
 
-            return returnHelper(res, 200, true, "Records Found", findAll)
+            const rows = findAll.map((row: any) => {
+                const d = row.toJSON ? row.toJSON() : row.dataValues || row;
+                const start = new Date(d.start_date).getTime();
+                const end = new Date(d.end_date).getTime();
+                const t = now.getTime();
+                let schedule_status = "scheduled";
+                if (t >= start && t <= end) schedule_status = "live";
+                else if (t > end) schedule_status = "ended";
+                return { ...d, schedule_status };
+            });
+
+            return returnHelper(res, 200, true, "Records Found", rows)
 
         } catch (error) {
             console.error("Error in listCamp:", error);
@@ -393,34 +388,15 @@ class SideBannerController {
                 return returnHelper(res, 200, false, "Invalid Request")
             }
 
-            // Get the start and end datetime of the current month using moment
-            const startOfMonth = moment().startOf("month").format("YYYY-MM-DD HH:mm:ss"); // Start of the current month
-            const endOfMonth = moment().endOf("month").format("YYYY-MM-DD HH:mm:ss"); // End of the current month
-
-            // Fetch records for the current month
+            // Only banners whose schedule window includes now
+            const now = new Date();
             const records = await SideBanner.findAll({
                 where: {
                     target_type,
                     agent_uuid,
                     status: "accept",
-                    [Op.or]: [
-                        {
-                            start_date: {
-                                [Op.between]: [startOfMonth, endOfMonth],
-                            },
-                        },
-                        {
-                            end_date: {
-                                [Op.between]: [startOfMonth, endOfMonth],
-                            },
-                        },
-                        {
-                            [Op.and]: [
-                                { start_date: { [Op.lte]: endOfMonth } }, // Started before or within this month
-                                { end_date: { [Op.gte]: startOfMonth } }, // Ends after or within this month
-                            ],
-                        },
-                    ],
+                    start_date: { [Op.lte]: now },
+                    end_date: { [Op.gte]: now },
                 },
                 attributes: [
                     "uuid",
@@ -432,6 +408,7 @@ class SideBannerController {
                     "position",
                     "access_image",
                 ],
+                order: [["position", "ASC"]],
             });
 
             return returnHelper(res, 200, true, "Achievements Found", records)

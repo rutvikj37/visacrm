@@ -28,6 +28,12 @@ const HELP: [string, Help][] = [
         "Open a chat to reply. The assigned counsellor and your team (by branch) can see the same thread.",
         "Green numbers are unread student messages. Use All / Unread / Mine to focus.",
     ] }],
+    ["/crm/tasks", { title: "Tasks", points: [
+        "Assign work to your team: create a task, pick an assignee and due date.",
+        "Board columns are To do, In progress and Done. Use Move to on a card to change status.",
+        "Optionally link a CRM lead or visa case so the assignee can open it from the task.",
+        "Filters: Mine, Assigned by me, All — plus Open / Overdue / Done.",
+    ] }],
     ["/crm/sources", { title: "Lead sources", points: [
         "Connect where your leads come from. Each source gets its own link or key - new leads arrive in the inbox within seconds.",
         "A source can belong to a branch, so its leads go straight to that office.",

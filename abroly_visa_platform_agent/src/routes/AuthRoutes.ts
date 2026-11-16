@@ -29,6 +29,7 @@ import OfflineInquiries from "@/modules/AgentAdmin/Offline_lang_prep/OfflineInqu
 import ReportsGenerate from "@/modules/AgentAdmin/Reports/ReportsGenerate"
 import LeadInbox from "@/modules/AgentAdmin/Crm/LeadInbox"
 import ChatInbox from "@/modules/AgentAdmin/Chats/ChatInbox"
+import TaskBoard from "@/modules/AgentAdmin/Tasks/TaskBoard"
 import ActivityLogPage from "@/modules/AgentAdmin/Activity/ActivityLogPage"
 import LeadDetails from "@/modules/AgentAdmin/Crm/LeadDetails"
 import LeadSources from "@/modules/AgentAdmin/Crm/LeadSources"
@@ -169,6 +170,10 @@ export const AgentAdminRoutes = [
     {
         path: "/crm/chats",
         element: ChatInbox
+    },
+    {
+        path: "/crm/tasks",
+        element: TaskBoard
     },
     {
         path: "/activity",
@@ -457,6 +462,10 @@ export const SubAgentRoutes = [
     {
         path: "/crm/chats",
         element: ChatInbox
+    },
+    {
+        path: "/crm/tasks",
+        element: TaskBoard
     },
     {
         path: "/activity",

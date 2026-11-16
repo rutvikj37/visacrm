@@ -9,6 +9,18 @@ import sequelize from "../../config/dbconfig";
 import Subscription from "../../model/Subscription";
 
 
+/** Normalize agency custom fields to [{ id, label, value }]. */
+const cleanCustomFields = (raw: any): { id: string; label: string; value: string }[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((f: any, i: number) => ({
+            id: String(f?.id || `cf_${i}_${Date.now()}`).slice(0, 64),
+            label: String(f?.label || "").trim().slice(0, 120),
+            value: String(f?.value ?? "").trim().slice(0, 2000),
+        }))
+        .filter((f) => f.label);
+};
+
 class JobPostController {
 
 
@@ -51,7 +63,7 @@ class JobPostController {
                 jobType, country, jobRole, salaryMin, salaryMax, experienceRequired,
                 educationLevel, workPermit, overtime, accommodation, transportation, food,
                 medicalInsurance, workHours, agentCharges, skillsRequired, applicationDeadline,
-                description
+                description, custom_fields
             } = req.body;
 
             // validations
@@ -205,7 +217,9 @@ class JobPostController {
                 jobType, country, jobRole, salaryMin, salaryMax, experienceRequired,
                 educationLevel, workPermit, overtime, accommodation, transportation, food,
                 medicalInsurance, workHours, agentCharges, skillsRequired, applicationDeadline,
-                description, job_post_end_date: new Date(new Date().setDate(new Date().getDate() + 30))
+                description,
+                custom_fields: cleanCustomFields(custom_fields),
+                job_post_end_date: new Date(new Date().setDate(new Date().getDate() + 30))
             }).then(async () => {
                 // activeSubscription
 
@@ -239,7 +253,8 @@ class JobPostController {
             const {
                 jobType, country, jobRole, salaryMin, salaryMax, experienceRequired,
                 educationLevel, workPermit, overtime, accommodation, transportation, food,
-                medicalInsurance, workHours, agentCharges, skillsRequired, applicationDeadline, uuid
+                medicalInsurance, workHours, agentCharges, skillsRequired, applicationDeadline,
+                description, custom_fields, uuid
             } = req.body;
 
             // validations
@@ -269,6 +284,8 @@ class JobPostController {
                 ...(agentCharges !== undefined && { agentCharges }),
                 ...(skillsRequired !== undefined && { skillsRequired }),
                 ...(applicationDeadline !== undefined && { applicationDeadline }),
+                ...(description !== undefined && { description }),
+                ...(custom_fields !== undefined && { custom_fields: cleanCustomFields(custom_fields) }),
             }
 
 
@@ -281,7 +298,7 @@ class JobPostController {
 
             return res.status(200).json({
                 success: true,
-                message: 'Job Post created successfully',
+                message: 'Job post updated',
                 data: newJobPost
             });
         } catch (error) {
@@ -432,14 +449,9 @@ class JobPostController {
                 return returnHelper(res, 200, false, "Please Provide Required Params")
             }
 
-            // Query the job posts based on the dynamic filter conditions
+            // Full job details (active or inactive) — list endpoints already gate visibility
             const jobPost = await JobPost.findOne({
-                where: {
-                    uuid,
-                    job_post_end_date: {
-                        [Op.gte]: new Date()
-                    }
-                },
+                where: { uuid },
                 paranoid: false
             });
 

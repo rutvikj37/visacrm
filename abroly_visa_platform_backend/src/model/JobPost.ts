@@ -1,5 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/dbconfig';
+import { jsonGetter } from '../helpers/json';
 
 const JobPost = sequelize.define('JobPost', {
     id: {
@@ -71,7 +72,13 @@ const JobPost = sequelize.define('JobPost', {
     },
     job_post_end_date: {
         type: DataTypes.DATE
-    }
+    },
+    /** Agency-defined extra fields for this post: [{ id, label, value }] */
+    custom_fields: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        get: jsonGetter('custom_fields'),
+    },
 }, {
     tableName: 'job_posts',
     timestamps: true,

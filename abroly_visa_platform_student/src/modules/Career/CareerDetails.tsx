@@ -231,6 +231,19 @@ const CareerDetails = () => {
                                             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{details?.skillsRequired}</p>
                                         </div>
                                     </div>
+
+                                    {Array.isArray(details?.custom_fields) && details.custom_fields.length > 0 && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                            {details.custom_fields.map((f: any) => (
+                                                <div key={f.id || f.label} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                                    <div className="flex-1">
+                                                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{f.label}</p>
+                                                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{f.value || "—"}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
