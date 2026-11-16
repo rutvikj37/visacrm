@@ -1,20 +1,23 @@
 import FirstTip from "@/components/help/FirstTip";
-import { BoardSkeleton } from "@/components/ui-kit/Skeletons";
+import { BoardSkeleton, ListSkeleton } from "@/components/ui-kit/Skeletons";
 import EmptyState from "@/components/ui-kit/EmptyState";
 import { BranchPicker, branchName, useBranches } from "@/modules/AgentAdmin/Branches/branchShared";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
     Button, Card, CardBody, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Input, Select, SelectItem,
+    Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, Tab,
 } from "@heroui/react";
-import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, MoreVertical, Search, User } from "lucide-react";
+import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, List, MoreVertical, Search, User } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
-import { CASE_STAGES, OUTCOMES, fmtShortDate } from "./caseShared";
+import { CASE_STAGES, OUTCOMES, fmtShortDate, stageLabel } from "./caseShared";
 
-/** All visa cases by stage; drag via the grip (desktop) or use the card menu to move. */
+/** Visa cases: list by default, board (kanban) optional via ?view=board. */
 const CaseBoard = () => {
     const navigate = useNavigate();
+    const [params, setParams] = useSearchParams();
+    const view = params.get("view") === "board" ? "board" : "list";
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
     const isOwner = useSelector((state: any) => state.login.role_type) === "agent";
     const teamRole = useSelector((state: any) => state.login.team_role);
@@ -25,11 +28,19 @@ const CaseBoard = () => {
     const [search, setSearch] = useState("");
     const [assignee, setAssignee] = useState("");
     const [country, setCountry] = useState("");
+    const [stageFilter, setStageFilter] = useState("");
     const [branch, setBranch] = useState(() => new URLSearchParams(window.location.search).get("branch") || "");
     const [focusCol, setFocusCol] = useState<string>("documents");
     const branches = useBranches();
     const [dragId, setDragId] = useState<number | null>(null);
     const [overCol, setOverCol] = useState<string | null>(null);
+
+    const setView = (next: "list" | "board") => {
+        const n = new URLSearchParams(params);
+        if (next === "board") n.set("view", "board");
+        else n.delete("view");
+        setParams(n, { replace: true });
+    };
 
     const load = useCallback(async () => {
         const q = new URLSearchParams();
@@ -54,7 +65,14 @@ const CaseBoard = () => {
     }, [isManager]);
 
     const countries = useMemo(() => [...new Set(cases.map((c) => c.country).filter(Boolean))].sort(), [cases]);
-    const visible = cases.filter((c) => !country || c.country === country);
+    const visible = cases.filter((c) => {
+        if (country && c.country !== country) return false;
+        if (stageFilter) {
+            if (OUTCOMES.some((o) => o.key === stageFilter)) return c.outcome === stageFilter;
+            return !c.outcome && c.stage === stageFilter;
+        }
+        return true;
+    });
 
     const moveStage = async (c: any, stage: string) => {
         if (c.stage === stage) return;
@@ -84,9 +102,46 @@ const CaseBoard = () => {
     };
 
     const columns: { key: string; label: string; items: any[]; outcome?: (typeof OUTCOMES)[number] }[] = [
-        ...CASE_STAGES.map((s) => ({ key: s.key, label: s.label, items: visible.filter((c) => c.stage === s.key) })),
+        ...CASE_STAGES.map((s) => ({ key: s.key, label: s.label, items: visible.filter((c) => !c.outcome && c.stage === s.key) })),
         ...OUTCOMES.map((o) => ({ key: o.key, label: o.label, items: visible.filter((c) => c.outcome === o.key), outcome: o })),
     ];
+
+    const caseStatusChip = (c: any) => {
+        if (c.outcome === "approved") return <Chip size="sm" variant="flat" color="success">Approved</Chip>;
+        if (c.outcome === "rejected") return <Chip size="sm" variant="flat" color="danger">Rejected</Chip>;
+        if (c.outcome === "withdrawn") return <Chip size="sm" variant="flat">Withdrawn</Chip>;
+        return <Chip size="sm" variant="flat" color="primary">{stageLabel(c.stage || "documents")}</Chip>;
+    };
+
+    const ActionsMenu = ({ c }: { c: any }) => (
+        <Dropdown>
+            <DropdownTrigger>
+                <Button isIconOnly size="sm" variant="light" aria-label="Case actions" onClick={(e) => e.stopPropagation()}>
+                    <MoreVertical size={16} />
+                </Button>
+            </DropdownTrigger>
+            <DropdownMenu aria-label="Case actions" onAction={(key) => {
+                const k = String(key);
+                if (k === "open") {
+                    navigate(`/leads/progress/${c.id}`);
+                    return;
+                }
+                if (k.startsWith("stage:")) {
+                    const stage = k.slice(6);
+                    if (c.outcome) commonPostAPICall({ outcome: "reopen" }, `crm/cases/${c.id}/outcome`).then(() => moveStage({ ...c, stage: null }, stage).then(load));
+                    else moveStage(c, stage);
+                } else if (k.startsWith("outcome:")) setOutcome(c, k.slice(8));
+            }}>
+                <DropdownItem key="open">Open case</DropdownItem>
+                <DropdownSection title="Move to stage" showDivider>
+                    {CASE_STAGES.map((s) => <DropdownItem key={`stage:${s.key}`} isDisabled={!c.outcome && c.stage === s.key}>{s.label}</DropdownItem>)}
+                </DropdownSection>
+                <DropdownSection title="Result">
+                    {OUTCOMES.map((o) => <DropdownItem key={`outcome:${o.key}`} isDisabled={c.outcome === o.key}>{o.label}</DropdownItem>)}
+                </DropdownSection>
+            </DropdownMenu>
+        </Dropdown>
+    );
 
     const CaseCard = ({ c }: { c: any }) => {
         const pct = c.steps_total ? Math.round((c.steps_done / c.steps_total) * 100) : 0;
@@ -123,33 +178,7 @@ const CaseBoard = () => {
                             <div className="text-xs text-default-500 truncate">{[c.country, c.university].filter(Boolean).join(" · ") || "-"}</div>
                             {(c.course || c.intake) && <div className="text-xs text-default-400 truncate">{[c.course, c.intake].filter(Boolean).join(" · ")}</div>}
                         </button>
-                        <Dropdown>
-                            <DropdownTrigger>
-                                <Button isIconOnly size="sm" variant="light" aria-label="Move case" onClick={(e) => e.stopPropagation()}>
-                                    <MoreVertical size={16} />
-                                </Button>
-                            </DropdownTrigger>
-                            <DropdownMenu aria-label="Case actions" onAction={(key) => {
-                                const k = String(key);
-                                if (k === "open") {
-                                    navigate(`/leads/progress/${c.id}`);
-                                    return;
-                                }
-                                if (k.startsWith("stage:")) {
-                                    const stage = k.slice(6);
-                                    if (c.outcome) commonPostAPICall({ outcome: "reopen" }, `crm/cases/${c.id}/outcome`).then(() => moveStage({ ...c, stage: null }, stage).then(load));
-                                    else moveStage(c, stage);
-                                } else if (k.startsWith("outcome:")) setOutcome(c, k.slice(8));
-                            }}>
-                                <DropdownItem key="open">Open case</DropdownItem>
-                                <DropdownSection title="Move to stage" showDivider>
-                                    {CASE_STAGES.map((s) => <DropdownItem key={`stage:${s.key}`} isDisabled={c.stage === s.key}>{s.label}</DropdownItem>)}
-                                </DropdownSection>
-                                <DropdownSection title="Result">
-                                    {OUTCOMES.map((o) => <DropdownItem key={`outcome:${o.key}`} isDisabled={c.outcome === o.key}>{o.label}</DropdownItem>)}
-                                </DropdownSection>
-                            </DropdownMenu>
-                        </Dropdown>
+                        <ActionsMenu c={c} />
                     </div>
                     {c.steps_total > 0 && (
                         <div>
@@ -171,52 +200,176 @@ const CaseBoard = () => {
         );
     };
 
-    return (
-        <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
-            <FirstTip id="cases" title="Case board">Each card is a student&apos;s visa case. Open it to work the steps, or move it with the menu (or drag handle on desktop).</FirstTip>
-            <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
-                <div className="min-w-0">
-                    <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Case board</h1>
-                    <p className="text-sm text-default-500">Visa cases by stage — tap a card to open, use ⋮ to move</p>
-                </div>
-                <div className="text-sm text-default-500 shrink-0">{visible.filter((c) => c.status === "visa_progress").length} in progress</div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 max-w-4xl">
-                <BranchPicker value={branch} onChange={setBranch} className="w-full" size="md" />
-                <Input aria-label="Search" placeholder="Search student name or phone" startContent={<Search size={16} />} value={search} onValueChange={setSearch} isClearable onClear={() => setSearch("")} />
+    const filters = (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 max-w-5xl">
+            <BranchPicker value={branch} onChange={setBranch} className="w-full" size="md" />
+            <Input aria-label="Search" placeholder="Search student name or phone" startContent={<Search size={16} />} value={search} onValueChange={setSearch} isClearable onClear={() => setSearch("")} />
+            <Select
+                aria-label="Country"
+                placeholder="All countries"
+                selectedKeys={country ? [country] : []}
+                onSelectionChange={(keys) => {
+                    const v = Array.from(keys)[0];
+                    setCountry(v ? String(v) : "");
+                }}
+            >
+                {countries.map((c) => <SelectItem key={c}>{c}</SelectItem>)}
+            </Select>
+            {view === "list" && (
                 <Select
-                    aria-label="Country"
-                    placeholder="All countries"
-                    selectedKeys={country ? [country] : []}
+                    aria-label="Stage"
+                    placeholder="All stages"
+                    selectedKeys={stageFilter ? [stageFilter] : []}
                     onSelectionChange={(keys) => {
                         const v = Array.from(keys)[0];
-                        setCountry(v ? String(v) : "");
+                        setStageFilter(v ? String(v) : "");
                     }}
                 >
-                    {countries.map((c) => <SelectItem key={c}>{c}</SelectItem>)}
+                    {[
+                        ...CASE_STAGES.map((s) => <SelectItem key={s.key}>{s.label}</SelectItem>),
+                        ...OUTCOMES.map((o) => <SelectItem key={o.key}>{o.label}</SelectItem>),
+                    ]}
                 </Select>
-                {isManager && (
-                    <Select
-                        aria-label="Handled by"
-                        placeholder="Anyone"
-                        selectedKeys={assignee ? [assignee] : []}
-                        onSelectionChange={(keys) => {
-                            const v = Array.from(keys)[0];
-                            setAssignee(v ? String(v) : "");
-                        }}
-                    >
-                        {[<SelectItem key="unassigned">Unassigned</SelectItem>, ...team.map((m) => <SelectItem key={String(m.id)}>{m.username}</SelectItem>)]}
-                    </Select>
-                )}
+            )}
+            {isManager && (
+                <Select
+                    aria-label="Handled by"
+                    placeholder="Anyone"
+                    selectedKeys={assignee ? [assignee] : []}
+                    onSelectionChange={(keys) => {
+                        const v = Array.from(keys)[0];
+                        setAssignee(v ? String(v) : "");
+                    }}
+                >
+                    {[<SelectItem key="unassigned">Unassigned</SelectItem>, ...team.map((m) => <SelectItem key={String(m.id)}>{m.username}</SelectItem>)]}
+                </Select>
+            )}
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
+            <FirstTip id="cases" title="Visa cases">Open a case to work the steps. Use List for a simple overview, or Board to drag cases across stages.</FirstTip>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
+                <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Visa cases</h1>
+                    <p className="text-sm text-default-500">
+                        {view === "list" ? "All cases in one list — open a row to continue" : "Cases by stage — drag or use ⋮ to move"}
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <span className="text-sm text-default-500">{visible.filter((c) => c.status === "visa_progress").length} in progress</span>
+                    <Tabs size="sm" selectedKey={view} onSelectionChange={(k) => setView(k === "board" ? "board" : "list")} aria-label="View">
+                        <Tab key="list" title={<span className="flex items-center gap-1"><List size={14} />List</span>} />
+                        <Tab key="board" title={<span className="flex items-center gap-1"><KanbanSquare size={14} />Board</span>} />
+                    </Tabs>
+                </div>
             </div>
 
-            {loading ? <BoardSkeleton /> : !cases.length ? (
+            {filters}
+
+            {loading ? (view === "list" ? <Card shadow="sm"><CardBody className="p-3"><ListSkeleton rows={6} /></CardBody></Card> : <BoardSkeleton />) : !cases.length ? (
                 <EmptyState icon={KanbanSquare} title="No visa cases yet" text="When you convert a lead to a visa case, it appears here and moves across the stages."
                     actions={<Button size="sm" color="primary" onPress={() => navigate("/crm/leads?status=interested")}>Open interested leads</Button>} />
+            ) : view === "list" ? (
+                <>
+                    {/* Mobile cards */}
+                    <div className="md:hidden flex flex-col gap-2">
+                        {!visible.length ? (
+                            <div className="text-sm text-default-500 text-center py-10">No cases match these filters.</div>
+                        ) : visible.map((c) => {
+                            const pct = c.steps_total ? Math.round((c.steps_done / c.steps_total) * 100) : 0;
+                            return (
+                                <Card key={c.id} shadow="sm" isPressable onPress={() => navigate(`/leads/progress/${c.id}`)}>
+                                    <CardBody className="p-3 gap-2">
+                                        <div className="flex items-start gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-sm truncate">{c.student?.name || "Student"}</div>
+                                                <div className="text-xs text-default-500 truncate">{[c.country, c.university, c.course].filter(Boolean).join(" · ") || "-"}</div>
+                                            </div>
+                                            {caseStatusChip(c)}
+                                            <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                                                <ActionsMenu c={c} />
+                                            </div>
+                                        </div>
+                                        {c.steps_total > 0 && (
+                                            <div className="text-xs text-default-500">Steps {c.steps_done}/{c.steps_total} ({pct}%)</div>
+                                        )}
+                                        <div className="text-[11px] text-default-500 flex flex-wrap gap-x-3 gap-y-1">
+                                            <span className="inline-flex items-center gap-1"><User size={11} />{c.assignee?.name || "Unassigned"}</span>
+                                            {c.overdue_steps > 0 ? (
+                                                <span className="text-danger inline-flex items-center gap-1"><AlertCircle size={11} />{c.overdue_steps} overdue</span>
+                                            ) : c.next_due && !c.outcome ? (
+                                                <span className="inline-flex items-center gap-1"><CalendarClock size={11} />Due {fmtShortDate(c.next_due)}</span>
+                                            ) : null}
+                                        </div>
+                                    </CardBody>
+                                </Card>
+                            );
+                        })}
+                    </div>
+
+                    {/* Desktop table */}
+                    <Card shadow="sm" className="max-md:hidden">
+                        <CardBody className="p-0 overflow-x-auto">
+                            <Table aria-label="Visa cases" removeWrapper selectionMode="none" onRowAction={(key) => navigate(`/leads/progress/${key}`)} className="min-w-[860px]">
+                                <TableHeader>
+                                    <TableColumn>STUDENT</TableColumn>
+                                    <TableColumn>COUNTRY / PROGRAM</TableColumn>
+                                    <TableColumn>STAGE</TableColumn>
+                                    <TableColumn>STEPS</TableColumn>
+                                    <TableColumn>HANDLED BY</TableColumn>
+                                    <TableColumn>DUE</TableColumn>
+                                    <TableColumn align="end">ACTIONS</TableColumn>
+                                </TableHeader>
+                                <TableBody emptyContent="No cases match these filters." items={visible}>
+                                    {(c: any) => {
+                                        const pct = c.steps_total ? Math.round((c.steps_done / c.steps_total) * 100) : 0;
+                                        return (
+                                            <TableRow key={String(c.id)} className="cursor-pointer">
+                                                <TableCell>
+                                                    <div className="font-medium">{c.student?.name || "Student"}</div>
+                                                    {c.to_review > 0 && <Chip size="sm" variant="flat" color="warning" className="mt-1">{c.to_review} to review</Chip>}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="text-sm">{c.country || "-"}</div>
+                                                    <div className="text-xs text-default-500 truncate max-w-[220px]">{[c.university, c.course, c.intake].filter(Boolean).join(" · ")}</div>
+                                                </TableCell>
+                                                <TableCell>{caseStatusChip(c)}</TableCell>
+                                                <TableCell>
+                                                    {c.steps_total > 0 ? (
+                                                        <div className="min-w-[100px]">
+                                                            <div className="text-xs text-default-500 mb-1">{c.steps_done}/{c.steps_total}</div>
+                                                            <div className="h-1.5 rounded-full bg-default-100"><div className="h-1.5 rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
+                                                        </div>
+                                                    ) : <span className="text-default-400 text-xs">-</span>}
+                                                </TableCell>
+                                                <TableCell className="text-sm">
+                                                    {c.assignee?.name || <span className="text-default-400">Unassigned</span>}
+                                                    {branches.length > 0 && c.branch_id && <div className="text-xs text-default-500">{branchName(branches, c.branch_id)}</div>}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {c.overdue_steps > 0 ? (
+                                                        <span className="text-xs text-danger font-medium">{c.overdue_steps} overdue</span>
+                                                    ) : c.next_due && !c.outcome ? (
+                                                        <span className="text-xs text-default-600">Due {fmtShortDate(c.next_due)}</span>
+                                                    ) : <span className="text-default-400 text-xs">-</span>}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex justify-end" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                                                        <ActionsMenu c={c} />
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    }}
+                                </TableBody>
+                            </Table>
+                        </CardBody>
+                    </Card>
+                </>
             ) : (
                 <>
-                    {/* Mobile: jump to a stage without endless horizontal scroll */}
                     <div className="sm:hidden flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
                         {columns.map((col) => (
                             <button
