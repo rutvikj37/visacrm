@@ -96,11 +96,15 @@ const readJson = (raw: any) => {
     try { return JSON.parse(raw) || {}; } catch { return {}; }
 };
 
-/** The agency's billing details live in Agent.billing_settings (shared with its client invoices). */
-export const getAgencyBilling = async (agencyUuid: string) => {
+/**
+ * The agency's billing details live in Agent.billing_settings (shared with its client invoices).
+ * Pass the transaction when the agency may have been created in it (e.g. invoice issued while creating the agency).
+ */
+export const getAgencyBilling = async (agencyUuid: string, t?: any) => {
     const agency: any = await Agent.findOne({
         where: { uuid: agencyUuid, role: "agent" },
         attributes: ["uuid", "username", "app_name", "email", "phone_number", "country_code", "agency_address", "billing_settings"],
+        ...(t ? { transaction: t } : {}),
     });
     if (!agency) throw new SaasError("Agency not found");
     const a = agency.dataValues;
@@ -251,7 +255,7 @@ export const issueInvoice = async (paymentId: number, t: any) => {
     const p = payment?.dataValues;
     if (!p || p.status !== "paid" || p.invoice_number || !(Number(p.amount) > 0)) return payment;
     const seller = await getPlatformBilling();
-    const buyer = await getAgencyBilling(p.agency_uuid);
+    const buyer = await getAgencyBilling(p.agency_uuid, t);
     const date = p.paid_at ? new Date(p.paid_at) : new Date();
     const split = splitGst(Number(p.amount), seller.gst_percent, seller.state_code, buyer.state_code);
     const plan: any = p.plan_id ? await SaasPlan.findByPk(p.plan_id, { transaction: t }) : null;
