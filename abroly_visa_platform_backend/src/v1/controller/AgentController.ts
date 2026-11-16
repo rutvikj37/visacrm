@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { getAgencyAccess } from "../../services/saas";
 import { LOGIN_CODE_MARKER, checkLoginCode, usesLoginCode } from "../../services/agencyLogin";
 import { isLocalDev } from "../../middleware/localOnly";
+import { agencyByPortalHost } from "../../services/panelUrl";
 import Agent from "../../model/Agent";
 import { returnHelper } from "../../helpers/returnHelper";
 import Jwt from "jsonwebtoken";
@@ -30,6 +31,16 @@ const secretTokenForJWT: string | any = process.env.ACCESS_TOKEN_SECRET
 const TEST_NUMBERS_NO_OTP = isLocalDev() ? ["9799999999", "9799999998"] : []; // Bypass OTP completely
 const TEST_NUMBERS_OTP_1111 = isLocalDev() ? ["9799999999", "9799999998"] : []; // Accept OTP "1111"
 const TEST_NUMBERS_SKIP_GENERATION = [...TEST_NUMBERS_NO_OTP, ...TEST_NUMBERS_OTP_1111]; // Skip OTP generation in loginWithNumber
+
+/** Logging in at crm.<agency address>: only that agency's owner and team may log in there. */
+const wrongAgencyMessage = async (user: any, agencyHost: unknown) => {
+    if (!agencyHost) return null;
+    const agency: any = await agencyByPortalHost(String(agencyHost));
+    if (!agency) return null; // shared panel (crm.techxsolutions.io) or unknown address: no restriction
+    const u = user.dataValues;
+    const userAgency = u.role === "agent" ? u.uuid : u.parent_uuid;
+    return userAgency === agency.uuid ? null : `This mobile number is not part of ${agency.app_name || agency.username}. Please log in at your own agency's address.`;
+};
 
 /** Token + profile response for a successful agency login (same shape as the OTP flows). */
 const agentLoginSuccess = async (res: Response, user: any) => {
@@ -91,6 +102,8 @@ class AgentController {
             })
 
             if (user) {
+                const wrongAgency = await wrongAgencyMessage(user, req.body?.agency_host)
+                if (wrongAgency) return returnHelper(res, 200, false, wrongAgency)
                 const viaCode = await tryLoginCode(res, user, otp)
                 if (viaCode) return viaCode
                 // console.log("HERE FIND USER");
@@ -307,6 +320,8 @@ class AgentController {
             })
 
             if (user) {
+                const wrongAgency = await wrongAgencyMessage(user, req.body?.agency_host)
+                if (wrongAgency) return returnHelper(res, 200, false, wrongAgency)
                 const viaCode = await tryLoginCode(res, user, otp)
                 if (viaCode) return viaCode
             }
@@ -390,6 +405,8 @@ class AgentController {
             })
 
             if (findUser) {
+                const wrongAgency = await wrongAgencyMessage(findUser, req.body?.agency_host)
+                if (wrongAgency) return returnHelper(res, 200, false, wrongAgency)
 
                 // Find User is agent 
                 // SaaS: an agency owner can always log in (an expired account only sees the renew screen);
@@ -502,6 +519,8 @@ class AgentController {
 
 
             if (findUser) {
+                const wrongAgency = await wrongAgencyMessage(findUser, req.body?.agency_host)
+                if (wrongAgency) return returnHelper(res, 200, false, wrongAgency)
 
                 // SaaS: an agency owner can always log in (an expired account only sees the renew screen);
                 // team members can not log in while their agency's subscription has ended

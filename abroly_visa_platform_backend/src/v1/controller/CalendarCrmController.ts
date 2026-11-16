@@ -11,6 +11,7 @@ import Step from "../../model/Step";
 import User from "../../model/User";
 import Agent from "../../model/Agent";
 import LeadsCalendar from "../../model/LeadsCalendar";
+import { agencyPanelBase } from "../../services/panelUrl";
 
 /**
  * One calendar for everything with a date:
@@ -146,7 +147,7 @@ class CalendarCrmController {
             const isOwner = person.dataValues.role === "agent";
             const agencyUuid = isOwner ? person.dataValues.uuid : person.dataValues.parent_uuid;
             const events = await collectEvents(agencyUuid, agentId, isOwner, new Date(Date.now() - 14 * 86400000), new Date(Date.now() + 90 * 86400000));
-            const panel = (process.env.AGENCY_PANEL_URL || "").replace(/\/+$/, "");
+            const panel = await agencyPanelBase(agencyUuid);
             const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TechX CRM//Calendar//EN", "CALSCALE:GREGORIAN", "X-WR-CALNAME:Visa CRM"];
             for (const e of events) {
                 lines.push("BEGIN:VEVENT", `UID:${e.id}@visa-crm`, `DTSTAMP:${icsStamp(new Date())}`);

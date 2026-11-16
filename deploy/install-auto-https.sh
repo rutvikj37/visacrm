@@ -48,7 +48,7 @@ ln -sf /etc/nginx/sites-available/visacrm.conf /etc/nginx/sites-enabled/visacrm.
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 
-say "Automatic HTTPS for agency portals (every 5 minutes)"
+say "Automatic HTTPS for agency portals and panels (every minute)"
 install -m 755 "$APP_DIR/deploy/auto-certs.sh" /usr/local/bin/visacrm-auto-certs
 cat > /etc/systemd/system/visacrm-certs.service <<'UNIT'
 [Unit]
@@ -61,11 +61,11 @@ ExecStart=/usr/local/bin/visacrm-auto-certs
 UNIT
 cat > /etc/systemd/system/visacrm-certs.timer <<'UNIT'
 [Unit]
-Description=TechX CRM - check agency portal certificates every 5 minutes
+Description=TechX CRM - check agency portal certificates every minute
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=5min
+OnUnitActiveSec=1min
 
 [Install]
 WantedBy=timers.target

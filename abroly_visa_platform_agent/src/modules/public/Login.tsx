@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
+import { useAgencyBrand } from "@/utils/agencyHost";
 
 const Login = () => {
   const { commonPostPublicAPICall } = useApiCallUtils();
@@ -32,6 +33,8 @@ const Login = () => {
   }, []);
 
   const dispatch = useDispatch();
+  // crm.<agency address>: this agency's name/logo, and only its team can log in here
+  const { host: agencyHost, brand } = useAgencyBrand();
 
   // for OTP
 
@@ -105,7 +108,7 @@ const Login = () => {
   const submitCall = async () => {
     setIsLoadingOtpSend(true);
     const { success, data } = await commonPostPublicAPICall(
-      { phone: numberAndCountryCode.phone_number, country_code: "+91" },
+      { phone: numberAndCountryCode.phone_number, country_code: "+91", agency_host: agencyHost || undefined },
       `agent/${
         IS_LOCAL == "true" ? "login_with_number_custom" : "login_with_number"
       }`,
@@ -126,6 +129,7 @@ const Login = () => {
       {
         country_code: numberAndCountryCode.country_code,
         phone: numberAndCountryCode.phone_number,
+        agency_host: agencyHost || undefined,
       },
       `agent/${
         IS_LOCAL == "true" ? "login_with_number_custom" : "login_with_number"
@@ -161,9 +165,13 @@ const Login = () => {
               <div className="relative h-full p-12 flex flex-col justify-between text-white">
                 <div className="space-y-8">
                   <div className="flex items-center gap-3">
-                    <img src="/logo.png" alt="" className="w-12 h-12 rounded-xl shadow-lg" />
+                    {brand?.logo
+                      ? <img src={brand.logo} alt="" className="w-12 h-12 rounded-xl shadow-lg object-cover bg-white" />
+                      : brand
+                        ? <span className="w-12 h-12 rounded-xl shadow-lg bg-white text-primary grid place-items-center text-2xl font-bold">{brand.name.slice(0, 1).toUpperCase()}</span>
+                        : <img src="/logo.png" alt="" className="w-12 h-12 rounded-xl shadow-lg" />}
                     <span className="text-2xl font-semibold tracking-tight">
-                      TechX CRM
+                      {brand?.name || "TechX CRM"}
                     </span>
                   </div>
                   <div>
@@ -211,7 +219,7 @@ const Login = () => {
                         Sign In
                       </h2>
                       <p className="text-gray-600 mt-2 text-sm">
-                        Access your account with your phone number
+                        {brand ? `Sign in to your ${brand.name} panel with your phone number` : "Access your account with your phone number"}
                       </p>
                     </div>
 
@@ -322,6 +330,7 @@ const Login = () => {
                                           "" +
                                           numberAndCountryCode.phone_number,
                                         verificationId,
+                                        agency_host: agencyHost || undefined,
                                       },
                                       `agent/${
                                         IS_LOCAL == "true"
@@ -388,6 +397,7 @@ const Login = () => {
                                     phone_number:
                                       "" + numberAndCountryCode.phone_number,
                                     verificationId,
+                                    agency_host: agencyHost || undefined,
                                   },
                                   `agent/${
                                     IS_LOCAL == "true"

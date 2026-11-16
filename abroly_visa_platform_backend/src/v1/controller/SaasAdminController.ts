@@ -13,6 +13,7 @@ import SaasCoupon from "../../model/SaasCoupon";
 import { sendFailureReminderNow } from "../../services/saasFollowups";
 import { agencyUsage } from "../../services/saasUsage";
 import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin";
+import { panelBaseOf } from "../../services/panelUrl";
 import { GST_STATES, couponUses, describeCoupon, getPlatformBilling, issueInvoice, loadInvoice, normalizeCode, savePlatformBilling } from "../../services/saasBilling";
 import {
     ADDON_FEATURES, LEAD_SOURCE_FEATURES, SaasError, addMonths, applyPeriod, assignTrial, cleanFeatures, ensureDefaultPlans,
@@ -404,6 +405,7 @@ class SaasAdminController {
             const code = await setLoginCode(agency.dataValues.id);
             const sent = await sendLoginEmail({
                 to: email, ownerName, agencyName: agency.dataValues.app_name, phone: `${countryCode} ${phone}`, code,
+                panelBase: panelBaseOf(agency.dataValues),
                 trialDays: activate === "trial" ? trialDays || undefined : undefined,
             });
             const what = activate === "paid"
@@ -558,7 +560,7 @@ class SaasAdminController {
     // POST /saas_admin/agencies/:uuid/send_login { email? }  - new login code by email (the old one stops working)
     async sendLoginDetails(req: RequestWithUser, res: Response) {
         try {
-            const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" }, attributes: ["id", "username", "app_name", "email", "phone_number", "country_code"] });
+            const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" }, attributes: ["id", "username", "app_name", "email", "phone_number", "country_code", "sudomain", "domain"] });
             if (!agency) return returnHelper(res, 200, false, "Agency not found");
             const a = agency.dataValues;
             let email = String(req.body?.email || a.email || "").trim().toLowerCase().slice(0, 255);
@@ -568,7 +570,7 @@ class SaasAdminController {
 
             const code = await setLoginCode(a.id);
             const phone = `${a.country_code || ""} ${a.phone_number || ""}`.trim();
-            const sent = await sendLoginEmail({ to: email, ownerName: a.username, agencyName: a.app_name, phone, code, reset: true });
+            const sent = await sendLoginEmail({ to: email, ownerName: a.username, agencyName: a.app_name, phone, code, reset: true, panelBase: panelBaseOf(a) });
             return returnHelper(res, 200, true,
                 sent ? `New login code emailed to ${email}. The old code no longer works.` : "New login code created, but the email could not be sent - share it with the owner yourself.",
                 { email_sent: sent, ...(sent ? {} : { login_code: code, phone }) });

@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import Notification from "../model/Notification";
 import Agent from "../model/Agent";
+import { agencyPanelLink } from "./panelUrl";
 import CrmLead from "../model/CrmLead";
 import Step from "../model/Step";
 import AgencyLeads from "../model/AgencyLeads";
@@ -29,10 +30,6 @@ export interface NotifyInput {
     skipUserId?: number | null; // don't notify the person who did the action
 }
 
-const panelUrl = (link?: string | null) => {
-    const base = (process.env.AGENCY_PANEL_URL || "").replace(/\/+$/, "");
-    return base && link ? `${base}${link}` : null;
-};
 
 export const agencyOwnerId = async (agencyUuid: string): Promise<number | null> => {
     const owner: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["id"] });
@@ -91,7 +88,7 @@ export const notify = async (input: NotifyInput) => {
                 }
             }
             if (input.email && p.email && Number(p.notify_email) !== 0) {
-                const url = panelUrl(input.link);
+                const url = input.link ? await agencyPanelLink(input.agencyUuid, input.link) : null;
                 const sent = await sendMail(p.email, input.title, input.body || "", url ? { label: "Open in CRM", url } : null, await agencyBrand(input.agencyUuid));
                 if (sent) await Notification.update({ emailed_at: new Date() }, { where: { id: row.dataValues.id } });
             }

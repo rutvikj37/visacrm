@@ -6,6 +6,7 @@ import { returnHelper } from "../../helpers/returnHelper"
 import { Op } from "sequelize"
 import Subscription from "../../model/Subscription"
 import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin"
+import { panelBaseOf } from "../../services/panelUrl"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -68,11 +69,12 @@ class SubAgentController {
                 parent_id: req.user?.user?.id
             })
 
-            const owner: any = await Agent.findOne({ where: { id: req.user?.user?.id }, attributes: ["username", "app_name"] })
+            const owner: any = await Agent.findOne({ where: { id: req.user?.user?.id }, attributes: ["username", "app_name", "sudomain", "domain"] })
             const code = await setLoginCode(created.dataValues.id)
             const sent = await sendLoginEmail({
                 to: email, ownerName: username, phone: `${countryCode} ${phone}`, code,
                 agencyName: owner?.dataValues?.app_name || null, invitedBy: owner?.dataValues?.username || "Your agency owner",
+                panelBase: panelBaseOf(owner?.dataValues),
             })
             return returnHelper(res, 200, true,
                 sent ? `${username} added. Login details were emailed to ${email}.` : `${username} added, but the email could not be sent - share the login code yourself.`,
@@ -93,12 +95,13 @@ class SubAgentController {
             if (!member) return returnHelper(res, 200, false, "Team member not found")
             const m = member.dataValues
             if (!m.email || !EMAIL_RE.test(m.email)) return returnHelper(res, 200, false, "Add a valid email for this member first (Edit), then send the code.")
-            const owner: any = await Agent.findOne({ where: { id: req.user?.user?.id }, attributes: ["username", "app_name"] })
+            const owner: any = await Agent.findOne({ where: { id: req.user?.user?.id }, attributes: ["username", "app_name", "sudomain", "domain"] })
             const code = await setLoginCode(m.id)
             const phone = `${m.country_code || ""} ${m.phone_number || ""}`.trim()
             const sent = await sendLoginEmail({
                 to: m.email, ownerName: m.username, phone, code, reset: true,
                 agencyName: owner?.dataValues?.app_name || null, invitedBy: owner?.dataValues?.username || "Your agency owner",
+                panelBase: panelBaseOf(owner?.dataValues),
             })
             return returnHelper(res, 200, true,
                 sent ? `New login code emailed to ${m.email}. Their old code no longer works.` : "New login code created, but the email could not be sent - share it yourself.",

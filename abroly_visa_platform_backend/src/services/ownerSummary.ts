@@ -6,6 +6,7 @@ import ClientPayment from "../model/ClientPayment";
 import ClientInvoice from "../model/ClientInvoice";
 import { agencyBrand, sendMail } from "./mailer";
 import { activeAgencyUuids } from "./notifications";
+import { agencyPanelLink } from "./panelUrl";
 
 /**
  * Monthly summary for agency owners: last month's leads, conversions, visas and money,
@@ -91,7 +92,6 @@ const summaryTable = (s: any, color: string) => {
         `<tr>${cell("Visas approved", String(n.approved), n.rejected ? `${n.rejected} rejected` : "")}${cell("Fees collected", rupees(n.collected), `${rupees(p.collected)} the month before`)}</tr></table>`;
 };
 
-const panelUrl = (path: string) => { const b = (process.env.AGENCY_PANEL_URL || "").replace(/\/+$/, ""); return b ? `${b}${path}` : null; };
 
 /** Email the summary to one agency's owner. Returns whether it went out. */
 export const sendOwnerSummary = async (agencyUuid: string, ym = previousMonth()) => {
@@ -99,7 +99,7 @@ export const sendOwnerSummary = async (agencyUuid: string, ym = previousMonth())
     if (!owner?.email) return { ok: false, reason: "No email address on the owner account" };
     const s = await buildOwnerSummary(agencyUuid, ym);
     const brand = await agencyBrand(agencyUuid);
-    const url = panelUrl("/dashboard");
+    const url = await agencyPanelLink(agencyUuid, "/dashboard");
     const ok = await sendMail(owner.email, `Your ${s.month_name} summary`, summaryText(s), url ? { label: "Open reports", url } : null, brand, summaryTable(s, brand?.color || "#0f5bd8"));
     return { ok, reason: ok ? undefined : "Email is not set up on the server (SMTP)", to: owner.email };
 };

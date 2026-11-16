@@ -36,6 +36,8 @@ const sinupWithNumberValidation = Joi.object({
 const loginWithNumberValidation = Joi.object({
   phone: Joi.string().regex(/^[0-9]{10}$/).required().messages(generateValidationMessages('Phone Number')),
   country_code: Joi.string().regex(/^\+\d+$/).required().messages(generateValidationMessages('Country Code')),
+  // agency panel address the person is logging in at (crm.<agency address>), optional
+  agency_host: Joi.string().allow('', null).max(255),
 })
 
 const otpValidation = Joi.object({
@@ -47,6 +49,7 @@ const otpValidation = Joi.object({
   verificationId: Joi.string().required().messages(generateValidationMessages('verificationId')),
   device_id: Joi.string().messages(generateValidationMessages('device_id')),
   device_model: Joi.string().messages(generateValidationMessages('device_model')),
+  agency_host: Joi.string().allow('', null).max(255),
 })
 const otpValidationCustom = Joi.object({
   phone_number: Joi.string().regex(/^[0-9]{10}$/).required().messages(generateValidationMessages('Phone Number')),
