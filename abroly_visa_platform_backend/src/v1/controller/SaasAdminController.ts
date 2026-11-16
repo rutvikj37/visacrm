@@ -15,6 +15,7 @@ import { agencyUsage } from "../../services/saasUsage";
 import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin";
 import { panelBaseOf } from "../../services/panelUrl";
 import { GST_STATES, couponUses, describeCoupon, getPlatformBilling, issueInvoice, loadInvoice, normalizeCode, savePlatformBilling } from "../../services/saasBilling";
+import { presentMetaSettings, saveMetaSettings as persistMetaSettings } from "../../services/metaSettings";
 import {
     ADDON_FEATURES, LEAD_SOURCE_FEATURES, SaasError, addMonths, applyPeriod, assignTrial, cleanFeatures, ensureDefaultPlans,
     extensionStart, getAgencyAccess, presentPlan, razorpayEnabled,
@@ -919,6 +920,36 @@ class SaasAdminController {
             return returnHelper(res, 200, true, "Coupon deleted");
         } catch (error) {
             return fail(res, error, "deleteCoupon");
+        }
+    }
+
+    // ---------------------------------------------------------------- Meta (Facebook Lead Ads)
+
+    // GET /saas_admin/meta_settings
+    async metaSettings(req: RequestWithUser, res: Response) {
+        try {
+            return returnHelper(res, 200, true, "Meta settings", await presentMetaSettings());
+        } catch (error) {
+            return fail(res, error, "metaSettings");
+        }
+    }
+
+    // POST /saas_admin/meta_settings
+    async saveMetaSettings(req: RequestWithUser, res: Response) {
+        try {
+            const data = await persistMetaSettings(req.body || {});
+            const ready = data.configured?.facebook;
+            return returnHelper(
+                res,
+                200,
+                true,
+                ready
+                    ? "Meta settings saved. Agencies can connect Facebook Pages from Lead Sources."
+                    : "Saved. Add App ID, App secret, and ensure PUBLIC_API_URL is set on the server to unlock Connect Facebook.",
+                data,
+            );
+        } catch (error) {
+            return fail(res, error, "saveMetaSettings");
         }
     }
 }

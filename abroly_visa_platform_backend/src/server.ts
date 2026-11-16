@@ -177,6 +177,18 @@ if (cluster.isPrimary) {
         console.log(`✅ Worker ${process.pid} running on port ${port}`);
         
         await connectDB();
+
+        try {
+          const { refreshMetaConfig } = await import("./services/metaSettings");
+          const meta = await refreshMetaConfig(true);
+          if (meta.appId && meta.appSecret && meta.publicApi) {
+            console.log(`📘 Meta Lead Ads ready (app ${meta.appId})`);
+          } else {
+            console.log("📘 Meta Lead Ads not configured yet (set META_* env or SaaS → Meta / Facebook)");
+          }
+        } catch (error) {
+          console.warn("Meta settings load skipped", error);
+        }
         
         // swaggerDocs(app)
         

@@ -34,6 +34,9 @@ saasAdminRoutes.route("/payments/:uuid/resolve").post(validateAdmin, SaasAdminCo
 saasAdminRoutes.route("/billing_settings").get(validateAdmin, SaasAdminController.billingSettings)
 saasAdminRoutes.route("/billing_settings").post(validateAdmin, SaasAdminController.saveBillingSettings)
 
+saasAdminRoutes.route("/meta_settings").get(validateAdmin, SaasAdminController.metaSettings)
+saasAdminRoutes.route("/meta_settings").post(validateAdmin, SaasAdminController.saveMetaSettings)
+
 saasAdminRoutes.route("/coupons").get(validateAdmin, SaasAdminController.listCoupons)
 saasAdminRoutes.route("/coupons").post(validateAdmin, SaasAdminController.saveCoupon)
 saasAdminRoutes.route("/coupons/:uuid/update").post(validateAdmin, SaasAdminController.saveCoupon)

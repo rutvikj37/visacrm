@@ -93,6 +93,7 @@ crmRoutes.route("/leads/:uuid/instagram").post(validateAgent, MetaController.sen
 // Meta: Facebook / Instagram Lead Ads + WhatsApp
 crmRoutes.route("/meta/status").get(validateAgent, MetaController.status)
 crmRoutes.route("/meta/facebook/connect_url").post(validateAgent, MetaController.facebookConnectUrl)
+crmRoutes.route("/meta/facebook/page").post(validateAgent, MetaController.saveFacebookPage)
 crmRoutes.route("/meta/whatsapp").post(validateAgent, MetaController.saveWhatsapp)
 
 // visa process templates (built-in library + agency's own)
