@@ -65,6 +65,9 @@ export const activityLabel = (a: { type?: string; meta?: any }) => {
     if (kind === "portal_invite") return "Portal invite emailed";
     if (kind === "portal_login") return "Student logged in";
     if (kind === "portal_doc_upload") return "Document uploaded";
+    const step = Number(meta?.step);
+    if (a?.type === "follow_up" && step > 0) return `Follow-up ${step} scheduled`;
+    if (a?.type === "follow_up_done" && step > 0) return `Follow-up ${step} done`;
     return ACTIVITY_LABELS[a?.type || ""] || a?.type || "Activity";
 };
 
@@ -93,6 +96,92 @@ export const asObject = (value: any): Record<string, any> | null => {
         }
     }
     return null;
+};
+
+export type FollowUpStep = {
+    n: number;
+    status: "done" | "active";
+    at?: string | null;
+    note?: string | null;
+    doneAt?: string | null;
+};
+
+/**
+ * Build Follow-up 1, 2, 3… from timeline activities.
+ * Consecutive schedules without a "done" in between count as one step (reschedule).
+ * lead.next_follow_up_at is the source of truth for the current open step.
+ */
+export const buildFollowUpSteps = (
+    activities: any[],
+    lead: { next_follow_up_at?: string | null; follow_up_note?: string | null },
+): FollowUpStep[] => {
+    const relevant = (activities || [])
+        .filter((a) => a?.type === "follow_up" || a?.type === "follow_up_done")
+        .slice()
+        .sort((a, b) => {
+            const t = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            return t !== 0 ? t : Number(a.id || 0) - Number(b.id || 0);
+        });
+
+    const steps: FollowUpStep[] = [];
+    let open: FollowUpStep | null = null;
+
+    for (const a of relevant) {
+        const meta = asObject(a.meta);
+        if (a.type === "follow_up") {
+            if (open) {
+                open.at = meta?.at || open.at;
+                open.note = a.message || open.note;
+            } else {
+                open = {
+                    n: Number(meta?.step) > 0 ? Number(meta.step) : steps.length + 1,
+                    status: "active",
+                    at: meta?.at || null,
+                    note: a.message || null,
+                };
+                steps.push(open);
+            }
+        } else if (a.type === "follow_up_done") {
+            if (open) {
+                open.status = "done";
+                open.doneAt = a.createdAt;
+                if (typeof a.message === "string" && a.message.startsWith("Follow-up done:")) {
+                    open.note = a.message.slice("Follow-up done:".length).trim() || open.note;
+                }
+                open = null;
+            } else {
+                steps.push({
+                    n: Number(meta?.step) > 0 ? Number(meta.step) : steps.length + 1,
+                    status: "done",
+                    at: meta?.at || null,
+                    note: typeof a.message === "string" && a.message.startsWith("Follow-up done:")
+                        ? a.message.slice("Follow-up done:".length).trim() || null
+                        : (a.message && a.message !== "Follow-up done" ? a.message : null),
+                    doneAt: a.createdAt,
+                });
+            }
+        }
+    }
+
+    if (lead?.next_follow_up_at) {
+        if (open) {
+            open.at = lead.next_follow_up_at;
+            open.note = lead.follow_up_note ?? open.note;
+            open.status = "active";
+        } else {
+            steps.push({
+                n: steps.length + 1,
+                status: "active",
+                at: lead.next_follow_up_at,
+                note: lead.follow_up_note || null,
+            });
+        }
+    } else if (open) {
+        // Lead cleared the date but activity still looks open — treat as completed.
+        open.status = "done";
+    }
+
+    return steps.map((s, i) => ({ ...s, n: i + 1 }));
 };
 
 export const formatPhone = (lead: any) =>

@@ -10,13 +10,15 @@ import { decryptJson, encryptJson, generatePublicKey } from "../helpers/crypto";
 import { parseJsonValue } from "../helpers/json";
 import { ingestLead, logActivity, normalizePhone, LeadInput, LeadValidationError } from "./leadIngestion";
 import { mapRecordToLeadInput } from "./leadImport";
+import { metaConfiguredFrom, peekMetaConfig, refreshMetaConfig } from "./metaSettings";
 
 /**
  * Meta (Facebook / Instagram Lead Ads + WhatsApp Cloud API).
  *
- * One Meta app for the whole platform (env below). Agencies connect their own Pages / WhatsApp number.
+ * One Meta app for the whole platform. Credentials from env and/or PlatformSetting key "meta"
+ * (SaaS admin → Meta / Facebook). Agencies connect their own Pages / WhatsApp number.
  *
- *   META_APP_ID, META_APP_SECRET         - from developers.facebook.com
+ *   META_APP_ID, META_APP_SECRET         - from developers.facebook.com (or admin UI)
  *   META_WEBHOOK_VERIFY_TOKEN            - any random string, also entered in the Meta app webhook settings
  *   META_LOGIN_CONFIG_ID (optional)      - Facebook Login for Business configuration id
  *   META_GRAPH_VERSION (optional)        - default v21.0
@@ -26,20 +28,12 @@ import { mapRecordToLeadInput } from "./leadImport";
 
 export class MetaError extends Error { }
 
-const env = () => ({
-    appId: process.env.META_APP_ID || "",
-    appSecret: process.env.META_APP_SECRET || "",
-    verifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN || "",
-    configId: process.env.META_LOGIN_CONFIG_ID || "",
-    version: process.env.META_GRAPH_VERSION || "v21.0",
-    graphBase: (process.env.META_GRAPH_BASE || "https://graph.facebook.com").replace(/\/+$/, ""),
-    publicApi: (process.env.PUBLIC_API_URL || "").replace(/\/+$/, ""),
-});
+const env = () => peekMetaConfig();
 
-export const metaConfigured = () => {
-    const e = env();
-    return { facebook: Boolean(e.appId && e.appSecret && e.publicApi), webhook: Boolean(e.appSecret && e.verifyToken) };
-};
+/** Ensure DB-backed Meta settings are loaded (call on Meta request paths). */
+export const ensureMetaConfig = () => refreshMetaConfig();
+
+export const metaConfigured = () => metaConfiguredFrom(env());
 
 const graphUrl = (path: string) => `${env().graphBase}/${env().version}/${path.replace(/^\/+/, "")}`;
 
@@ -177,6 +171,74 @@ export const connectFacebookPages = async (agencyUuid: string, code: string) => 
         connected.push(page.name || String(page.id));
     }
     return { connected, instagram: connectedInstagram, skipped, total: pages.length };
+};
+
+/**
+ * Connect one Facebook Page with a Page access token (no OAuth).
+ * Useful when the agency already has a token, or for pull-sync before App Review.
+ * Real-time webhooks still need the platform Meta app + Page subscribed to leadgen.
+ */
+export const connectFacebookPageToken = async (agencyUuid: string, pageIdRaw: string, pageAccessToken: string, pageNameHint?: string) => {
+    const pageId = String(pageIdRaw || "").replace(/\D/g, "");
+    const token = String(pageAccessToken || "").trim();
+    if (!pageId) throw new MetaError("Please enter the Facebook Page ID");
+    if (token.length < 20 || /\s/.test(token)) throw new MetaError("Please paste a valid Page access token");
+
+    let info: any;
+    try {
+        info = await graphGet(pageId, { fields: "id,name,instagram_business_account{id,username}", access_token: token });
+    } catch (error: any) {
+        throw new MetaError(`Facebook said: ${error.message}`);
+    }
+    if (String(info?.id) !== pageId) throw new MetaError("That token does not match this Page ID");
+
+    const other: any = await LeadIntegration.findOne({
+        where: { type: "facebook", external_id: pageId, status: "active", agency_uuid: { [Op.ne]: agencyUuid } },
+        attributes: ["id"],
+    });
+    if (other) throw new MetaError("This Facebook Page is already connected to another agency");
+
+    const page = { id: pageId, name: info?.name || pageNameHint || `Page ${pageId}`, access_token: token, instagram_business_account: info?.instagram_business_account || null };
+    const ig = page.instagram_business_account?.id ? page.instagram_business_account : null;
+    let igSubscribed = false;
+    let subscribeError: string | null = null;
+    try {
+        if (ig) {
+            try {
+                await graphPost(`${pageId}/subscribed_apps`, null, { subscribed_fields: "leadgen,messages", access_token: token });
+                igSubscribed = true;
+            } catch {
+                await graphPost(`${pageId}/subscribed_apps`, null, { subscribed_fields: "leadgen", access_token: token });
+            }
+        } else {
+            await graphPost(`${pageId}/subscribed_apps`, null, { subscribed_fields: "leadgen", access_token: token });
+        }
+    } catch (error: any) {
+        // token may still work for manual "Fetch last 7 days" even if subscribe fails
+        subscribeError = error.message || "Could not subscribe this Page to lead webhooks";
+    }
+
+    const connectedInstagram: string[] = [];
+    const skipped: { name: string; reason: string }[] = [];
+    if (ig) await saveInstagramAccount(agencyUuid, page, ig, igSubscribed, connectedInstagram, skipped);
+
+    const existing: any = await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "facebook", external_id: pageId } });
+    const values = {
+        name: page.name,
+        credentials: encryptJson({ page_access_token: token }),
+        settings: { page_id: pageId, page_name: page.name, connected_via: "page_token" },
+        status: "active",
+        last_error: subscribeError,
+    };
+    if (existing) await LeadIntegration.update(values, { where: { id: existing.dataValues.id } });
+    else await LeadIntegration.create({ ...values, agency_uuid: agencyUuid, type: "facebook", external_id: pageId, public_key: generatePublicKey() });
+
+    return {
+        name: page.name,
+        instagram: connectedInstagram,
+        webhook_subscribed: !subscribeError,
+        warning: subscribeError,
+    };
 };
 
 // ---------------------------------------------------------------- Instagram DMs

@@ -8,7 +8,7 @@ import CrmLead from "../../model/CrmLead";
 import { decryptJson, encryptJson, generatePublicKey } from "../../helpers/crypto";
 import { logActivity } from "../../services/leadIngestion";
 import {
-    MetaError, buildOAuthUrl, connectFacebookPages, handleLeadgenChange, handleWhatsappChange, metaConfigured,
+    MetaError, buildOAuthUrl, connectFacebookPages, connectFacebookPageToken, ensureMetaConfig, handleLeadgenChange, handleWhatsappChange, metaConfigured,
     readOAuthState, sendWhatsappText, sendInstagramText, handleInstagramEntry, verifyWebhookSignature, verifyWhatsapp, waCredentials, webhookVerifyToken,
 } from "../../services/meta";
 
@@ -43,6 +43,7 @@ class MetaController {
 
     // GET /public/meta/webhook  - Meta checks the URL when you save it in the app dashboard
     async webhookVerify(req: Request, res: Response) {
+        await ensureMetaConfig();
         const mode = req.query["hub.mode"];
         const token = req.query["hub.verify_token"];
         const challenge = req.query["hub.challenge"];
@@ -54,6 +55,7 @@ class MetaController {
 
     // POST /public/meta/webhook  - leadgen (Pages) and messages (WhatsApp)
     async webhookReceive(req: Request, res: Response) {
+        await ensureMetaConfig();
         if (!verifyWebhookSignature((req as any).rawBody, req.get("x-hub-signature-256"))) {
             return res.sendStatus(401);
         }
@@ -110,6 +112,7 @@ class MetaController {
 
     // GET /public/meta/oauth/callback?code&state  - Facebook sends the browser here after "Connect"
     async oauthCallback(req: Request, res: Response) {
+        await ensureMetaConfig();
         const state = readOAuthState(String(req.query.state || ""));
         if (!state) return simplePage(res, "Link expired", "Please go back to Lead Sources and click Connect Facebook again.");
         const finish = (params: Record<string, string>) => {
@@ -139,12 +142,14 @@ class MetaController {
 
     // GET /crm/meta/status
     async status(req: RequestWithUser, res: Response) {
+        await ensureMetaConfig();
         return returnHelper(res, 200, true, "Meta status", metaConfigured());
     }
 
     // POST /crm/meta/facebook/connect_url { return_url }
     async facebookConnectUrl(req: RequestWithUser, res: Response) {
         try {
+            await ensureMetaConfig();
             const { agencyUuid, userId, isOwner } = ctx(req);
             if (!isOwner) return returnHelper(res, 200, false, "Only the agency owner can connect Facebook");
             try { await assertSourceAllowed(ctx(req).agencyUuid, "facebook"); } catch (e: any) { return returnHelper(res, 200, false, e.message); }
@@ -155,6 +160,31 @@ class MetaController {
         } catch (error: any) {
             if (error instanceof MetaError) return returnHelper(res, 200, false, error.message);
             console.error("facebook connect url failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/meta/facebook/page { page_id, page_access_token, page_name? }
+    async saveFacebookPage(req: RequestWithUser, res: Response) {
+        try {
+            await ensureMetaConfig();
+            const { agencyUuid, isOwner } = ctx(req);
+            if (!isOwner) return returnHelper(res, 200, false, "Only the agency owner can connect Facebook");
+            try { await assertSourceAllowed(agencyUuid, "facebook"); } catch (e: any) { return returnHelper(res, 200, false, e.message); }
+
+            const result = await connectFacebookPageToken(
+                agencyUuid,
+                String(req.body?.page_id || ""),
+                String(req.body?.page_access_token || ""),
+                req.body?.page_name ? String(req.body.page_name) : undefined,
+            );
+            const msg = result.webhook_subscribed
+                ? `Connected ${result.name}${result.instagram?.length ? ` (+ Instagram ${result.instagram.join(", ")})` : ""}`
+                : `Connected ${result.name} for sync. Real-time webhooks: ${result.warning || "not subscribed yet"}`;
+            return returnHelper(res, 200, true, msg, result);
+        } catch (error: any) {
+            if (error instanceof MetaError) return returnHelper(res, 200, false, error.message);
+            console.error("save facebook page failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

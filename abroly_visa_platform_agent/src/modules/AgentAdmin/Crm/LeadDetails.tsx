@@ -8,7 +8,7 @@ import {
     Button, Chip, Divider, Input, Modal, ModalBody, ModalContent, ModalFooter,
     ModalHeader, Select, SelectItem, Tab, Tabs, Textarea, useDisclosure,
 } from "@heroui/react";
-import { ArrowLeft, ArrowRightCircle, BadgeCheck, CalendarClock, CheckCircle2, Mail, MessageCircle, Pencil, Phone, Send, StickyNote, Trash2, User, Instagram, X, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRightCircle, BadgeCheck, CalendarClock, Check, CheckCircle2, Circle, Mail, MessageCircle, Pencil, Phone, Send, StickyNote, Trash2, User, Instagram, X, ChevronUp, ChevronDown } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import CommonConfirmation from "@/components/CommonConfirmation";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
@@ -18,7 +18,7 @@ import PortalInvitePanel from "./PortalInvitePanel";
 import FormField from "./FormField";
 import MentionComposer, { MentionText } from "./MentionComposer";
 import {
-    activityLabel, SELECTABLE_STATUSES, asArray, asObject, followUpState, formatDateTime, formatPhone,
+    activityLabel, SELECTABLE_STATUSES, asArray, asObject, buildFollowUpSteps, followUpState, formatDateTime, formatPhone,
     sourceLabel, statusMeta, timeAgo, toLocalInputValue, whatsappLink,
 } from "./crmShared";
 
@@ -294,6 +294,15 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
     const extra = asObject(lead.extra);
     const fu = followUpState(lead.next_follow_up_at);
     const closed = ["converted", "lost", "junk"].includes(lead.status);
+    const followUpSteps = buildFollowUpSteps(activities, lead);
+    const activeFollowUp = followUpSteps.find((s) => s.status === "active");
+    const nextFollowUpN = activeFollowUp ? activeFollowUp.n : followUpSteps.length + 1;
+    const scheduleLabel = lead.next_follow_up_at
+        ? `Reschedule Follow-up ${activeFollowUp?.n || nextFollowUpN}`
+        : followUpSteps.length > 0
+            ? `Schedule Follow-up ${nextFollowUpN}`
+            : "Follow up on";
+    const scheduleBtn = lead.next_follow_up_at ? "Reschedule" : followUpSteps.length > 0 ? "Schedule next" : "Schedule";
 
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
@@ -430,26 +439,104 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
 
                 {/* one timeline: follow-up + composer + feed */}
                 <div className={`flex flex-col gap-3 ${embedded ? "order-1" : "lg:col-span-3"}`}>
-                    {(!closed || lead.next_follow_up_at) && (
+                    {(!closed || lead.next_follow_up_at || followUpSteps.length > 0) && (
                         <section className="rounded-xl border border-default-200 px-4 py-3 flex flex-col gap-3">
                             <h2 className="text-sm font-semibold text-default-700 flex items-center gap-2"><CalendarClock size={16} /> Follow-up</h2>
-                            {lead.next_follow_up_at && (
-                                <div className={`flex flex-wrap items-center gap-2 rounded-lg p-3 ${fu === "overdue" ? "bg-danger-50" : fu === "today" ? "bg-warning-50" : "bg-default-100"}`}>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium">
-                                            {fu === "overdue" ? "Overdue: " : fu === "today" ? "Today: " : "Next: "}
-                                            {formatDateTime(lead.next_follow_up_at)}
-                                        </div>
-                                        {lead.follow_up_note && <div className="text-xs text-default-600 break-words">{lead.follow_up_note}</div>}
-                                    </div>
-                                    <Button size="sm" color="success" variant="flat" startContent={<CheckCircle2 size={16} />} onPress={followUpDone}>Mark done</Button>
-                                </div>
+
+                            {followUpSteps.length > 0 ? (
+                                <ol className="flex flex-col gap-0">
+                                    {followUpSteps.map((step, i) => {
+                                        const isActive = step.status === "active";
+                                        const isLast = i === followUpSteps.length - 1;
+                                        const stepFu = isActive ? fu : null;
+                                        return (
+                                            <li key={step.n} className="flex gap-3">
+                                                <div className="flex flex-col items-center w-7 shrink-0">
+                                                    <span
+                                                        className={`h-7 w-7 rounded-full grid place-items-center text-xs font-semibold ${
+                                                            step.status === "done"
+                                                                ? "bg-success text-success-foreground"
+                                                                : stepFu === "overdue"
+                                                                    ? "bg-danger text-danger-foreground"
+                                                                    : stepFu === "today"
+                                                                        ? "bg-warning text-warning-foreground"
+                                                                        : "border-2 border-primary text-primary bg-content1"
+                                                        }`}
+                                                        aria-hidden
+                                                    >
+                                                        {step.status === "done" ? <Check size={14} strokeWidth={3} /> : step.n}
+                                                    </span>
+                                                    {!isLast && <span className={`w-px flex-1 min-h-4 ${step.status === "done" ? "bg-success" : "bg-default-200"}`} />}
+                                                </div>
+                                                <div className={`flex-1 min-w-0 pb-3 ${isLast ? "pb-0" : ""}`}>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className={`text-sm font-medium ${isActive ? "text-foreground" : "text-default-600"}`}>
+                                                            Follow-up {step.n}
+                                                        </span>
+                                                        {step.status === "done" && (
+                                                            <Chip size="sm" color="success" variant="flat">Done</Chip>
+                                                        )}
+                                                        {isActive && stepFu === "overdue" && <Chip size="sm" color="danger" variant="flat">Overdue</Chip>}
+                                                        {isActive && stepFu === "today" && <Chip size="sm" color="warning" variant="flat">Today</Chip>}
+                                                        {isActive && stepFu === "upcoming" && <Chip size="sm" color="primary" variant="flat">Scheduled</Chip>}
+                                                    </div>
+                                                    <div className="text-xs text-default-500 mt-0.5">
+                                                        {step.status === "done"
+                                                            ? (step.doneAt ? `Completed ${formatDateTime(step.doneAt)}` : "Completed")
+                                                                + (step.at ? ` · was ${formatDateTime(step.at)}` : "")
+                                                            : step.at
+                                                                ? formatDateTime(step.at)
+                                                                : "No date set"}
+                                                    </div>
+                                                    {step.note && <div className="text-xs text-default-600 break-words mt-0.5">{step.note}</div>}
+                                                    {isActive && !closed && (
+                                                        <Button size="sm" color="success" variant="flat" className="mt-2" startContent={<CheckCircle2 size={16} />} onPress={followUpDone}>
+                                                            Mark done
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                    {!closed && !lead.next_follow_up_at && (
+                                        <li className="flex gap-3">
+                                            <div className="flex flex-col items-center w-7 shrink-0">
+                                                <span className="h-7 w-7 rounded-full grid place-items-center text-xs font-semibold border border-dashed border-default-300 text-default-400" aria-hidden>
+                                                    {nextFollowUpN}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium text-default-400">Follow-up {nextFollowUpN}</div>
+                                                <div className="text-xs text-default-400">Schedule the next follow-up below</div>
+                                            </div>
+                                        </li>
+                                    )}
+                                </ol>
+                            ) : (
+                                <p className="text-sm text-default-500 flex items-center gap-2">
+                                    <Circle size={14} className="text-default-300" /> No follow-ups yet — schedule the first one below.
+                                </p>
                             )}
+
                             {!closed && (
                                 <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr_auto] gap-2 items-end">
-                                    <FormField label={lead.next_follow_up_at ? "Reschedule to" : "Follow up on"}><Input type="datetime-local" aria-label={lead.next_follow_up_at ? "Reschedule to" : "Follow up on"} value={followUpAt} onValueChange={setFollowUpAt} /></FormField>
-                                    <FormField label="What to do"><Input aria-label="What to do" placeholder="e.g. Send document checklist" value={followUpNote} onValueChange={setFollowUpNote} /></FormField>
-                                    <Button color="primary" variant="flat" isLoading={savingFollowUp} onPress={scheduleFollowUp}>Schedule</Button>
+                                    <Input
+                                        type="datetime-local"
+                                        label={scheduleLabel}
+                                        labelPlacement="outside"
+                                        aria-label={scheduleLabel}
+                                        value={followUpAt}
+                                        onValueChange={setFollowUpAt}
+                                    />
+                                    <Input
+                                        label="What to do"
+                                        labelPlacement="outside"
+                                        aria-label="What to do"
+                                        placeholder="e.g. Send document checklist"
+                                        value={followUpNote}
+                                        onValueChange={setFollowUpNote}
+                                    />
+                                    <Button color="primary" variant="flat" isLoading={savingFollowUp} onPress={scheduleFollowUp}>{scheduleBtn}</Button>
                                 </div>
                             )}
                         </section>

@@ -540,6 +540,7 @@ class CrmController {
     }
 
     // POST /crm/leads/:uuid/follow_up  { date, note }  or  { done: true, note? }
+    // Still one next_follow_up_at on the lead; step N is derived from completed follow-ups + activities.
     async setFollowUp(req: RequestWithUser, res: Response) {
         try {
             const { agencyUuid, userId } = ctx(req);
@@ -547,11 +548,21 @@ class CrmController {
             const lead: any = await findScopedLead(req, req.params.uuid);
             if (!lead) return returnHelper(res, 200, false, "Lead not found");
 
+            const doneCount = await CrmLeadActivity.count({
+                where: { lead_id: lead.dataValues.id, type: "follow_up_done" },
+            });
+            // Open schedule (or the one being completed) is always doneCount + 1.
+            const step = doneCount + 1;
+
             if (done) {
                 if (!lead.dataValues.next_follow_up_at) return returnHelper(res, 200, false, "No follow-up scheduled");
+                const at = lead.dataValues.next_follow_up_at
+                    ? new Date(lead.dataValues.next_follow_up_at).toISOString()
+                    : null;
                 await CrmLead.update({ next_follow_up_at: null, follow_up_note: null }, { where: { id: lead.dataValues.id } });
                 await logActivity(lead.dataValues.id, agencyUuid, "follow_up_done",
-                    note ? `Follow-up done: ${String(note).slice(0, 2000)}` : "Follow-up done", userId);
+                    note ? `Follow-up done: ${String(note).slice(0, 2000)}` : "Follow-up done", userId,
+                    { step, at });
                 return returnHelper(res, 200, true, "Follow-up marked as done");
             }
 
@@ -569,7 +580,7 @@ class CrmController {
                 { where: { id: lead.dataValues.id } },
             );
             await logActivity(lead.dataValues.id, agencyUuid, "follow_up",
-                note ? String(note).slice(0, 2000) : null, userId, { at: when.toISOString() });
+                note ? String(note).slice(0, 2000) : null, userId, { at: when.toISOString(), step });
             return returnHelper(res, 200, true, "Follow-up scheduled");
         } catch (error) {
             return handleError(res, error, "setFollowUp");
