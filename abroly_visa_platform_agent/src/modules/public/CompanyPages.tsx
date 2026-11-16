@@ -101,7 +101,7 @@ const H = ({ children }: { children: ReactNode }) => (
   <h2 className="company-display text-lg font-semibold text-slate-900 sm:text-xl">{children}</h2>
 );
 
-const P = ({ children }: { children: ReactNode }) => <p>{children}</p>;
+const P = ({ children, className }: { children: ReactNode; className?: string }) => <p className={className}>{children}</p>;
 
 const Ul = ({ items }: { items: string[] }) => (
   <ul className="list-disc space-y-1.5 pl-5">
