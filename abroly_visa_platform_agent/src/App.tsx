@@ -16,6 +16,7 @@ import { MotionConfig } from "framer-motion";
 import "rsuite/dist/rsuite.min.css";
 import "react-quill/dist/quill.core.css";
 import AppLoader from './components/AppLoader';
+import { APP_BASE, appPath } from './utils/appBase';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,7 +41,7 @@ const App = () => {
           if (error.response.status === 401) {
             returnValue.message = error.response.data?.message || "Unauthorized access";
             setTimeout(() => {
-              window.location.href = '/';
+              window.location.href = appPath('/');
               localStorage.clear()
               persistor.purge();
             }, 1000);
@@ -67,7 +68,7 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <MotionConfig reducedMotion="user">
         <HeroUIProvider disableRipple>
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <BrowserRouter basename={APP_BASE} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Index />
             <Toaster />
           </BrowserRouter>

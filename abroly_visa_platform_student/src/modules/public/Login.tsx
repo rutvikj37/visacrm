@@ -256,11 +256,25 @@ const Login = () => {
                             </p>
                         </>
                     )}
+                    <p className="text-center text-xs text-default-500 mt-4">
+                        Agency owner or team member?{" "}
+                        <a className="text-primary font-medium" href={agencyLoginUrl()}>Agency login</a>
+                    </p>
                 </CardBody>
             </Card>
         </section>
     )
 }
+
+/**
+ * The agency panel lives on the same address as this portal, under /agency
+ * (rutvik.techxsolutions.io/agency/login). The platform's own student site links to the shared panel.
+ */
+const agencyLoginUrl = () => {
+    const h = window.location.hostname;
+    if (/^student\./.test(h)) return `https://${h.replace(/^student\./, "crm.")}/agency/login`;
+    return "/agency/login";
+};
 
 export default Login
 // import { Button, Input } from '@nextui-org/react'

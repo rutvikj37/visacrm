@@ -7,6 +7,7 @@ import { Formik } from "formik";
 import { Button, Chip, Input, Spinner, Tab, Tabs, Textarea } from "@heroui/react";
 import { Calendar, Clock, Plus, User } from "lucide-react";
 
+import { appPath } from "@/utils/appBase";
 const eventTypes = ["reminder", "followup", "task"];
 
 const TYPE_COLOR: Record<string, "warning" | "primary" | "success" | "default"> = {
@@ -77,7 +78,7 @@ const LeadsCalendarList = ({ lead_id }: { lead_id: number | string | null }) => 
             size="sm"
             variant="flat"
             startContent={<User className="w-3.5 h-3.5" />}
-            onPress={() => window.open(`/leads/student_profile/${lead_id}`, "_blank")}
+            onPress={() => window.open(appPath(`/leads/student_profile/${lead_id}`), "_blank")}
           >
             Profile
           </Button>
@@ -85,7 +86,7 @@ const LeadsCalendarList = ({ lead_id }: { lead_id: number | string | null }) => 
             size="sm"
             color="primary"
             variant="flat"
-            onPress={() => window.open(`/leads/progress/${lead_id}`, "_blank")}
+            onPress={() => window.open(appPath(`/leads/progress/${lead_id}`), "_blank")}
           >
             Open case
           </Button>

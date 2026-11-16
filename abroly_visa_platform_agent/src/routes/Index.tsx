@@ -10,6 +10,7 @@ import SubAgentCRM from '@/modules/Dashboard/SubAgentCRM';
 import { persistor } from '@/redux/store';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
 import AppLoader from '@/components/AppLoader';
+import { appPath } from "@/utils/appBase";
 
 const PleaseWait = () => <AppLoader label="Signing you in" />
 
@@ -34,7 +35,7 @@ const Index = () => {
     useEffect(() => {
         if (website !== null && website != "agent") {
             window.localStorage.clear()
-            window.open("/", "_self")
+            window.open(appPath("/"), "_self")
         }
     }, [])
 

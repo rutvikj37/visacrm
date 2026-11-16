@@ -3,18 +3,21 @@ import axios from "axios";
 import { applyBrand } from "@/lib/theme";
 
 /**
- * Each agency has its own panel address: crm.<agency portal address>, e.g. crm.rutvik.techxsolutions.io.
- * The shared panel (crm.techxsolutions.io) and local dev are not agency addresses.
+ * Each agency's panel lives on the agency's own address, next to its student portal:
+ *   https://rutvik.techxsolutions.io/agency/   (or https://<their own domain>/agency/)
+ * The platform's own hosts (crm/admin/api/student/www.techxsolutions.io) and local dev are not agency addresses.
  */
 const PLATFORM_DOMAIN = String(import.meta.env.VITE_PLATFORM_DOMAIN || "techxsolutions.io").toLowerCase();
+const PLATFORM_HOSTS = ["crm", "admin", "api", "student", "www"];
 
-/** "rutvik.techxsolutions.io" when the panel is opened at crm.rutvik.techxsolutions.io, else null */
+/** "rutvik.techxsolutions.io" when the panel is opened on that agency's address, else null */
 export const getAgencyHost = (): string | null => {
-    const h = window.location.hostname.toLowerCase();
-    if (!h.startsWith("crm.")) return null;
-    const rest = h.slice(4);
-    if (!rest.includes(".") || rest === PLATFORM_DOMAIN) return null;
-    return rest;
+    let h = window.location.hostname.toLowerCase();
+    if (!h.includes(".") || /^[\d.]+$/.test(h) || h.endsWith(".localhost") || h === PLATFORM_DOMAIN) return null;
+    if (h.startsWith("crm.") && h.slice(4) !== PLATFORM_DOMAIN) h = h.slice(4); // old crm.<agency> links
+    const [first, ...rest] = h.split(".");
+    if (rest.join(".") === PLATFORM_DOMAIN && PLATFORM_HOSTS.includes(first)) return null;
+    return h;
 };
 
 export type AgencyBrand = { name: string; logo: string | null; color: string | null };

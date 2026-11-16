@@ -32,7 +32,7 @@ const TEST_NUMBERS_NO_OTP = isLocalDev() ? ["9799999999", "9799999998"] : []; //
 const TEST_NUMBERS_OTP_1111 = isLocalDev() ? ["9799999999", "9799999998"] : []; // Accept OTP "1111"
 const TEST_NUMBERS_SKIP_GENERATION = [...TEST_NUMBERS_NO_OTP, ...TEST_NUMBERS_OTP_1111]; // Skip OTP generation in loginWithNumber
 
-/** Logging in at crm.<agency address>: only that agency's owner and team may log in there. */
+/** Logging in at <agency address>/agency: only that agency's owner and team may log in there. */
 const wrongAgencyMessage = async (user: any, agencyHost: unknown) => {
     if (!agencyHost) return null;
     const agency: any = await agencyByPortalHost(String(agencyHost));

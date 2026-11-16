@@ -79,7 +79,7 @@ FILE_SIGNING_KEY=$(rand 32)
 
 LOCAL_PATH=https://$API/
 PUBLIC_API_URL=https://$API/api
-AGENCY_PANEL_URL=https://$CRM
+AGENCY_PANEL_URL=https://$CRM/agency
 STUDENT_PORTAL_URL=https://$STUDENT
 # agency portals live at <agency>.techxsolutions.io
 PLATFORM_PORTAL_DOMAIN=techxsolutions.io

@@ -51,7 +51,7 @@ const SubscriptionInvoiceSheet = ({ invoice }: { invoice: any }) => {
         <div id="invoice-print" className="bg-white text-black rounded-xl border border-gray-200 shadow-sm p-5 sm:p-8 flex flex-col gap-6 max-w-3xl w-full">
             <div className="flex flex-wrap justify-between gap-4">
                 <div>
-                    <img src="/techx-logo.png" alt="TechX CRM" className="h-8 w-auto mb-2" />
+                    <img src={`${import.meta.env.BASE_URL}techx-logo.png`} alt="TechX CRM" className="h-8 w-auto mb-2" />
                     <div className="text-xl font-bold">{inv.seller?.legal_name || "Tax invoice"}</div>
                     {inv.seller?.gstin && <div className="text-sm">GSTIN: {inv.seller.gstin}</div>}
                 </div>

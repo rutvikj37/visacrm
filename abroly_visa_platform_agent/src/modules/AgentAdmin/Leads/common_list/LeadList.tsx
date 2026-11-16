@@ -31,6 +31,7 @@ import { countries } from "country-data";
 import CommonConfirmation from "@/components/CommonConfirmation";
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
 
+import { appPath } from "@/utils/appBase";
 const IntakeYears = Array.from(
   { length: 13 },
   (_, i) => new Date().getFullYear() + 2 - i
@@ -262,7 +263,7 @@ export const LeadList = ({ status, canChangeStatus = true }: { status: string; c
                             variant="light"
                             className="px-0 h-7 min-w-0"
                             startContent={<User className="w-3.5 h-3.5" />}
-                            onPress={() => window.open(`/leads/student_profile/${lead?.id}`, "_blank")}
+                            onPress={() => window.open(appPath(`/leads/student_profile/${lead?.id}`), "_blank")}
                           >
                             Profile
                           </Button>
@@ -304,7 +305,7 @@ export const LeadList = ({ status, canChangeStatus = true }: { status: string; c
                         color="primary"
                         variant="flat"
                         startContent={<TrendingUp className="w-4 h-4" />}
-                        onPress={() => window.open(`/leads/progress/${lead?.id}`, "_blank")}
+                        onPress={() => window.open(appPath(`/leads/progress/${lead?.id}`), "_blank")}
                       >
                         Open case
                       </Button>

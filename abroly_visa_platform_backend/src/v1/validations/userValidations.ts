@@ -36,7 +36,7 @@ const sinupWithNumberValidation = Joi.object({
 const loginWithNumberValidation = Joi.object({
   phone: Joi.string().regex(/^[0-9]{10}$/).required().messages(generateValidationMessages('Phone Number')),
   country_code: Joi.string().regex(/^\+\d+$/).required().messages(generateValidationMessages('Country Code')),
-  // agency panel address the person is logging in at (crm.<agency address>), optional
+  // agency panel address the person is logging in at (<agency address>/agency), optional
   agency_host: Joi.string().allow('', null).max(255),
 })
 

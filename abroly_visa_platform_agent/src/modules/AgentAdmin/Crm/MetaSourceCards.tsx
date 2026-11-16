@@ -6,6 +6,7 @@ import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import FormField from "./FormField";
 import { formatDateTime, timeAgo } from "./crmShared";
 
+import { appPath } from "@/utils/appBase";
 interface CardProps {
     integrations: any[];
     configured: { facebook: boolean; webhook: boolean };
@@ -38,7 +39,7 @@ export const FacebookSourceCard = ({ integrations, configured, busy, call, onRem
 
     const connect = async () => {
         setConnecting(true);
-        const returnUrl = `${window.location.origin}/crm/sources`;
+        const returnUrl = `${window.location.origin}${appPath("/crm/sources")}`;
         const { success, data } = await commonPostAPICall({ return_url: returnUrl }, "crm/meta/facebook/connect_url");
         if (success && data?.url) {
             window.location.href = data.url;

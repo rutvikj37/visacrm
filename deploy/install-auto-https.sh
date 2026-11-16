@@ -10,6 +10,10 @@ say() { printf "\n\033[1;36m==> %s\033[0m\n" "$*"; }
 mkdir -p "$WEBROOT" /etc/nginx/visacrm-portals /var/lib/visacrm-certs
 cp "$APP_DIR/deploy/nginx-spa-snippet.conf" /etc/nginx/snippets/visacrm-spa.conf
 cp "$APP_DIR/deploy/nginx-ssl-snippet.conf" /etc/nginx/snippets/visacrm-ssl.conf
+cp "$APP_DIR/deploy/nginx-agency-snippet.conf" /etc/nginx/snippets/visacrm-agency.conf
+# the agency panel is served at /agency/ on every agency address (see nginx-agency-snippet.conf)
+mkdir -p /var/www/visacrm-agency
+ln -sfn "$APP_DIR/abroly_visa_platform_agent/dist" /var/www/visacrm-agency/agency
 
 # the platform sites need their certificates before the HTTPS config can load
 missing=""

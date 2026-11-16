@@ -1,4 +1,5 @@
 import { ErrorToast } from "./Toaster"
+import { appPath } from './appBase';
 
 
 let returnRecords = {
@@ -19,7 +20,7 @@ function handleAxiosError(error: any) {
         ErrorToast("Session Failed! Login again")
         // window.location.reload()
         setTimeout(() => {
-            window.location.href = '/';
+            window.location.href = appPath('/');
         }, 1000)
 
     } else {

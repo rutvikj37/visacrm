@@ -159,6 +159,7 @@ import { PublicRoutes } from '../../routes/AuthRoutes';
 import Footer from '../../components/Footer';
 import aborlyIcon from "../../assets/logo.png"
 
+import { publicAsset } from "@/utils/appBase";
 const PublicDashboard = () => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const navigate = useNavigate();
@@ -222,8 +223,8 @@ const PublicDashboard = () => {
                         >
                             {/* <Building2 className="text-primary h-6 w-6" /> */}
                             {/* <span className="font-bold text-inherit text-xl">TechX CRM</span> */}
-                            <img src="/techx-logo.png" alt="TechX CRM" className="h-9 w-auto dark:hidden" />
-                            <img src="/techx-logo-dark.png" alt="TechX CRM" className="h-9 w-auto hidden dark:block" />
+                            <img src={publicAsset("techx-logo.png")} alt="TechX CRM" className="h-9 w-auto dark:hidden" />
+                            <img src={publicAsset("techx-logo-dark.png")} alt="TechX CRM" className="h-9 w-auto hidden dark:block" />
                         </motion.div>
                     </NavbarBrand>
                 </NavbarContent>

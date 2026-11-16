@@ -4,23 +4,27 @@ import Agent from "../model/Agent";
  * Each agency's own panel address.
  *
  *   student portal: <agency>.techxsolutions.io (or the agency's own domain)
- *   agency panel:   crm.<that address>          e.g. crm.rutvik.techxsolutions.io
+ *   agency panel:   <that address>/agency       e.g. https://rutvik.techxsolutions.io/agency
  *
- * Agencies without a portal address use the shared panel (AGENCY_PANEL_URL, e.g. https://crm.techxsolutions.io).
- * deploy/auto-certs.sh gets the certificate for crm.<address> and serves the panel there.
+ * Agencies without a portal address use the shared panel (AGENCY_PANEL_URL, e.g. https://crm.techxsolutions.io/agency).
+ * deploy/auto-certs.sh gets the certificate for the address and serves both the portal and the panel there.
  */
 
-const sharedPanel = () => (process.env.AGENCY_PANEL_URL || "").replace(/\/+$/, "");
+/** AGENCY_PANEL_URL, always ending in /agency (the panel is built for that path) */
+export const sharedPanel = () => {
+    const u = (process.env.AGENCY_PANEL_URL || "").replace(/\/+$/, "");
+    return !u || /\/agency$/.test(u) ? u : `${u}/agency`;
+};
 
 /** "rutvik.techxsolutions.io" for an agency row with sudomain/domain, or null */
 export const portalHostOf = (a: { sudomain?: string | null; domain?: string | null } | null | undefined) =>
     a?.domain ? `${a.sudomain ? `${a.sudomain}.` : ""}${a.domain}`.toLowerCase() : null;
 
-/** "https://crm.rutvik.techxsolutions.io" for that agency, else the shared panel. Local dev always uses the shared one. */
+/** "https://rutvik.techxsolutions.io/agency" for that agency, else the shared panel. Local dev always uses the shared one. */
 export const panelBaseOf = (a: { sudomain?: string | null; domain?: string | null } | null | undefined) => {
     const host = portalHostOf(a);
     if (!host || process.env.ISLOCAL === "yes") return sharedPanel();
-    return `https://crm.${host}`;
+    return `https://${host}/agency`;
 };
 
 const cache = new Map<string, { base: string; at: number }>();
@@ -43,7 +47,7 @@ export const agencyPanelLink = async (agencyUuid: string | null | undefined, pat
 
 /**
  * The agency that owns a portal address ("rutvik.techxsolutions.io" or a custom domain), for checking
- * that someone logging in at crm.<address> belongs to that agency. null = not an agency address.
+ * that someone logging in at <address>/agency belongs to that agency. null = not an agency address.
  */
 export const agencyByPortalHost = async (host?: string | null) => {
     const h = String(host || "").trim().toLowerCase().replace(/^crm\./, "").replace(/:\d+$/, "");

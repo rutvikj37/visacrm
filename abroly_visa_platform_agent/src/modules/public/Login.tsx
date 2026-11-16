@@ -25,6 +25,7 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 import { useAgencyBrand } from "@/utils/agencyHost";
 
+import { publicAsset } from "@/utils/appBase";
 const Login = () => {
   const { commonPostPublicAPICall } = useApiCallUtils();
 
@@ -169,7 +170,7 @@ const Login = () => {
                       ? <img src={brand.logo} alt="" className="w-12 h-12 rounded-xl shadow-lg object-cover bg-white" />
                       : brand
                         ? <span className="w-12 h-12 rounded-xl shadow-lg bg-white text-primary grid place-items-center text-2xl font-bold">{brand.name.slice(0, 1).toUpperCase()}</span>
-                        : <img src="/logo.png" alt="" className="w-12 h-12 rounded-xl shadow-lg" />}
+                        : <img src={publicAsset("logo.png")} alt="" className="w-12 h-12 rounded-xl shadow-lg" />}
                     <span className="text-2xl font-semibold tracking-tight">
                       {brand?.name || "TechX CRM"}
                     </span>

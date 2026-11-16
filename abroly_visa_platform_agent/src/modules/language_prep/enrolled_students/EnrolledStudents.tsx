@@ -3,6 +3,7 @@ import { Avatar, getKeyValue, Spinner, Table, TableBody, TableCell, TableColumn,
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom';
 
+import { appPath } from "@/utils/appBase";
 const EnrolledStudents = () => {
 
   const { commonPostAPICall  } = useApiCallUtils()
@@ -55,7 +56,7 @@ const EnrolledStudents = () => {
               className='cursor-pointer'
               onClick={(e) => {
                 e.stopPropagation()
-                window.open(`/student/${getKeyValue(item, "uuid")}`, "_blank")
+                window.open(appPath(`/student/${getKeyValue(item, "uuid")}`), "_blank")
             }}
             >
               {(columnKey) => {

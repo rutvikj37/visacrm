@@ -5,6 +5,7 @@ import User from "../model/User";
 import Admin from "../model/Admin";
 import { sendMail } from "./mailer";
 import { getPlatformBilling } from "./saasBilling";
+import { sharedPanel } from "./panelUrl";
 
 /**
  * Fixed login code for agency owners.
@@ -116,11 +117,11 @@ export const sendLoginEmail = async (opts: {
     reset?: boolean;
     /** team member invited by an agency owner: who invited them (owner's name) */
     invitedBy?: string | null;
-    /** the agency's own panel, e.g. https://crm.rutvik.techxsolutions.io (default: AGENCY_PANEL_URL) */
+    /** the agency's own panel, e.g. https://rutvik.techxsolutions.io/agency (default: AGENCY_PANEL_URL) */
     panelBase?: string | null;
 }) => {
     const billing = await getPlatformBilling().catch(() => null);
-    const panel = (opts.panelBase || process.env.AGENCY_PANEL_URL || "").replace(/\/+$/, "");
+    const panel = (opts.panelBase || sharedPanel()).replace(/\/+$/, "");
     const loginUrl = panel ? `${panel}/login` : "";
     const support = [billing?.phone, billing?.email].filter(Boolean).join(" · ");
     const agency = opts.agencyName && opts.agencyName !== opts.ownerName ? ` for ${opts.agencyName}` : "";
