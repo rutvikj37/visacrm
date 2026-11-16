@@ -1,5 +1,5 @@
 import { lazy } from "react"
-import { RedirectToLeadInbox } from "@/modules/AgentAdmin/Crm/Redirects"
+import { RedirectToCrmCalendar, RedirectToLeadInbox } from "@/modules/AgentAdmin/Crm/Redirects"
 
 // Authenticated CRM pages: eager imports so Suspense does not blank the shell on every nav click.
 import JobPost from "@/modules/AgentAdmin/JobPost/JobPost"
@@ -7,8 +7,6 @@ import JobPostAddEdit from "@/modules/AgentAdmin/JobPost/JobPostAddEdit"
 import JobPostApplicants from "@/modules/AgentAdmin/JobPost/JobPostApplicants"
 import SubAgents from "@/modules/AgentAdmin/SubAgent/SubAgents"
 import SubAgentDetails from "@/modules/AgentAdmin/SubAgent/SubAgentDetails"
-import AgentCalendar from "@/modules/AgentAdmin/Calendar/AgentCalendar"
-import AssignEvent from "@/modules/AgentAdmin/Calendar/AssignEvent"
 import BasicProfile from "@/modules/AgentAdmin/Profile/BasicProfile"
 import ServiceProfile from "@/modules/AgentAdmin/Profile/ServiceProfile"
 import SideBanner from "@/modules/AgentAdmin/SideBanner/SideBanner"
@@ -20,7 +18,6 @@ import LeadsVisa from "@/modules/AgentAdmin/Leads/visa/LeadsVisa"
 import LeadVisaAccepted from "@/modules/AgentAdmin/Leads/visa/LeadVisaAccepted"
 import LeadVisaRejected from "@/modules/AgentAdmin/Leads/visa/LeadVisaRejected"
 import LeadsWithdrawn from "@/modules/AgentAdmin/Leads/withdrawn/LeadsWithdrawn"
-import LeadsCalendar from "@/modules/AgentAdmin/Leads/calendar/LeadsCalendar"
 import LeadsProgress from "@/modules/AgentAdmin/Leads/progress/LeadsProgress"
 import StudentProfile from "@/modules/AgentAdmin/Leads/IncomingRequest/StudentProfile"
 import AgentEventBanners from "@/modules/AgentAdmin/event_banners/AgentEventBanners"
@@ -257,12 +254,13 @@ export const AgentAdminRoutes = [
     },
     {
         path: "/calendar",
-        element: AgentCalendar
+        element: RedirectToCrmCalendar
     },
     {
         path: "/calendar/add/:selectedDate",
-        element: AssignEvent
+        element: RedirectToCrmCalendar
     },
+
 
     // profile
     {
@@ -327,7 +325,7 @@ export const AgentAdminRoutes = [
     },
     {
         path: "/leads/calendar",
-        element: LeadsCalendar
+        element: RedirectToCrmCalendar
     },
 
     // add offline lead
@@ -510,7 +508,7 @@ export const SubAgentRoutes = [
     },
     {
         path: "/leads/calendar",
-        element: LeadsCalendar
+        element: RedirectToCrmCalendar
     },
     {
         path: "/add_offline_lead",

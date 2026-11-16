@@ -39,28 +39,12 @@ class SideBannerController {
                 return returnHelper(res, 200, false, "Provide start_date and end_date, or requestedMonth (YYYY-MM).");
             }
 
-            const overlapWhere = {
-                target_type,
-                agent_uuid: req?.uuid,
-                status: { [Op.ne]: "reject" },
-                start_date: { [Op.lte]: end_date },
-                end_date: { [Op.gte]: start_date },
-            };
-
-            const lastPosition1Banner = await SideBanner.findOne({
-                where: { ...overlapWhere, position: "1" },
-                order: [["end_date", "DESC"]],
-            });
-            const lastPosition2Banner = await SideBanner.findOne({
-                where: { ...overlapWhere, position: "2" },
-                order: [["end_date", "DESC"]],
-            });
-
+            // Positions are no longer enforced — multiple banners can be live and show as a student hero slider.
             const monthSlot = {
                 start_date,
                 end_date,
-                position_1: { isAvailable: !lastPosition1Banner },
-                position_2: { isAvailable: !lastPosition2Banner },
+                position_1: { isAvailable: true },
+                position_2: { isAvailable: true },
             };
 
             return returnHelper(res, 200, true, "Available Slot", [monthSlot]);
@@ -71,11 +55,15 @@ class SideBannerController {
 
 
     async assignSlot(req: RequestWithUser, res: Response) {
-        const { campaign_title, start_date, end_date, position, target_type } = req.body;
+        const { campaign_title, start_date, end_date, target_type } = req.body;
+        // Keep DB column for compat; new campaigns default to "1" (position slots are no longer exclusive).
+        const position = req.body.position === "2" ? "2" : "1";
 
-        // Validate input fields
-        if (!campaign_title || !start_date || !end_date || !position || !target_type) {
+        if (!campaign_title || !start_date || !end_date || !target_type) {
             return returnHelper(res, 200, false, "Please Provide Required Fields")
+        }
+        if (!req.file) {
+            return returnHelper(res, 200, false, "Banner image is required");
         }
         const startAt = moment(start_date);
         const endAt = moment(end_date);
@@ -86,48 +74,12 @@ class SideBannerController {
             return returnHelper(res, 200, false, "End must be after start");
         }
 
-        // // here check for active subscription 
-        // const activeSubscription = await Subscription.findOne({
-        //     where: {
-        //         agent_uuid: req.user?.user?.uuid,
-        //         achievement_banner: {
-        //             [Op.gt]: 0
-        //         },
-        //         leads_remaining: {
-        //             [Op.gt]: 0
-        //         }
-        //     },
-        //     order: [["createdAt", "DESC"]]
-        // })
-
-        // if (!activeSubscription) {
-        //     return returnHelper(res, 200, false, "You Can not higlight your highlights, Please purchase package or add on to do this action")
-        // }
-
-        // image name
         const image = `${Date.now()}-${Math.floor(
             1000 + Math.random() * 9000
         )}${path.parse(req.file.originalname).ext}`;
 
-
         try {
-            // Check for overlapping slots in the same position / target
-            const conflictingBanner = await SideBanner.findOne({
-                where: {
-                    position,
-                    target_type,
-                    agent_uuid: req?.uuid,
-                    status: { [Op.ne]: "reject" },
-                    start_date: { [Op.lte]: endAt.toDate() },
-                    end_date: { [Op.gte]: startAt.toDate() },
-                },
-            });
-
-            if (conflictingBanner) {
-                return returnHelper(res, 200, false, "The requested slot is already occupied, Please refresh the page")
-            }
-
-            // Create a new banner record
+            // Allow multiple overlapping banners for the same target — student UI shows all live ones in a slider.
             const newBanner = await SideBanner.create({
                 agent_uuid: req?.uuid,
                 campaign_title,
@@ -136,27 +88,17 @@ class SideBannerController {
                 end_date: endAt.toDate(),
                 position,
                 target_type: target_type,
-                // status: "pending", // Default status
-                status:"accept"
-            }).then(async () => {
-                fs.writeFileSync(
-                    path.join("public/banners", image),
-                    req.file.buffer as any
-                );
+                status: "accept",
+            });
 
-                // // update subscriptioon
-                // await Subscription.update({
-                //     achievement_banner: Number(activeSubscription?.dataValues?.achievement_banner) - 1
-                // }, {
-                //     where: {
-                //         uuid: activeSubscription?.dataValues?.uuid
-                //     }
-                // })
-            })
+            fs.writeFileSync(
+                path.join("public/banners", image),
+                req.file.buffer as any
+            );
 
             return res.status(201).json({
                 success: true,
-                message: "Slot assigned successfully",
+                message: "Campaign created successfully",
                 data: newBanner,
             });
         } catch (error) {
@@ -407,8 +349,9 @@ class SideBannerController {
                     "status",
                     "position",
                     "access_image",
+                    "createdAt",
                 ],
-                order: [["position", "ASC"]],
+                order: [["createdAt", "ASC"]],
             });
 
             return returnHelper(res, 200, true, "Achievements Found", records)

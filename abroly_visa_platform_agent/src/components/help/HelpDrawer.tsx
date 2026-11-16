@@ -43,7 +43,11 @@ const HELP: [string, Help][] = [
         "A template is the list of steps and documents for one visa type (for example Canada study permit).",
         "Copy a ready template and change it to how your agency works. New cases start from it.",
     ] }],
-    ["/crm/calendar", { title: "Calendar", points: ["Follow-ups, case step due dates, fee due dates and events in one place. On phones it shows as an agenda list."] }],
+    ["/crm/calendar", { title: "Calendar", points: [
+        "Follow-ups, case step dues, fee instalments, tasks and events in one place. On phones it opens as an agenda.",
+        "Filter by type, mark a follow-up done or snooze it, and Call / WhatsApp from the row. Add a simple event from the calendar.",
+        "Subscribe with Google / Apple / Outlook using the private calendar link.",
+    ] }],
     ["/crm/messages", { title: "Messages", points: ["Automatic WhatsApp and email messages: welcome message to new leads, follow-up reminders and fee reminders. Turn each on or off and edit the text."] }],
     ["/cases/board", { title: "Case board", points: [
         "Every visa case as a card, grouped by stage. Drag a card to move it to the next stage.",

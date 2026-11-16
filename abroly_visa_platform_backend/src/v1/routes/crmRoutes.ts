@@ -156,8 +156,9 @@ crmRoutes.route("/cases/:id/assign").post(validateAgent, CaseController.assign)
 crmRoutes.route("/cases/:id/branch").post(validateAgent, CaseController.transfer)
 crmRoutes.route("/cases/:id/add_application").post(validateAgent, CaseController.addApplication)
 
-// one calendar: follow-ups, case due dates, events
+// one calendar: follow-ups, case due dates, fees, tasks, events
 crmRoutes.route("/calendar").get(validateAgent, CalendarCrmController.events)
+crmRoutes.route("/calendar/events").post(validateAgent, CalendarCrmController.createEvent)
 
 // branches and team roles
 crmRoutes.route("/branches").get(validateAgent, TeamController.branches)

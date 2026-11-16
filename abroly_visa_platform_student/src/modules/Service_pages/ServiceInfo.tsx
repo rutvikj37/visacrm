@@ -109,8 +109,13 @@ const ServiceInfo = () => {
 
     const serviceInfo = getServiceInfo();
 
+    // Career / health / sim embed their own hero banners; others get one here.
+    const showPageHeroBanner = !["career", "health_ins", "sim_card"].includes(String(service || ""));
+
     return (
         <div className="flex flex-col gap-4 w-full">
+            {showPageHeroBanner && <AchievementBanner target_type={service} />}
+
             <div className="flex items-start gap-3">
                 <Button
                     variant="light"
@@ -185,7 +190,7 @@ const ServiceInfo = () => {
 
             {contentWritingServices.includes(service) && getAuthToken() &&
                 <section className='grid grid-cols-12'>
-                    <section className='container max-w-3xl my-24 space-y-2 flex flex-col items-center mx-auto col-span-10' id='form_of_contact'>
+                    <section className='container max-w-3xl my-24 space-y-2 flex flex-col items-center mx-auto col-span-12' id='form_of_contact'>
                         <h1 className='text-center text-3xl my-5'>Contact us for more details</h1>
                         <Formik
                             initialValues={{
@@ -271,64 +276,16 @@ const ServiceInfo = () => {
                             )}
                         </Formik>
                     </section>
-                    <section className='col-span-2 h-full items-center'>
-                        <AchievementBanner target_type={service} />
-                    </section>
                 </section>
             }
-            {/* {!contentWritingServices.includes(service) &&( service == "health_ins" || service == "sim_card" || service == "language") &&
-                <section className='grid grid-cols-12'>
-                    <section className='container mx-auto col-span-10'>
-                        {
-                            service == "health_ins" && <HealthInsurance />
-                        }
-                        {
-                            service == "sim_card" && <SimCardListing />
-                        }
-                        {
-                            service == "language" && getAuthToken() && <LanguagePrep />
-                        }
-                        
-                    </section>
-                    <section className='col-span-2 h-full items-center'>
-                        <AchievementBanner target_type={service} />
-                    </section>
-                </section>
-            } */}
-            {!contentWritingServices.includes(service) && service == "career" &&
-                <section className='grid grid-cols-12'>
-                   <section className='container mx-auto col-span-12 sm:col-span-10'>
-                        {
-                            service == "career" && getAuthToken() && <Career />
-                        }
-                    </section>
-                    <section className='col-span-12 sm:col-span-2 h-full items-center'>
-                        <AchievementBanner target_type={service} />
-                    </section>
-                </section>
-            }
-            {/* {!contentWritingServices.includes(service) && service == "accommodation" &&
-                <section className='grid grid-cols-12'>
-                    <section className='container mx-auto col-span-10'>
-                        {
-                            service == "accommodation" && getAuthToken() && <Accommodation />
-                        }
-                    </section>
-                    <section className='col-span-2 h-full items-center'>
-                        <AchievementBanner target_type={service} />
-                    </section>
-                </section>
-            } */}
+            {!contentWritingServices.includes(service) && service == "career" && getAuthToken() && (
+                <div className="w-full">
+                    <Career />
+                </div>
+            )}
             {!contentWritingServices.includes(service) && service == "visa_consultation" && getAuthToken() && (
-                <div className="flex flex-col lg:flex-row gap-4">
-                    <div className="min-w-0 flex-1">
-                        <VisaConsultation />
-                    </div>
-                    <aside className="lg:w-64 shrink-0">
-                        <div className="rounded-xl border border-default-200 bg-content1 p-3 sticky top-6">
-                            <AchievementBanner target_type={service} />
-                        </div>
-                    </aside>
+                <div className="min-w-0 w-full">
+                    <VisaConsultation />
                 </div>
             )}
 

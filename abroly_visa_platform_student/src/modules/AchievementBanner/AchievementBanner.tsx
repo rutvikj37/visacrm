@@ -1,11 +1,17 @@
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { ModalContent, useDisclosure, Modal, ModalHeader, ModalBody, Input, Button } from '@nextui-org/react'
-import { LucideMegaphone } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LucideMegaphone } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { getAgentUuid } from '@/utils/config'
 import { phoneInputProps, phoneOnChange } from "@/utils/phone";
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Autoplay, Navigation, Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import 'swiper/css/autoplay';
 
-/** Side banners for a page — only campaigns whose start/end window includes now. */
+/** Active campaign banners for a page — hero slider when live; hidden when none. */
 const AchievementBanner = ({ target_type }) => {
     const { commonGetAPICalls, commonPostPublicAPICall } = useApiCallUtils()
     const [banners, setBanners] = useState([])
@@ -28,7 +34,15 @@ const AchievementBanner = ({ target_type }) => {
                 const end = new Date(b.end_date).getTime();
                 return Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end;
             });
-            setBanners(live);
+            // Prefer API order (createdAt); fall back to createdAt / position
+            setBanners(
+                live.sort((a: any, b: any) => {
+                    const ac = new Date(a.createdAt || 0).getTime();
+                    const bc = new Date(b.createdAt || 0).getTime();
+                    if (ac !== bc) return ac - bc;
+                    return Number(a.position || 0) - Number(b.position || 0);
+                }),
+            );
         }
     }, [target_type]);
 
@@ -43,6 +57,17 @@ const AchievementBanner = ({ target_type }) => {
         setForm({ ...form, [name]: value });
     };
 
+    const openInterest = (item: any) => {
+        setForm({
+            name: "",
+            email: "",
+            phone_number: "",
+            banner_id: item?.uuid,
+            title: item?.campaign_title
+        });
+        onOpenChangeInquieryAdd();
+    };
+
     const submitApiCall = async () => {
         const { success } = await commonPostPublicAPICall({ ...form }, "/side_banner/student/add_interest", true)
         if (success) {
@@ -53,45 +78,77 @@ const AchievementBanner = ({ target_type }) => {
 
     if (!banners?.length) return null;
 
-    return (
-        <div className='w-full flex flex-wrap justify-center gap-4 p-4'>
-            {banners?.sort((a, b) => a.position - b.position)?.map((item: any, index: number) => (
-                <div
-                    key={item?.uuid || index}
-                    onClick={() => {
-                        setForm({
-                            name: "",
-                            email: "",
-                            phone_number: "",
-                            banner_id: item?.uuid,
-                            title: item?.campaign_title
-                        })
-                        onOpenChangeInquieryAdd()
-                    }}
-                    className="flex flex-col cursor-pointer hover:opacity-90 transition-opacity"
-                    style={{ maxWidth: '300px' }}
-                >
-                    {item?.access_image ? (
-                        <img
-                            src={item?.access_image}
-                            alt={item?.campaign_title}
-                            className="w-full h-auto rounded-md shadow-sm"
-                        />
-                    ) : (
-                        <div className="w-full h-40 bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-500 rounded-md">
-                            <div className="text-center">
-                                <LucideMegaphone className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                <p className="text-xs">No Image</p>
-                            </div>
-                        </div>
-                    )}
-                    {item?.campaign_title && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                            {item?.campaign_title}
-                        </p>
-                    )}
+    const slide = (item: any, index: number) => (
+        <button
+            type="button"
+            key={item?.uuid || index}
+            onClick={() => openInterest(item)}
+            className="relative block w-full overflow-hidden rounded-xl bg-default-100 text-left cursor-pointer group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={item?.campaign_title ? `Learn more about ${item.campaign_title}` : "Banner campaign"}
+        >
+            {item?.access_image ? (
+                <img
+                    src={item.access_image}
+                    alt={item?.campaign_title || "Campaign banner"}
+                    className="w-full max-h-[280px] sm:max-h-[360px] object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
+                />
+            ) : (
+                <div className="w-full h-48 sm:h-56 flex items-center justify-center text-default-400">
+                    <div className="text-center">
+                        <LucideMegaphone className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">{item?.campaign_title || "Campaign"}</p>
+                    </div>
                 </div>
-            ))}
+            )}
+            {item?.campaign_title && (
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-4 py-3">
+                    <p className="text-sm sm:text-base font-medium text-white truncate">{item.campaign_title}</p>
+                </div>
+            )}
+        </button>
+    );
+
+    return (
+        <section className="w-full" aria-label="Featured campaigns">
+            {banners.length === 1 ? (
+                slide(banners[0], 0)
+            ) : (
+                <div className="relative group/hero">
+                    <Swiper
+                        modules={[Autoplay, Navigation, Pagination]}
+                        spaceBetween={0}
+                        slidesPerView={1}
+                        loop={banners.length > 1}
+                        autoplay={{ delay: 5000, disableOnInteraction: false }}
+                        pagination={{ clickable: true }}
+                        navigation={{
+                            prevEl: ".banner-hero-prev",
+                            nextEl: ".banner-hero-next",
+                        }}
+                        className="rounded-xl overflow-hidden [&_.swiper-pagination-bullet-active]:bg-primary"
+                    >
+                        {banners.map((item: any, index: number) => (
+                            <SwiperSlide key={item?.uuid || index}>
+                                {slide(item, index)}
+                            </SwiperSlide>
+                        ))}
+                    </Swiper>
+                    <button
+                        type="button"
+                        className="banner-hero-prev absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 text-white p-1.5 opacity-0 group-hover/hero:opacity-100 transition-opacity"
+                        aria-label="Previous banner"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        className="banner-hero-next absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 text-white p-1.5 opacity-0 group-hover/hero:opacity-100 transition-opacity"
+                        aria-label="Next banner"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
+            )}
 
             <Modal
                 isOpen={isOpenInquieryAdd}
@@ -122,7 +179,7 @@ const AchievementBanner = ({ target_type }) => {
                     )}
                 </ModalContent>
             </Modal>
-        </div>
+        </section>
     )
 }
 

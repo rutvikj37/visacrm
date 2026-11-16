@@ -70,6 +70,33 @@ const emptyForm = {
     status: "todo",
 };
 
+const controlProps = {
+    variant: "bordered" as const,
+    classNames: {
+        inputWrapper: "bg-content1 border-default-200 shadow-none",
+        trigger: "bg-content1 border-default-200 shadow-none",
+        input: "bg-transparent",
+    },
+};
+
+const Field = ({
+    label,
+    required,
+    children,
+}: {
+    label: string;
+    required?: boolean;
+    children: React.ReactNode;
+}) => (
+    <div className="flex flex-col gap-1.5 min-w-0">
+        <label className="text-sm font-medium text-default-700">
+            {label}
+            {required ? <span className="text-danger"> *</span> : null}
+        </label>
+        {children}
+    </div>
+);
+
 /** Agency task board: Kanban + list, assign to team, optional lead/case link. */
 const TaskBoard = () => {
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
@@ -354,51 +381,70 @@ const TaskBoard = () => {
                     {(onClose) => (
                         <>
                             <ModalHeader>{editingId ? "Edit task" : "New task"}</ModalHeader>
-                            <ModalBody className="flex flex-col gap-3">
-                                <Input label="Title" value={form.title} onValueChange={(v) => setField("title", v)} isRequired />
-                                <Textarea label="Description" minRows={2} value={form.description} onValueChange={(v) => setField("description", v)} />
-                                <Select
-                                    label="Assignee"
-                                    selectedKeys={form.assignee_id ? [form.assignee_id] : []}
-                                    onSelectionChange={(keys) => {
-                                        const v = Array.from(keys)[0];
-                                        if (v) setField("assignee_id", String(v));
-                                    }}
-                                >
-                                    {teamOptions.map((m) => <SelectItem key={m.id}>{m.name}</SelectItem>)}
-                                </Select>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <ModalBody className="flex flex-col gap-5">
+                                <Field label="Title" required>
+                                    <Input {...controlProps} aria-label="Title" placeholder="What needs doing?" value={form.title} onValueChange={(v) => setField("title", v)} />
+                                </Field>
+                                <Field label="Description">
+                                    <Textarea {...controlProps} aria-label="Description" placeholder="Optional details" minRows={2} value={form.description} onValueChange={(v) => setField("description", v)} />
+                                </Field>
+                                <Field label="Assignee" required>
                                     <Select
-                                        label="Priority"
-                                        selectedKeys={[form.priority]}
+                                        {...controlProps}
+                                        aria-label="Assignee"
+                                        selectedKeys={form.assignee_id ? [form.assignee_id] : []}
                                         onSelectionChange={(keys) => {
                                             const v = Array.from(keys)[0];
-                                            if (v) setField("priority", String(v));
+                                            if (v) setField("assignee_id", String(v));
                                         }}
                                     >
-                                        <SelectItem key="low">Low</SelectItem>
-                                        <SelectItem key="normal">Normal</SelectItem>
-                                        <SelectItem key="high">High</SelectItem>
+                                        {teamOptions.map((m) => <SelectItem key={m.id}>{m.name}</SelectItem>)}
                                     </Select>
-                                    <Input type="datetime-local" label="Due" value={form.due_at} onValueChange={(v) => setField("due_at", v)} />
+                                </Field>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
+                                    <Field label="Priority">
+                                        <Select
+                                            {...controlProps}
+                                            aria-label="Priority"
+                                            selectedKeys={[form.priority]}
+                                            onSelectionChange={(keys) => {
+                                                const v = Array.from(keys)[0];
+                                                if (v) setField("priority", String(v));
+                                            }}
+                                        >
+                                            <SelectItem key="low">Low</SelectItem>
+                                            <SelectItem key="normal">Normal</SelectItem>
+                                            <SelectItem key="high">High</SelectItem>
+                                        </Select>
+                                    </Field>
+                                    <Field label="Due">
+                                        <Input {...controlProps} type="datetime-local" aria-label="Due" value={form.due_at} onValueChange={(v) => setField("due_at", v)} />
+                                    </Field>
                                 </div>
-                                <Select
-                                    label="Link to"
-                                    selectedKeys={[form.related_type]}
-                                    onSelectionChange={(keys) => {
-                                        const v = Array.from(keys)[0];
-                                        if (v) setField("related_type", String(v));
-                                    }}
-                                >
-                                    <SelectItem key="none">Nothing</SelectItem>
-                                    <SelectItem key="lead">CRM lead</SelectItem>
-                                    <SelectItem key="case">Visa case</SelectItem>
-                                </Select>
+                                <Field label="Link to">
+                                    <Select
+                                        {...controlProps}
+                                        aria-label="Link to"
+                                        selectedKeys={[form.related_type]}
+                                        onSelectionChange={(keys) => {
+                                            const v = Array.from(keys)[0];
+                                            if (v) setField("related_type", String(v));
+                                        }}
+                                    >
+                                        <SelectItem key="none">Nothing</SelectItem>
+                                        <SelectItem key="lead">CRM lead</SelectItem>
+                                        <SelectItem key="case">Visa case</SelectItem>
+                                    </Select>
+                                </Field>
                                 {form.related_type === "lead" && (
-                                    <Input label="Lead UUID" placeholder="Paste lead uuid from Lead Inbox URL" value={form.related_id} onValueChange={(v) => setField("related_id", v)} />
+                                    <Field label="Lead UUID">
+                                        <Input {...controlProps} aria-label="Lead UUID" placeholder="Paste lead uuid from Lead Inbox URL" value={form.related_id} onValueChange={(v) => setField("related_id", v)} />
+                                    </Field>
                                 )}
                                 {form.related_type === "case" && (
-                                    <Input label="Case ID" placeholder="Numeric id from /leads/progress/15" value={form.related_id} onValueChange={(v) => setField("related_id", v)} />
+                                    <Field label="Case ID">
+                                        <Input {...controlProps} aria-label="Case ID" placeholder="Numeric id from /leads/progress/15" value={form.related_id} onValueChange={(v) => setField("related_id", v)} />
+                                    </Field>
                                 )}
                             </ModalBody>
                             <ModalFooter>

@@ -569,6 +569,8 @@ const ServicesRequest = () => {
 
   return (
     <div className="flex flex-col gap-4">
+      <AchievementBanner target_type={isHealth ? "health_ins" : "sim_card"} />
+
       <div>
         <h1 className="text-xl sm:text-2xl font-semibold text-foreground">
           {pageTitle}
@@ -576,17 +578,8 @@ const ServicesRequest = () => {
         <p className="text-sm text-default-500">{pageSubtitle}</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="lg:flex-1 min-w-0">
-          {isHealth ? <HealthInsurance /> : <InternationalSIMCard />}
-        </div>
-        <aside className="lg:w-72 shrink-0">
-          <div className="rounded-xl border border-default-200 bg-content1 p-3 sticky top-6">
-            <AchievementBanner
-              target_type={isHealth ? "health_ins" : "sim_card"}
-            />
-          </div>
-        </aside>
+      <div className="min-w-0">
+        {isHealth ? <HealthInsurance /> : <InternationalSIMCard />}
       </div>
 
       <Dialog open={showThankYouDialog} onOpenChange={setShowThankYouDialog}>

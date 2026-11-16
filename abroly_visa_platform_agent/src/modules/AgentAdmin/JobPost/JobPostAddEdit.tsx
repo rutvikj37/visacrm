@@ -44,15 +44,32 @@ const emptyForm = {
     uuid: "",
 };
 
-const fieldProps = {
-    labelPlacement: "outside" as const,
+const controlProps = {
     variant: "bordered" as const,
     classNames: {
-        label: "text-sm font-medium text-default-600 pb-1",
         inputWrapper: "bg-content1 border-default-200 shadow-none",
         trigger: "bg-content1 border-default-200 shadow-none",
+        input: "bg-transparent",
     },
 };
+
+const Field = ({
+    label,
+    required,
+    children,
+}: {
+    label: string;
+    required?: boolean;
+    children: React.ReactNode;
+}) => (
+    <div className="flex flex-col gap-1.5 min-w-0">
+        <label className="text-sm font-medium text-default-700">
+            {label}
+            {required ? <span className="text-danger"> *</span> : null}
+        </label>
+        {children}
+    </div>
+);
 
 /** Create or edit a job post, including agency-defined custom fields. */
 const JobPostAddEdit = () => {
@@ -171,56 +188,79 @@ const JobPostAddEdit = () => {
             </div>
 
             <form className="rounded-xl border border-default-200 bg-content1 p-4 sm:p-6 flex flex-col gap-6" onSubmit={handleSubmit}>
-                <section className="flex flex-col gap-4">
+                <section className="flex flex-col gap-5">
                     <h2 className="text-sm font-semibold text-default-700">Basics</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-5">
-                        <Select
-                            {...fieldProps}
-                            label="Job type"
-                            selectedKeys={[formData.jobType]}
-                            onSelectionChange={(keys) => {
-                                const v = Array.from(keys)[0];
-                                if (v) setField("jobType", String(v));
-                            }}
-                        >
-                            {JOB_TYPES.map((t) => <SelectItem key={t}>{t}</SelectItem>)}
-                        </Select>
-                        <Select
-                            {...fieldProps}
-                            label="Work permit"
-                            selectedKeys={[formData.workPermit]}
-                            onSelectionChange={(keys) => {
-                                const v = Array.from(keys)[0];
-                                if (v) setField("workPermit", String(v));
-                            }}
-                        >
-                            {WORK_PERMITS.map((t) => <SelectItem key={t}>{t}</SelectItem>)}
-                        </Select>
-                        <div className="flex flex-col gap-1.5 min-w-0">
-                            <span className="text-sm font-medium text-default-600">Country <span className="text-danger">*</span></span>
+                        <Field label="Job type">
+                            <Select
+                                {...controlProps}
+                                aria-label="Job type"
+                                selectedKeys={[formData.jobType]}
+                                onSelectionChange={(keys) => {
+                                    const v = Array.from(keys)[0];
+                                    if (v) setField("jobType", String(v));
+                                }}
+                            >
+                                {JOB_TYPES.map((t) => <SelectItem key={t}>{t}</SelectItem>)}
+                            </Select>
+                        </Field>
+                        <Field label="Work permit">
+                            <Select
+                                {...controlProps}
+                                aria-label="Work permit"
+                                selectedKeys={[formData.workPermit]}
+                                onSelectionChange={(keys) => {
+                                    const v = Array.from(keys)[0];
+                                    if (v) setField("workPermit", String(v));
+                                }}
+                            >
+                                {WORK_PERMITS.map((t) => <SelectItem key={t}>{t}</SelectItem>)}
+                            </Select>
+                        </Field>
+                        <Field label="Country" required>
                             <ReactFlagsSelect
                                 selected={formData.country}
                                 searchable
                                 onSelect={(c) => setField("country", c)}
                                 className="!pb-0 w-full [&_button]:!border [&_button]:!border-default-200 [&_button]:!rounded-xl [&_button]:!bg-content1 [&_button]:!shadow-none"
                             />
-                        </div>
-                        <Input {...fieldProps} label="Job role" placeholder="e.g. Software engineer" value={formData.jobRole} onValueChange={(v) => setField("jobRole", v)} isRequired />
-                        <Input {...fieldProps} type="number" label="Salary min (INR / month)" placeholder="e.g. 40000" value={String(formData.salaryMin)} onValueChange={(v) => setField("salaryMin", v)} isRequired />
-                        <Input {...fieldProps} type="number" label="Salary max (INR / month)" placeholder="e.g. 60000" value={String(formData.salaryMax)} onValueChange={(v) => setField("salaryMax", v)} isRequired />
+                        </Field>
+                        <Field label="Job role" required>
+                            <Input {...controlProps} aria-label="Job role" placeholder="e.g. Software engineer" value={formData.jobRole} onValueChange={(v) => setField("jobRole", v)} />
+                        </Field>
+                        <Field label="Salary min (INR / month)" required>
+                            <Input {...controlProps} type="number" aria-label="Salary min" placeholder="e.g. 40000" value={String(formData.salaryMin)} onValueChange={(v) => setField("salaryMin", v)} />
+                        </Field>
+                        <Field label="Salary max (INR / month)" required>
+                            <Input {...controlProps} type="number" aria-label="Salary max" placeholder="e.g. 60000" value={String(formData.salaryMax)} onValueChange={(v) => setField("salaryMax", v)} />
+                        </Field>
                     </div>
                 </section>
 
-                <section className="flex flex-col gap-4">
+                <section className="flex flex-col gap-5">
                     <h2 className="text-sm font-semibold text-default-700">Requirements & benefits</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-5">
-                        <Input {...fieldProps} type="number" label="Experience (years)" placeholder="e.g. 2" value={String(formData.experienceRequired)} onValueChange={(v) => setField("experienceRequired", v)} isRequired />
-                        <Input {...fieldProps} label="Education level" placeholder="e.g. Bachelor's" value={formData.educationLevel} onValueChange={(v) => setField("educationLevel", v)} isRequired />
-                        <Input {...fieldProps} label="Food" placeholder="e.g. Provided / Not provided" value={formData.food} onValueChange={(v) => setField("food", v)} isRequired />
-                        <Input {...fieldProps} label="Working hours / month" placeholder="e.g. 160" value={formData.workHours} onValueChange={(v) => setField("workHours", v)} isRequired />
-                        <Input {...fieldProps} label="Agent charges" placeholder="e.g. Nil / 10% of salary" value={formData.agentCharges} onValueChange={(v) => setField("agentCharges", v)} isRequired />
-                        <Input {...fieldProps} label="Skills required" placeholder="Communication, Excel…" value={formData.skillsRequired} onValueChange={(v) => setField("skillsRequired", v)} />
-                        <Input {...fieldProps} type="date" label="Application deadline" value={formData.applicationDeadline} onValueChange={(v) => setField("applicationDeadline", v)} isRequired />
+                        <Field label="Experience (years)" required>
+                            <Input {...controlProps} type="number" aria-label="Experience" placeholder="e.g. 2" value={String(formData.experienceRequired)} onValueChange={(v) => setField("experienceRequired", v)} />
+                        </Field>
+                        <Field label="Education level" required>
+                            <Input {...controlProps} aria-label="Education level" placeholder="e.g. Bachelor's" value={formData.educationLevel} onValueChange={(v) => setField("educationLevel", v)} />
+                        </Field>
+                        <Field label="Food" required>
+                            <Input {...controlProps} aria-label="Food" placeholder="e.g. Provided / Not provided" value={formData.food} onValueChange={(v) => setField("food", v)} />
+                        </Field>
+                        <Field label="Working hours / month" required>
+                            <Input {...controlProps} aria-label="Working hours" placeholder="e.g. 160" value={formData.workHours} onValueChange={(v) => setField("workHours", v)} />
+                        </Field>
+                        <Field label="Agent charges" required>
+                            <Input {...controlProps} aria-label="Agent charges" placeholder="e.g. Nil / 10% of salary" value={formData.agentCharges} onValueChange={(v) => setField("agentCharges", v)} />
+                        </Field>
+                        <Field label="Skills required">
+                            <Input {...controlProps} aria-label="Skills required" placeholder="Communication, Excel…" value={formData.skillsRequired} onValueChange={(v) => setField("skillsRequired", v)} />
+                        </Field>
+                        <Field label="Application deadline" required>
+                            <Input {...controlProps} type="date" aria-label="Application deadline" value={formData.applicationDeadline} onValueChange={(v) => setField("applicationDeadline", v)} />
+                        </Field>
                     </div>
                     <div className="flex flex-wrap gap-x-5 gap-y-3 rounded-xl border border-default-200 bg-default-50 px-4 py-3">
                         {([
@@ -236,7 +276,7 @@ const JobPostAddEdit = () => {
                     </div>
                 </section>
 
-                <section className="rounded-xl border border-default-200 p-4 flex flex-col gap-3">
+                <section className="rounded-xl border border-default-200 p-4 flex flex-col gap-4">
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <div className="font-medium flex items-center gap-2 text-sm"><Briefcase size={16} /> Custom fields</div>
@@ -248,23 +288,27 @@ const JobPostAddEdit = () => {
                         <p className="text-sm text-default-400 py-2">No custom fields yet.</p>
                     )}
                     {customFields.map((f) => (
-                        <div key={f.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-                            <Input
-                                {...fieldProps}
-                                size="sm"
-                                label="Field name"
-                                placeholder="e.g. Preferred language"
-                                value={f.label}
-                                onValueChange={(v) => updateCustomField(f.id, { label: v })}
-                            />
-                            <Input
-                                {...fieldProps}
-                                size="sm"
-                                label="Value"
-                                placeholder="e.g. English / Hindi"
-                                value={f.value}
-                                onValueChange={(v) => updateCustomField(f.id, { value: v })}
-                            />
+                        <div key={f.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-x-3 gap-y-4 items-end">
+                            <Field label="Field name">
+                                <Input
+                                    {...controlProps}
+                                    size="sm"
+                                    aria-label="Field name"
+                                    placeholder="e.g. Preferred language"
+                                    value={f.label}
+                                    onValueChange={(v) => updateCustomField(f.id, { label: v })}
+                                />
+                            </Field>
+                            <Field label="Value">
+                                <Input
+                                    {...controlProps}
+                                    size="sm"
+                                    aria-label="Field value"
+                                    placeholder="e.g. English / Hindi"
+                                    value={f.value}
+                                    onValueChange={(v) => updateCustomField(f.id, { value: v })}
+                                />
+                            </Field>
                             <Button isIconOnly size="sm" variant="light" color="danger" className="mb-0.5" aria-label="Remove field" onPress={() => removeCustomField(f.id)}>
                                 <Trash2 size={16} />
                             </Button>
@@ -272,8 +316,8 @@ const JobPostAddEdit = () => {
                     ))}
                 </section>
 
-                <section className="flex flex-col gap-2">
-                    <span className="text-sm font-medium text-default-600">Description</span>
+                <section className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-default-700">Description</label>
                     <div className="rounded-xl border border-default-200 overflow-hidden [&_.ql-toolbar]:border-0 [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-default-200 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[140px]">
                         <ReactQuill theme="snow" value={formData.description} onChange={(v) => setField("description", v)} />
                     </div>

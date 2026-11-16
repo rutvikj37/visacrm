@@ -95,6 +95,8 @@ const Career = () => {
 
     return (
         <section className="flex flex-col gap-4 w-full">
+            <AchievementBanner target_type={"career"} />
+
             <div>
                 <h1 className="text-xl sm:text-2xl font-semibold text-foreground">
                     Available Job Posts
@@ -526,10 +528,6 @@ const Career = () => {
                 )}
 
             </div>
-
-            <aside className="rounded-xl border border-default-200 bg-content1 p-3">
-                <AchievementBanner target_type={"career"} />
-            </aside>
         </section>
     )
 }

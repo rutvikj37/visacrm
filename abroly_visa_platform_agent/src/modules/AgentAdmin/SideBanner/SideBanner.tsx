@@ -1,6 +1,6 @@
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { Button, Card, CardBody, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, getKeyValue, Spinner, Chip } from "@heroui/react"
-import { AlertTriangle, Calendar, Target, MapPin, TrendingUp, Plus, History, Zap, Eye } from 'lucide-react'
+import { Calendar, Target, TrendingUp, Plus, Eye } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { RiAdvertisementLine } from 'react-icons/ri'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -124,14 +124,6 @@ const SideBanner = () => {
                     <TableColumn key="status">
                       <span className="font-bold text-gray-900">Status</span>
                     </TableColumn>
-                    <TableColumn key="position">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1 rounded" style={{ backgroundColor: `${PRIMARY_COLOR}15` }}>
-                          <MapPin className='h-4 w-4' style={{ color: BRAND_TEXT }} />
-                        </div>
-                        <span className="font-bold text-gray-900">Position</span>
-                      </div>
-                    </TableColumn>
                     <TableColumn key="target_type">
                       <div className="flex items-center gap-2">
                         <div className="p-1 rounded" style={{ backgroundColor: `${PRIMARY_COLOR}15` }}>
@@ -233,17 +225,6 @@ const SideBanner = () => {
                                 >
                                   {label}
                                 </Chip>
-                              </TableCell>
-                            )
-                          } else if (columnKey == "position") {
-                            return (
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="w-4 h-4 text-gray-400" />
-                                  <span className="text-sm font-medium text-gray-700">
-                                    Position {getKeyValue(item, columnKey)}
-                                  </span>
-                                </div>
                               </TableCell>
                             )
                           } else if (columnKey == "responses") {

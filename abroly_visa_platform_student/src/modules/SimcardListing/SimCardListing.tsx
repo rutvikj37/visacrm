@@ -35,7 +35,9 @@ const SimCardListing = () => {
 
     return (
         <div>
-            <section className='container mx-auto my-16 space-y-5' id='services' >
+            <section className='container mx-auto my-8 space-y-5' id='services' >
+                <AchievementBanner target_type={"sim_card"} />
+
                 <h1 className='text-3xl text-center'>Sim-card Options</h1>
 
                 <section className='flex flex-row flex-wrap gap-2 container mx-auto items-stretch justify-center'>
@@ -57,8 +59,6 @@ const SimCardListing = () => {
 
                     ))}
                 </section>
-
-                <AchievementBanner target_type={"sim_card"} />
 
             </section>
 
