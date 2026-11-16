@@ -13,7 +13,7 @@ import { agencyBrand, sendMail } from "./mailer";
  */
 
 type NotifyType =
-    | "new_lead" | "lead_assigned" | "whatsapp_message" | "follow_up_due" | "daily_digest" | "document_uploaded"
+    | "new_lead" | "lead_assigned" | "whatsapp_message" | "portal_chat" | "follow_up_due" | "daily_digest" | "document_uploaded"
     | "case_assigned" | "trial_ending" | "plan_ending" | "plan_expired" | "payment_received" | "import_done"
     | "payment_failed" | "announcement" | "mention";
 

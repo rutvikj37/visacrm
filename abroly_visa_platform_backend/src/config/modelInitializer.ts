@@ -82,6 +82,7 @@ import ActivityLog from "../model/ActivityLog";
 import AgencyService from "../model/AgencyService";
 import ServiceOrder from "../model/ServiceOrder";
 import ServiceOrderUpdate from "../model/ServiceOrderUpdate";
+import PortalChatMessage from "../model/PortalChatMessage";
 
 interface SyncOptions {
   force?: boolean;
@@ -176,7 +177,7 @@ class ModelInitializer {
       LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate,
       // SaaS billing
       SaasPlan, SaasSubscription, SaasPayment,
-      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate
+      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage
     ];
 
     // Sync base models first

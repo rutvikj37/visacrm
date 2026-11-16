@@ -5,8 +5,14 @@ import FeesController from '../controller/FeesController'
 import ServiceStoreController from '../controller/ServiceStoreController'
 import ServiceOrderController, { orderUpload } from '../controller/ServiceOrderController'
 import StudentController from '../controller/StudentController'
+import PortalChatController from '../controller/PortalChatController'
 import raiseApplicationRoutes from './raiseApplicationRoutes'
 const studentRoutes = express.Router()
+
+// student ↔ assigned counsellor in-app chat
+studentRoutes.route("/chat").get(validateUser, PortalChatController.studentThread)
+studentRoutes.route("/chat/unread").get(validateUser, PortalChatController.studentUnread)
+studentRoutes.route("/chat/send").post(validateUser, PortalChatController.studentSend)
 
 // admin
 studentRoutes.route("/list").post(validateAdmin, StudentController.studentsListing)

@@ -110,7 +110,7 @@ const AgentCRM = () => {
           { title: "Chats", url: "/crm/chats" },
           { title: "Follow-ups today", url: "/crm/leads?follow_up=today" },
           { title: "Calendar", url: "/crm/calendar" },
-          { title: "Messages", url: "/crm/messages" },
+          // Messages (broadcast templates) hidden for now
           { title: "Contact requests", url: "/contact_us" },
         ],
       },

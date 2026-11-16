@@ -38,6 +38,7 @@ const AgnetProfile = lazy(()=> import("@/modules/VisaConsultation/AgnetProfile")
 // const CoinHistory = lazy(()=> import("@/modules/Coins/CoinHistory"))
 const OfflinePrep =  lazy(()=> import("@/modules/LanguagePrep/OfflinePrep"))
 const ServicesRequest = lazy(()=> import("@/modules/ServiceRequests/ServicesRequest"))
+const StudentChat = lazy(()=> import("@/modules/Chat/StudentChat"))
 
 export const PublicRoutes = [
     {
@@ -200,6 +201,10 @@ export const StudentRoutes = [
     {
         path: "/my_progress",
         element: ProgressTracker
+    },
+    {
+        path: "/chat",
+        element: StudentChat
     },
     {
         path: "/my_fees",

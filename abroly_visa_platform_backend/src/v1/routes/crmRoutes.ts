@@ -2,6 +2,7 @@ import ServiceOrderController, { orderUpload } from "../controller/ServiceOrderC
 import ServiceStoreController from "../controller/ServiceStoreController"
 import ActivityLogController from "../controller/ActivityLogController"
 import ConversationController from "../controller/ConversationController"
+import PortalChatController from "../controller/PortalChatController"
 import OnboardingController from "../controller/OnboardingController"
 import TodayController from "../controller/TodayController"
 import AnnouncementController from "../controller/AnnouncementController"
@@ -45,6 +46,11 @@ crmRoutes.route("/monthly_summary").get(validateAgent, OnboardingController.mont
 crmRoutes.route("/conversations").get(validateAgent, ConversationController.list)
 crmRoutes.route("/conversations/unread").get(validateAgent, ConversationController.unread)
 crmRoutes.route("/conversations/:uuid").get(validateAgent, ConversationController.thread)
+// In-app student ↔ counsellor chat (WhatsApp/Instagram inbox kept above but unused in UI for now)
+crmRoutes.route("/portal_chats").get(validateAgent, PortalChatController.agentList)
+crmRoutes.route("/portal_chats/unread").get(validateAgent, PortalChatController.agentUnread)
+crmRoutes.route("/portal_chats/:studentId").get(validateAgent, PortalChatController.agentThread)
+crmRoutes.route("/portal_chats/:studentId/send").post(validateAgent, PortalChatController.agentSend)
 crmRoutes.route("/services").get(validateAgent, ServiceStoreController.list).post(validateAgent, ServiceStoreController.save)
 crmRoutes.route("/service_orders").get(validateAgent, ServiceOrderController.list)
 crmRoutes.route("/service_orders/:uuid").get(validateAgent, ServiceOrderController.details)

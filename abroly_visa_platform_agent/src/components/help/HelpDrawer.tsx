@@ -24,10 +24,9 @@ const HELP: [string, Help][] = [
         "When a student is ready, open the lead and press 'Convert to visa case'.",
     ] }],
     ["/crm/chats", { title: "Chats", points: [
-        "WhatsApp and Instagram messages from all your leads, newest first. Green numbers are unread messages.",
-        "Open a chat to reply. Everyone in the team sees the same chat and who sent each reply.",
-        "WhatsApp and Instagram allow replies only within 24 hours of the person's last message. After that, call them or message from your phone.",
-        "Saved messages (Messages → manual) appear as quick replies above the reply box.",
+        "In-app chat with students who have a visa case with you. They message from their student portal.",
+        "Open a chat to reply. The assigned counsellor and your team (by branch) can see the same thread.",
+        "Green numbers are unread student messages. Use All / Unread / Mine to focus.",
     ] }],
     ["/crm/sources", { title: "Lead sources", points: [
         "Connect where your leads come from. Each source gets its own link or key - new leads arrive in the inbox within seconds.",

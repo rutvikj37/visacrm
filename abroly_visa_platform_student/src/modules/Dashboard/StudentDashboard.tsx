@@ -161,6 +161,10 @@ const data = {
           url: "/my_progress",
         },
         {
+          title: "Chat with counsellor",
+          url: "/chat",
+        },
+        {
           title: "My fees",
           url: "/my_fees",
         },

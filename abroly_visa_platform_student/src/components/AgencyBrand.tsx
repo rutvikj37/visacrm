@@ -1,8 +1,9 @@
 import { LANGUAGES, Lang, setLang, useT } from "@/utils/i18n";
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { MessageCircle } from "lucide-react";
-import { getAppName, getConfig, getSupportNumber } from "@/utils/config";
+import { Link } from "react-router-dom";
+import { MessagesSquare } from "lucide-react";
+import { getAppName, getConfig } from "@/utils/config";
 
 /** Agency logo, or its first letter in the brand colour when there is no logo (or it fails to load). */
 export const AgencyLogo = ({ size = 32 }: { size?: number }) => {
@@ -16,17 +17,16 @@ export const AgencyLogo = ({ size = 32 }: { size?: number }) => {
 };
 
 const TITLES: [string, string][] = [
-    ["/my_progress", "@my_progress"], ["/my_fees", "@my_fees"], ["/services", "@services"], ["/profile", "My profile"], ["/visa", "Visa consultation"],
+    ["/chat", "Chat with counsellor"], ["/my_progress", "@my_progress"], ["/my_fees", "@my_fees"], ["/services", "@services"], ["/profile", "My profile"], ["/visa", "Visa consultation"],
     ["/accepted", "My applications"], ["/career", "Careers"], ["/health", "Health insurance"], ["/sim", "SIM cards"],
 ];
 
-/** Top bar of the student portal: agency logo + name, current page, WhatsApp the agency. */
+/** Top bar of the student portal: agency logo + name, current page, in-app chat with counsellor. */
 export const StudentTopBar = () => {
     const { pathname } = useLocation();
     const { t, lang } = useT();
     const raw = TITLES.find(([p]) => pathname.startsWith(p))?.[1] || "";
     const title = raw.startsWith("@") ? t(raw.slice(1)) : raw;
-    const support = String(getSupportNumber() || "").replace(/\D/g, "");
     return (
         <div className="flex items-center gap-2 min-w-0 flex-1">
             <AgencyLogo size={28} />
@@ -38,11 +38,11 @@ export const StudentTopBar = () => {
                 className="ml-auto rounded-full border border-default-200 bg-transparent px-2 py-1 text-xs">
                 {LANGUAGES.map((l) => <option key={l.key} value={l.key}>{l.short}</option>)}
             </select>
-            {support && (
-                <a href={`https://wa.me/${support.length === 10 ? `91${support}` : support}`} target="_blank" rel="noopener"
-                    className="inline-flex items-center gap-1 rounded-full bg-success-50 text-success-700 px-3 py-1.5 text-xs font-medium shrink-0">
-                    <MessageCircle size={14} /><span className="max-sm:hidden">{t("chat_with_us")}</span>
-                </a>
+            {pathname !== "/chat" && (
+                <Link to="/chat"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium shrink-0 no-underline">
+                    <MessagesSquare size={14} /><span className="max-sm:hidden">Chat</span>
+                </Link>
             )}
         </div>
     );
