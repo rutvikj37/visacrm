@@ -1321,61 +1321,14 @@ class UserController {
                     country_code,
                 }
             })
-            if (findUser && (await adminUsesLoginCode(findUser.dataValues.id))) {
-                return returnHelper(res, 200, true, "Enter your 6-digit admin login code.", LOGIN_CODE_MARKER)
-            }
-
-
-            if (findUser) {
-
-                // local login: fixed OTP for the test admin number, random 6 digits otherwise
-                const ADMIN_TEST_NUMBERS: Record<string, string> = { "9999999999": "111111" };
-
-                function generateOTP() {
-                    return ADMIN_TEST_NUMBERS[phone_number] ?? Math.floor(100000 + Math.random() * 900000);
-                }
-
-                const createotp = generateOTP()
-
-                console.log(createotp, "THE OTP");
-
-                const otp = await bcrypt.hash(createotp + "", 10)
-
-                function generateExpiryTime() {
-                    // Get the current time
-                    const currentTime = new Date();
-
-                    // Add 5 minutes to the current time to get the expiration time
-                    const expiryTime = new Date(currentTime.getTime() + 5 * 60000); // 5 minutes in milliseconds
-
-                    return expiryTime;
-                }
-
-                const otp_expire = generateExpiryTime()
-
-                await Admin.update({
-                    otp,
-                    otp_expire
-                }, {
-                    where: {
-                        uuid: findUser.dataValues.uuid
-                    }
-                })
-                // otp: otp,
-                // otp_expire
-                return res.status(200).json({
-                    success: true,
-                    message: "OTP has been sent successfully.",
-
-                })
-            }
-            else {
+            if (!findUser) {
                 return res.status(200).json({
                     success: false,
                     message: "Phone number not registred YET!"
                 })
-
             }
+            // Fixed admin OTP 111111 — same as production (no SMS)
+            return returnHelper(res, 200, true, "Enter your 6-digit admin login code.", LOGIN_CODE_MARKER)
         } catch (error: any) {
             return res.status(200).json({
                 success: false,

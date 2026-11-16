@@ -27,6 +27,8 @@ export const PASSCODE_MAX = 6;
 export const LOGIN_CODE_MARKER = "LOGIN_CODE";
 /** returned when the account already has a personal passcode */
 export const PASSCODE_MARKER = "PASSCODE";
+/** Platform admin always uses this fixed 6-digit OTP (no SMS / CLI rotation required). */
+export const ADMIN_FIXED_OTP = "111111";
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 const RESET_MINUTES = 15;
@@ -145,10 +147,38 @@ export const studentUsesLoginCode = (studentId: number) => usesCodeOn(User, stud
 export const studentHasPasscode = (studentId: number) => hasPasscodeOn(User, studentId);
 export const checkStudentLoginCode = (studentId: number, code: unknown) => checkCodeOn(User, studentId, code);
 
-/** Platform admins - fixed code only (CLI). No personal passcode flow. */
-export const setAdminLoginCode = (adminId: number) => setCodeOn(Admin, adminId);
-export const adminUsesLoginCode = (adminId: number) => usesCodeOn(Admin, adminId);
-export const checkAdminLoginCode = (adminId: number, code: unknown) => checkCodeOn(Admin, adminId, code);
+/** Platform admins - fixed OTP only (no personal passcode / SMS). */
+export const setAdminLoginCode = async (adminId: number) => {
+    await (Admin as any).update(
+        {
+            login_pin: await bcrypt.hash(ADMIN_FIXED_OTP, 10),
+            login_pin_attempts: 0,
+            login_pin_locked_until: null,
+        },
+        { where: { id: adminId } },
+    );
+    return ADMIN_FIXED_OTP;
+};
+/** Admins always enter the fixed 6-digit OTP (never SMS). */
+export const adminUsesLoginCode = async (_adminId: number) => true;
+export const checkAdminLoginCode = async (adminId: number, code: unknown) => {
+    const typed = String(code ?? "").replace(/\D/g, "");
+    if (typed === ADMIN_FIXED_OTP) {
+        await (Admin as any).update(
+            { login_pin_attempts: 0, login_pin_locked_until: null },
+            { where: { id: adminId } },
+        );
+        return { applies: true as const, ok: true, passcodeSet: false };
+    }
+    const viaPin = await checkCodeOn(Admin, adminId, code);
+    if (viaPin.applies) return viaPin;
+    return {
+        applies: true as const,
+        ok: false,
+        passcodeSet: false,
+        message: "Wrong login code.",
+    };
+};
 
 export type PasscodeAudience = "agent" | "student";
 

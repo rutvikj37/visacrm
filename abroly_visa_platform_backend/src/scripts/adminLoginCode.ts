@@ -2,10 +2,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 /**
- * Create the platform admin (if missing) and give them a new fixed 6-digit login code.
+ * Create the platform admin (if missing) and ensure their login OTP is the fixed code 111111.
  *   npm run admin:code -- 9876543210 "Your Name"
- * The admin logs in at the admin panel with this mobile number + code. Run it again for a new code
- * (the old one stops working). The code is stored hashed and only printed here.
+ * The admin logs in at the admin panel with this mobile number + OTP 111111.
  */
 const main = async () => {
     const phone = String(process.argv[2] || "").replace(/\D/g, "");
@@ -25,7 +24,7 @@ const main = async () => {
         console.log(`Created platform admin ${name} (+91 ${phone}).`);
     }
     const code = await setAdminLoginCode(admin.dataValues.id);
-    console.log(`\nAdmin login: +91 ${phone}   code ${code}\n(keep it private - run this again any time for a new code)`);
+    console.log(`\nAdmin login: +91 ${phone}   OTP ${code}\n(platform admin OTP is always ${code})`);
     await sequelize.close();
 };
 

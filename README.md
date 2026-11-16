@@ -38,16 +38,16 @@ CRM for visa and study-abroad agencies: a platform (super) admin, a white-label 
 
 ## Logins
 
-- **Platform admin**: mobile number + OTP. Locally, `9999999999` with OTP `111111`.
-- **Agency owners and team members** created from the admin / agency panel get a 6-digit login code by email (mobile number + code).
-- **Students** log in with an SMS OTP; demo students get a fixed login code from `npm run demo:seed`.
+- **Platform admin**: mobile number + fixed OTP `111111` (no SMS).
+- **Agency owners and team members** created from the admin / agency panel get a 6-digit invite code by email, then set a personal passcode.
+- **Students** use the same invite → personal passcode flow (or SMS OTP if no login code is set); demo students get a fixed login code from `npm run demo:seed`.
 
 ## Server (Ubuntu + PM2 + MySQL + Nginx)
 
 - First time, as root: `git clone https://github.com/rutvikj37/visacrm.git /opt/visacrm && bash /opt/visacrm/deploy/setup-server.sh`
   (installs Nginx + HTTPS, creates the MySQL database, writes `.env` files with random secrets, builds and starts everything).
 - Every update: `bash /opt/visacrm/deploy/deploy.sh`
-- Admin login code: `cd /opt/visacrm/abroly_visa_platform_backend && npm run admin:code -- <mobile> "Name"`
+- Ensure platform admin exists: `cd /opt/visacrm/abroly_visa_platform_backend && npm run admin:code -- <mobile> "Name"` (OTP is always `111111`)
 - Local-testing logins (`*_custom` routes, test numbers) only work with `ISLOCAL=yes`, which is never set on a server.
 
 ## Notes
