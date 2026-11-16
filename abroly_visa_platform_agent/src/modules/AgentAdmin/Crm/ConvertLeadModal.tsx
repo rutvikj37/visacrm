@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { Button, Checkbox, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, SelectSection, Spinner } from "@heroui/react";
-import { CheckCircle2, FileText, Upload } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import FormField from "./FormField";
+import CountrySelectWithFlag from "./CountrySelectWithFlag";
 import LeadDocChecklist from "./LeadDocChecklist";
 import PortalInvitePanel from "./PortalInvitePanel";
 import { summarizeDocChecklist } from "./crmShared";
@@ -22,6 +24,12 @@ interface Props {
 
 const VISA_TYPES = ["Student Visa", "Work Visa", "Tourist Visa", "PR / Immigration", "Business Visa", "Dependent Visa", "Other"];
 
+const STEPS = [
+    { key: "country", title: "Country & visa" },
+    { key: "details", title: "Case details" },
+    { key: "template", title: "Process template" },
+] as const;
+
 const norm = (v?: string) => (v || "").toLowerCase().replace(/[^a-z]/g, "");
 const countryMatches = (templateCountry?: string, wanted?: string) => {
     const a = norm(templateCountry), b = norm(wanted);
@@ -31,9 +39,11 @@ const countryMatches = (templateCountry?: string, wanted?: string) => {
 
 const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [], canAssign = false, onConverted }: Props) => {
     const navigate = useNavigate();
+    const isOwner = useSelector((state: any) => state.login.role_type) === "agent";
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
     const [templates, setTemplates] = useState<{ agency: any[]; library: any[] }>({ agency: [], library: [] });
     const [loadingTemplates, setLoadingTemplates] = useState(false);
+    const [step, setStep] = useState(0);
     const [country, setCountry] = useState("");
     const [intake, setIntake] = useState("");
     const [visaType, setVisaType] = useState("");
@@ -50,6 +60,7 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
         if (!isOpen || !lead) return;
         setResult(null);
         setChecklistAck(false);
+        setStep(0);
         setCountry(lead.interested_country || "");
         setIntake(lead.intake || "");
         setVisaType(lead.visa_type || "");
@@ -73,13 +84,26 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
         if (match) setTemplateId(match.id);
     }, [templates, country]);
 
-    const allTemplates = useMemo(() => [...templates.agency, ...templates.library], [templates]);
-    const chosen = allTemplates.find((t) => t.id === templateId);
-    const missingDocs = !checklist.complete;
+    const missingDocs = !isOwner && !checklist.complete;
+    const isLastStep = step >= STEPS.length - 1;
+
+    const canNext = () => {
+        if (step === 0) return Boolean(country.trim());
+        return true;
+    };
+
+    const goNext = () => {
+        if (step === 0 && !country.trim()) {
+            ErrorToast("Please select the visa country");
+            return;
+        }
+        setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    };
 
     const convert = async (ack = checklistAck) => {
         if (!country.trim()) {
-            ErrorToast("Please enter the visa country");
+            ErrorToast("Please select the visa country");
+            setStep(0);
             return;
         }
         if (missingDocs && !ack) {
@@ -95,7 +119,7 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
             university: university.trim(),
             template_id: templateId || null,
             assigned_to: canAssign && assignedTo ? Number(assignedTo) : undefined,
-            checklist_ack: missingDocs ? true : undefined,
+            checklist_ack: isOwner || missingDocs ? true : undefined,
         }, `crm/leads/${lead.uuid}/convert`, false);
         setSaving(false);
         if (!success) return;
@@ -145,77 +169,126 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
                             <p className="text-sm text-default-500">
                                 This creates the student, opens a visa case under <b>Visa Processing</b>, and adds the steps from the template you choose.
                             </p>
-                            <LeadDocChecklist value={checklist} readOnly compact />
-                            {missingDocs && (
-                                <Checkbox isSelected={checklistAck} onValueChange={setChecklistAck} size="sm" className="items-start">
-                                    <span className="text-sm">
-                                        I understand {checklist.missing.length} document{checklist.missing.length === 1 ? " is" : "s are"} still missing
-                                        ({checklist.missing.map((m: any) => m.label).slice(0, 3).join(", ")}
-                                        {checklist.missing.length > 3 ? "…" : ""}) and want to convert anyway.
-                                    </span>
-                                </Checkbox>
-                            )}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <FormField label="Visa country *"><Input aria-label="Visa country" placeholder="e.g. Canada" value={country} onValueChange={setCountry} /></FormField>
-                                <FormField label="Intake"><Input aria-label="Intake" placeholder="e.g. Sep 2026" value={intake} onValueChange={setIntake} /></FormField>
-                                <FormField label="Visa type">
-                                    <Select aria-label="Visa type" selectedKeys={visaType ? [visaType] : []} onChange={(e) => setVisaType(e.target.value)}>
-                                        {(visaType && !VISA_TYPES.includes(visaType) ? [visaType, ...VISA_TYPES] : VISA_TYPES).map((v) => <SelectItem key={v}>{v}</SelectItem>)}
-                                    </Select>
-                                </FormField>
-                                <FormField label="Course / program"><Input aria-label="Course" value={course} onValueChange={setCourse} /></FormField>
-                                <FormField label="University / college"><Input aria-label="University" value={university} onValueChange={setUniversity} /></FormField>
-                                {canAssign && team.length > 0 && (
-                                    <FormField label="Case handled by" className="sm:col-span-2">
-                                        <Select aria-label="Case handled by" selectedKeys={assignedTo ? [assignedTo] : []} onChange={(e) => setAssignedTo(e.target.value)}>
-                                            {team.map((m: any) => <SelectItem key={String(m.id)}>{m.username || `#${m.id}`}</SelectItem>)}
+
+                            <nav aria-label="Convert steps" className="flex items-center gap-1 sm:gap-2">
+                                {STEPS.map((s, i) => {
+                                    const active = i === step;
+                                    const done = i < step;
+                                    return (
+                                        <button
+                                            key={s.key}
+                                            type="button"
+                                            className={`flex-1 min-w-0 rounded-lg px-2 py-2 text-left border transition-colors ${
+                                                active
+                                                    ? "border-primary bg-primary-50 text-primary"
+                                                    : done
+                                                        ? "border-success-200 bg-success-50 text-success-700"
+                                                        : "border-default-200 text-default-500"
+                                            }`}
+                                            onClick={() => {
+                                                if (i < step || (i === step + 1 && canNext())) setStep(i);
+                                                else if (i > step && step === 0 && !country.trim()) ErrorToast("Please select the visa country");
+                                            }}
+                                        >
+                                            <div className="text-[10px] uppercase tracking-wide opacity-70">Step {i + 1}</div>
+                                            <div className="text-xs sm:text-sm font-medium truncate">{s.title}</div>
+                                        </button>
+                                    );
+                                })}
+                            </nav>
+
+                            {step === 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <FormField label="Visa country *" className="sm:col-span-2">
+                                        <CountrySelectWithFlag
+                                            aria-label="Visa country"
+                                            placeholder="Select visa country"
+                                            value={country}
+                                            onChange={setCountry}
+                                        />
+                                    </FormField>
+                                    <FormField label="Visa type" className="sm:col-span-2">
+                                        <Select aria-label="Visa type" selectedKeys={visaType ? [visaType] : []} onChange={(e) => setVisaType(e.target.value)}>
+                                            {(visaType && !VISA_TYPES.includes(visaType) ? [visaType, ...VISA_TYPES] : VISA_TYPES).map((v) => <SelectItem key={v}>{v}</SelectItem>)}
                                         </Select>
                                     </FormField>
-                                )}
-                                <FormField label="Visa process template" className="sm:col-span-2">
-                                    {loadingTemplates ? <Spinner size="sm" /> : (
-                                        <Select aria-label="Template" placeholder="No template (add steps later)" selectedKeys={templateId ? [templateId] : []} onChange={(e) => setTemplateId(e.target.value)}>
-                                            {[
-                                                ...(templates.agency.length ? [
-                                                    <SelectSection key="agency" title="My templates">
-                                                        {templates.agency.map((t) => <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>)}
-                                                    </SelectSection>,
-                                                ] : []),
-                                                <SelectSection key="library" title="Built-in templates">
-                                                    {templates.library.map((t) => <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>)}
-                                                </SelectSection>,
-                                            ]}
-                                        </Select>
+                                </div>
+                            )}
+
+                            {step === 1 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <FormField label="Intake"><Input aria-label="Intake" placeholder="e.g. Sep 2026" value={intake} onValueChange={setIntake} /></FormField>
+                                    <FormField label="Course / program"><Input aria-label="Course" value={course} onValueChange={setCourse} /></FormField>
+                                    <FormField label="University / college" className="sm:col-span-2">
+                                        <Input aria-label="University" value={university} onValueChange={setUniversity} />
+                                    </FormField>
+                                </div>
+                            )}
+
+                            {step === 2 && (
+                                <div className="flex flex-col gap-3">
+                                    {!isOwner && (
+                                        <>
+                                            <LeadDocChecklist value={checklist} readOnly compact />
+                                            {missingDocs && (
+                                                <Checkbox isSelected={checklistAck} onValueChange={setChecklistAck} size="sm" className="items-start">
+                                                    <span className="text-sm">
+                                                        I understand {checklist.missing.length} document{checklist.missing.length === 1 ? " is" : "s are"} still missing
+                                                        ({checklist.missing.map((m: any) => m.label).slice(0, 3).join(", ")}
+                                                        {checklist.missing.length > 3 ? "…" : ""}) and want to convert anyway.
+                                                    </span>
+                                                </Checkbox>
+                                            )}
+                                        </>
                                     )}
-                                </FormField>
-                            </div>
-                            {chosen && (
-                                <div className="rounded-xl border border-default-200 p-3">
-                                    <div className="text-sm font-medium mb-2">Steps the student will see</div>
-                                    <ol className="text-sm space-y-1 list-decimal ml-5">
-                                        {chosen.steps.map((s: any, i: number) => (
-                                            <li key={i}>
-                                                {s.title}
-                                                <span className="text-xs text-default-500 ml-2 inline-flex items-center gap-2">
-                                                    <span className="inline-flex items-center gap-1"><Upload size={12} />{s.questions.filter((q: any) => q.type === "file_selector").length}</span>
-                                                    <span className="inline-flex items-center gap-1"><FileText size={12} />{s.questions.filter((q: any) => q.type !== "file_selector").length}</span>
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ol>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {canAssign && team.length > 0 && (
+                                            <FormField label="Case handled by" className="sm:col-span-2">
+                                                <Select aria-label="Case handled by" selectedKeys={assignedTo ? [assignedTo] : []} onChange={(e) => setAssignedTo(e.target.value)}>
+                                                    {team.map((m: any) => <SelectItem key={String(m.id)}>{m.username || `#${m.id}`}</SelectItem>)}
+                                                </Select>
+                                            </FormField>
+                                        )}
+                                        <FormField label="Visa process template" className="sm:col-span-2">
+                                            {loadingTemplates ? <Spinner size="sm" /> : (
+                                                <Select aria-label="Template" placeholder="No template (add steps later)" selectedKeys={templateId ? [templateId] : []} onChange={(e) => setTemplateId(e.target.value)}>
+                                                    {[
+                                                        ...(templates.agency.length ? [
+                                                            <SelectSection key="agency" title="My templates">
+                                                                {templates.agency.map((t) => <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>)}
+                                                            </SelectSection>,
+                                                        ] : []),
+                                                        <SelectSection key="library" title="Built-in templates">
+                                                            {templates.library.map((t) => <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>)}
+                                                        </SelectSection>,
+                                                    ]}
+                                                </Select>
+                                            )}
+                                        </FormField>
+                                    </div>
+                                    <div className="rounded-xl border border-default-100 bg-default-50 px-3 py-2 text-xs text-default-600">
+                                        {[country, visaType, intake, course, university].filter(Boolean).join(" · ") || "Review and convert"}
+                                    </div>
                                 </div>
                             )}
                         </ModalBody>
                         <ModalFooter>
                             <Button variant="light" onPress={onClose}>Cancel</Button>
-                            <Button
-                                color="primary"
-                                isLoading={saving}
-                                isDisabled={missingDocs && !checklistAck}
-                                onPress={() => convert(checklistAck)}
-                            >
-                                {missingDocs ? "Convert anyway" : "Convert"}
-                            </Button>
+                            {step > 0 && (
+                                <Button variant="flat" isDisabled={saving} onPress={() => setStep((s) => Math.max(0, s - 1))}>Back</Button>
+                            )}
+                            {!isLastStep ? (
+                                <Button color="primary" onPress={goNext}>Next</Button>
+                            ) : (
+                                <Button
+                                    color="primary"
+                                    isLoading={saving}
+                                    isDisabled={missingDocs && !checklistAck}
+                                    onPress={() => convert(checklistAck)}
+                                >
+                                    {missingDocs ? "Convert anyway" : "Convert"}
+                                </Button>
+                            )}
                         </ModalFooter>
                     </>
                 )}

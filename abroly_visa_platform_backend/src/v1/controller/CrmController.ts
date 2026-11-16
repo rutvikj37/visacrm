@@ -750,8 +750,8 @@ class CrmController {
             const body = req.body || {};
             const checklist = checklistSummary(lead.dataValues.doc_checklist);
             const checklistAck = body.checklist_ack === true || body.checklist_ack === "1";
-            // Soft warn: convert allowed after explicit ack when docs are incomplete
-            if (!checklist.complete && !checklistAck) {
+            // Agency owners convert via the case-setup stepper (no doc gate). Team still soft-warns.
+            if (!isOwner && !checklist.complete && !checklistAck) {
                 return returnHelper(res, 200, true, "Some documents are still missing — confirm to convert anyway", {
                     needs_checklist_ack: true,
                     doc_checklist: checklist,
@@ -785,7 +785,7 @@ class CrmController {
                 branchId: lead.dataValues.branch_id || (await branchOfAgent(assignTo)),
                 template,
             });
-            if (!checklist.complete && checklistAck) {
+            if (!isOwner && !checklist.complete && checklistAck) {
                 await logActivity(
                     lead.dataValues.id, agencyUuid, "note",
                     `Converted with incomplete docs: ${checklist.missing.map((m) => m.label).join(", ")}`,

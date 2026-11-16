@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Textarea } from "@heroui/react";
 import FormField from "./FormField";
+import CountrySelectWithFlag from "./CountrySelectWithFlag";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import { asArray, formatPhone, statusMeta } from "./crmShared";
@@ -161,7 +162,14 @@ const LeadFormModal = ({ isOpen, onOpenChange, lead, team = [], canAssign = fals
                                     <FormField label="Phone / WhatsApp"><Input aria-label="Phone / WhatsApp" value={form.phone_number} {...phoneInputProps} onValueChange={(v) => set("phone_number")(toPhoneDigits(v))} /></FormField>
                                 </div>
                                 <FormField label="Email"><Input aria-label="Email" type="email" value={form.email} onValueChange={set("email")} /></FormField>
-                                <FormField label="Interested country"><Input aria-label="Interested country" placeholder="e.g. Canada" value={form.interested_country} onValueChange={set("interested_country")} /></FormField>
+                                <FormField label="Interested country">
+                                    <CountrySelectWithFlag
+                                        aria-label="Interested country"
+                                        placeholder="Select country"
+                                        value={form.interested_country}
+                                        onChange={set("interested_country")}
+                                    />
+                                </FormField>
                                 <FormField label="Course / service"><Input aria-label="Course / service" placeholder="e.g. MBA" value={form.interested_course} onValueChange={set("interested_course")} /></FormField>
                                 <FormField label="Visa type"><Select
                                     aria-label="Visa type"
