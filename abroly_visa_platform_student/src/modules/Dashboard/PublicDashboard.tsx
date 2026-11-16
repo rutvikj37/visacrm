@@ -107,20 +107,6 @@ const PublicDashboard = () => {
                             whileTap={{ scale: 0.97 }}
                         >
                             <Button
-                                variant="flat"
-                                color="primary"
-                                onPress={() => navigate("/signup")}
-                                className="hidden sm:flex bg-primary text-white"
-                                startContent={<GraduationCap className="text-lg" />}
-                            >
-                                Sign Up
-                            </Button>
-                        </motion.div>
-                        <motion.div
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                        >
-                            <Button
                                 color="primary"
                                 variant="solid"
                                 className='bg-primary'

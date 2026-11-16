@@ -243,12 +243,12 @@ const Footer = () => {
           <p className="text-sm text-gray-400">
             Powered by
             <a
-              href="https://techxuniverse.com/"
+              href="https://techxsolutions.io/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 hover:text-blue-400 ml-1 transition-colors duration-200"
             >
-              TechX Universe.
+              TechX Solutions
             </a>
           </p>
         </div>

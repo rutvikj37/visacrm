@@ -23,8 +23,11 @@ userRoutes.use("/admin",adminRoutes)
 
 const studentRoutes = express.Router()
 
-studentRoutes.route("/signup").post(validationBodyMw(sinupWithNumberValidation), numberExistMw, UserController.signupUser)
-studentRoutes.route("/signup_custom").post(localOnly, validationBodyMw(sinupWithNumberValidation), numberExistMw, UserController.signupUserCustom)
+// No self sign-up: students are added by their agency (lead -> student portal invite) and get a login code by email.
+const noStudentSignup = (_req: any, res: any) =>
+    res.status(200).json({ success: false, message: "Sign up is not available. Your agency will add you and email your login code." });
+studentRoutes.route("/signup").post(noStudentSignup)
+studentRoutes.route("/signup_custom").post(noStudentSignup)
 studentRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberValidation), UserController.studentLoginWithNumber)
 studentRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), UserController.studentLoginCustom)
 studentRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), UserController.studentValidateOTP)

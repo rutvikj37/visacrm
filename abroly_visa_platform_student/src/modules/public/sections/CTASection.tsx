@@ -31,18 +31,10 @@ const CTASection = () => {
                             color="default"
                             variant="solid"
                             className="text-lg px-8 bg-white text-primary hover:bg-gray-100"
-                            onPress={() => navigate('/signup')}
+                            onPress={() => navigate('/login')}
                             endContent={<LogInIcon />}
                         >
-                            Get Started Free
-                        </Button>
-                        <Button
-                            size="lg"
-                            variant="bordered"
-                            className="text-lg px-8 border-white text-white hover:bg-white/10"
-                            onPress={() => navigate('/login')}
-                        >
-                            Already Have Account?
+                            Student login
                         </Button>
                     </div>
                 </motion.div>

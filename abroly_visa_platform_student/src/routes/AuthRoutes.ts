@@ -12,7 +12,6 @@ const LanguagePrep = lazy(()=> import("../modules/LanguagePrep/LanguagePrep"))
 const NotFound = lazy(()=> import("../modules/NotFound/NotFound"))
 const IntroPage = lazy(()=> import("../modules/public/IntroPage"))
 const Login = lazy(()=> import("../modules/public/Login"))
-const Signup = lazy(()=> import("../modules/public/Signup"))
 const SimCardListing = lazy(()=> import("../modules/SimcardListing/SimCardListing"))
 const PublicStatic = lazy(()=> import("../modules/static/PublicStatic"))
 const CareerDetails = lazy(()=> import("@/modules/Career/CareerDetails"))
@@ -50,8 +49,9 @@ export const PublicRoutes = [
         element: Login
     },
     {
+        // no self sign-up: students are added by their agency and get a login code by email
         path: "/signup",
-        element: Signup
+        element: Login
     },
     {
         path: "/contact_us",
