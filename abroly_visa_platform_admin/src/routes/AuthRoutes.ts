@@ -10,6 +10,7 @@ const SaasCoupons = lazy(()=> import("@/modules/Saas/SaasCoupons"))
 const SaasUsage = lazy(()=> import("@/modules/Saas/SaasUsage"))
 const SaasAnnouncements = lazy(()=> import("@/modules/Saas/SaasAnnouncements"))
 const SaasBillingSettings = lazy(()=> import("@/modules/Saas/SaasBillingSettings"))
+const SaasMetaSettings = lazy(()=> import("@/modules/Saas/SaasMetaSettings"))
 import { RedirectToAgencies, RedirectToPayments, RedirectToPlans } from "@/modules/Saas/Redirects"
 
 const HomePage = lazy(()=> import("@/modules/Home/HomePage"))
@@ -118,6 +119,10 @@ export const AdminRoutes = [
     {
         path: "/saas/billing_settings",
         element: SaasBillingSettings
+    },
+    {
+        path: "/saas/meta",
+        element: SaasMetaSettings
     },
 
 

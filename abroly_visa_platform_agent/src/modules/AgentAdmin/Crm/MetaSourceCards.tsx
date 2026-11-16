@@ -36,6 +36,9 @@ export const FacebookSourceCard = ({ integrations, configured, busy, call, onRem
     const { commonPostAPICall } = useApiCallUtils();
     const pages = integrations.filter((i) => i.type === "facebook");
     const [connecting, setConnecting] = useState(false);
+    const [showToken, setShowToken] = useState(false);
+    const [tokenForm, setTokenForm] = useState({ page_id: "", page_access_token: "", page_name: "" });
+    const setTok = (k: keyof typeof tokenForm) => (v: string) => setTokenForm((f) => ({ ...f, [k]: v }));
 
     const connect = async () => {
         setConnecting(true);
@@ -48,6 +51,14 @@ export const FacebookSourceCard = ({ integrations, configured, busy, call, onRem
         setConnecting(false);
     };
 
+    const savePageToken = async () => {
+        const r = await call("fb-token", "crm/meta/facebook/page", tokenForm);
+        if (r.success) {
+            setTokenForm({ page_id: "", page_access_token: "", page_name: "" });
+            setShowToken(false);
+        }
+    };
+
     return (
         <Card shadow="sm">
             <CardHeader className="flex items-center gap-2 font-semibold">
@@ -55,19 +66,55 @@ export const FacebookSourceCard = ({ integrations, configured, busy, call, onRem
                 {pages.length > 0 && <Chip size="sm" className="ml-auto" color="success" variant="flat">{pages.length} page(s)</Chip>}
             </CardHeader>
             <CardBody className="gap-3 pt-0">
-                {!configured.facebook ? (
-                    <p className="text-sm text-warning-600">Facebook is not switched on for this platform yet. Please contact support.</p>
+                <p className="text-sm text-default-500">
+                    Connect the Facebook Pages you run lead ads from (Instagram lead ads come through the linked Page).
+                    New form submissions arrive in your Lead Inbox within seconds; use <b>Fetch last 7 days</b> to catch anything missed.
+                </p>
+
+                {configured.facebook ? (
+                    <Button color="primary" variant={pages.length ? "flat" : "solid"} className="self-start" startContent={<Facebook size={16} />} isLoading={connecting} onPress={connect}>
+                        {pages.length ? "Add or refresh Pages" : "Connect Facebook Pages"}
+                    </Button>
                 ) : (
-                    <>
-                        <p className="text-sm text-default-500">
-                            Connect the Facebook Pages you run lead ads from (Instagram lead ads come through the linked Page).
-                            Every form submission arrives in your Lead Inbox within seconds.
-                        </p>
-                        <Button color="primary" variant={pages.length ? "flat" : "solid"} className="self-start" startContent={<Facebook size={16} />} isLoading={connecting} onPress={connect}>
-                            {pages.length ? "Add or refresh Pages" : "Connect Facebook Pages"}
-                        </Button>
-                    </>
+                    <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 text-sm text-warning-800 space-y-1">
+                        <p className="font-medium">One-click Facebook Login is not switched on for this platform yet.</p>
+                        <p>Your platform admin must add the Meta App ID and App secret under <b>SaaS → Meta / Facebook</b> (or set <code>META_APP_ID</code> / <code>META_APP_SECRET</code> on the server). You can still connect a Page with an access token below and sync leads.</p>
+                    </div>
                 )}
+
+                {(showToken || !configured.facebook || pages.length === 0) && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-default-200 p-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium flex-1">Connect with Page access token</span>
+                            {configured.facebook && showToken && (
+                                <Button size="sm" variant="light" onPress={() => setShowToken(false)}>Hide</Button>
+                            )}
+                        </div>
+                        <p className="text-xs text-default-500">
+                            From Meta Business Suite / Graph API Explorer, copy the <b>Page ID</b> and a <b>Page access token</b> with
+                            {" "}<code>leads_retrieval</code>, <code>pages_manage_metadata</code>, and <code>pages_show_list</code>.
+                            Then click <b>Fetch last 7 days</b> after connecting.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <FormField label="Page ID"><Input aria-label="Page ID" inputMode="numeric" value={tokenForm.page_id} onValueChange={setTok("page_id")} /></FormField>
+                            <FormField label="Page name (optional)"><Input aria-label="Page name" value={tokenForm.page_name} onValueChange={setTok("page_name")} /></FormField>
+                            <FormField label="Page access token" className="sm:col-span-2">
+                                <Input aria-label="Page access token" type="password" autoComplete="off" value={tokenForm.page_access_token} onValueChange={setTok("page_access_token")} />
+                            </FormField>
+                        </div>
+                        <Button color="primary" variant="flat" className="self-start" isLoading={busy === "fb-token"} onPress={savePageToken}
+                            isDisabled={!tokenForm.page_id.trim() || !tokenForm.page_access_token.trim()}>
+                            Connect Page
+                        </Button>
+                    </div>
+                )}
+
+                {configured.facebook && !showToken && (
+                    <Button size="sm" variant="light" className="self-start" onPress={() => setShowToken(true)}>
+                        Or connect with a Page access token
+                    </Button>
+                )}
+
                 {pages.map((p) => (
                     <div key={p.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">

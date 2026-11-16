@@ -106,6 +106,10 @@ const data = {
           title: "Billing settings",
           url: "/saas/billing_settings",
         },
+        {
+          title: "Meta / Facebook",
+          url: "/saas/meta",
+        },
       ],
     },
     {
