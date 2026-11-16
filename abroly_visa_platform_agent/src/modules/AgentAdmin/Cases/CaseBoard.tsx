@@ -6,13 +6,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
-    Button, Card, CardBody, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Input, Select, SelectItem, Spinner,
+    Button, Card, CardBody, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Input, Select, SelectItem,
 } from "@heroui/react";
-import { AlertCircle, CalendarClock, FileCheck2, KanbanSquare, MoreVertical, Search, User } from "lucide-react";
+import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, MoreVertical, Search, User } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
-import { CASE_STAGES, OUTCOMES, fmtShortDate, isOverdue } from "./caseShared";
+import { CASE_STAGES, OUTCOMES, fmtShortDate } from "./caseShared";
 
-/** All visa cases by stage; drag a card (desktop) or use its menu to move it. */
+/** All visa cases by stage; drag via the grip (desktop) or use the card menu to move. */
 const CaseBoard = () => {
     const navigate = useNavigate();
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
@@ -25,8 +25,8 @@ const CaseBoard = () => {
     const [search, setSearch] = useState("");
     const [assignee, setAssignee] = useState("");
     const [country, setCountry] = useState("");
-    // ?branch= from the Branches page
     const [branch, setBranch] = useState(() => new URLSearchParams(window.location.search).get("branch") || "");
+    const [focusCol, setFocusCol] = useState<string>("documents");
     const branches = useBranches();
     const [dragId, setDragId] = useState<number | null>(null);
     const [overCol, setOverCol] = useState<string | null>(null);
@@ -93,32 +93,55 @@ const CaseBoard = () => {
         return (
             <Card
                 shadow="sm"
-                isPressable
-                onPress={() => navigate(`/leads/progress/${c.id}`)}
-                draggable
-                onDragStart={(e: any) => { setDragId(c.id); e.dataTransfer?.setData("text/plain", String(c.id)); }}
-                onDragEnd={() => { setDragId(null); setOverCol(null); }}
                 className={`w-full ${dragId === c.id ? "opacity-50" : ""}`}
             >
                 <CardBody className="p-3 gap-2">
-                    <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-1">
+                        <button
+                            type="button"
+                            draggable
+                            aria-label="Drag to move case"
+                            title="Drag to another stage"
+                            className="hidden sm:inline-flex mt-0.5 p-1 rounded-md text-default-400 hover:text-default-600 hover:bg-default-100 cursor-grab active:cursor-grabbing shrink-0"
+                            onDragStart={(e) => {
+                                e.stopPropagation();
+                                setDragId(c.id);
+                                e.dataTransfer?.setData("text/plain", String(c.id));
+                                e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragEnd={() => { setDragId(null); setOverCol(null); }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <GripVertical size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            className="flex-1 min-w-0 text-left rounded-md hover:bg-default-50 -m-1 p-1"
+                            onClick={() => navigate(`/leads/progress/${c.id}`)}
+                        >
                             <div className="font-medium text-sm truncate">{c.student?.name || "Student"}</div>
                             <div className="text-xs text-default-500 truncate">{[c.country, c.university].filter(Boolean).join(" · ") || "-"}</div>
                             {(c.course || c.intake) && <div className="text-xs text-default-400 truncate">{[c.course, c.intake].filter(Boolean).join(" · ")}</div>}
-                        </div>
+                        </button>
                         <Dropdown>
                             <DropdownTrigger>
-                                <Button isIconOnly size="sm" variant="light" aria-label="Move case"><MoreVertical size={16} /></Button>
+                                <Button isIconOnly size="sm" variant="light" aria-label="Move case" onClick={(e) => e.stopPropagation()}>
+                                    <MoreVertical size={16} />
+                                </Button>
                             </DropdownTrigger>
                             <DropdownMenu aria-label="Case actions" onAction={(key) => {
                                 const k = String(key);
+                                if (k === "open") {
+                                    navigate(`/leads/progress/${c.id}`);
+                                    return;
+                                }
                                 if (k.startsWith("stage:")) {
                                     const stage = k.slice(6);
                                     if (c.outcome) commonPostAPICall({ outcome: "reopen" }, `crm/cases/${c.id}/outcome`).then(() => moveStage({ ...c, stage: null }, stage).then(load));
                                     else moveStage(c, stage);
                                 } else if (k.startsWith("outcome:")) setOutcome(c, k.slice(8));
                             }}>
+                                <DropdownItem key="open">Open case</DropdownItem>
                                 <DropdownSection title="Move to stage" showDivider>
                                     {CASE_STAGES.map((s) => <DropdownItem key={`stage:${s.key}`} isDisabled={c.stage === s.key}>{s.label}</DropdownItem>)}
                                 </DropdownSection>
@@ -150,11 +173,11 @@ const CaseBoard = () => {
 
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
-            <FirstTip id="cases" title="Case board">Each card is a student's visa case. Drag it to the next stage as you go - the student sees their progress in the portal.</FirstTip>
+            <FirstTip id="cases" title="Case board">Each card is a student&apos;s visa case. Open it to work the steps, or move it with the menu (or drag handle on desktop).</FirstTip>
             <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
                 <div className="min-w-0">
                     <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Case board</h1>
-                    <p className="text-sm text-default-500">Every visa case by stage — drag a card to move it, or use its menu</p>
+                    <p className="text-sm text-default-500">Visa cases by stage — tap a card to open, use ⋮ to move</p>
                 </div>
                 <div className="text-sm text-default-500 shrink-0">{visible.filter((c) => c.status === "visa_progress").length} in progress</div>
             </div>
@@ -162,11 +185,27 @@ const CaseBoard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 max-w-4xl">
                 <BranchPicker value={branch} onChange={setBranch} className="w-full" size="md" />
                 <Input aria-label="Search" placeholder="Search student name or phone" startContent={<Search size={16} />} value={search} onValueChange={setSearch} isClearable onClear={() => setSearch("")} />
-                <Select aria-label="Country" placeholder="All countries" selectedKeys={country ? [country] : []} onChange={(e) => setCountry(e.target.value)}>
+                <Select
+                    aria-label="Country"
+                    placeholder="All countries"
+                    selectedKeys={country ? [country] : []}
+                    onSelectionChange={(keys) => {
+                        const v = Array.from(keys)[0];
+                        setCountry(v ? String(v) : "");
+                    }}
+                >
                     {countries.map((c) => <SelectItem key={c}>{c}</SelectItem>)}
                 </Select>
                 {isManager && (
-                    <Select aria-label="Handled by" placeholder="Anyone" selectedKeys={assignee ? [assignee] : []} onChange={(e) => setAssignee(e.target.value)}>
+                    <Select
+                        aria-label="Handled by"
+                        placeholder="Anyone"
+                        selectedKeys={assignee ? [assignee] : []}
+                        onSelectionChange={(keys) => {
+                            const v = Array.from(keys)[0];
+                            setAssignee(v ? String(v) : "");
+                        }}
+                    >
                         {[<SelectItem key="unassigned">Unassigned</SelectItem>, ...team.map((m) => <SelectItem key={String(m.id)}>{m.username}</SelectItem>)]}
                     </Select>
                 )}
@@ -176,26 +215,52 @@ const CaseBoard = () => {
                 <EmptyState icon={KanbanSquare} title="No visa cases yet" text="When you convert a lead to a visa case, it appears here and moves across the stages."
                     actions={<Button size="sm" color="primary" onPress={() => navigate("/crm/leads?status=interested")}>Open interested leads</Button>} />
             ) : (
-                <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 snap-x">
-                    {columns.map((col) => (
-                        <div
-                            key={col.key}
-                            onDragOver={(e) => { e.preventDefault(); setOverCol(col.key); }}
-                            onDragLeave={() => setOverCol((c) => (c === col.key ? null : c))}
-                            onDrop={(e) => { e.preventDefault(); onDrop(col.key); }}
-                            className={`snap-start shrink-0 w-[260px] rounded-xl p-2 flex flex-col gap-2 transition-colors ${overCol === col.key ? "bg-primary-50 ring-2 ring-primary" : "bg-default-100/70"}`}
-                        >
-                            <div className="flex items-center justify-between px-1 py-1">
-                                <span className="text-sm font-semibold flex items-center gap-2">
-                                    {col.outcome ? <Chip size="sm" variant="flat" color={col.outcome.color}>{col.label}</Chip> : col.label}
-                                </span>
-                                <span className="text-xs text-default-500">{col.items.length}</span>
+                <>
+                    {/* Mobile: jump to a stage without endless horizontal scroll */}
+                    <div className="sm:hidden flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+                        {columns.map((col) => (
+                            <button
+                                key={col.key}
+                                type="button"
+                                onClick={() => setFocusCol(col.key)}
+                                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                                    focusCol === col.key
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-default-200 bg-content1 text-default-600"
+                                }`}
+                            >
+                                {col.label}
+                                <span className="ml-1 opacity-70">{col.items.length}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 snap-x">
+                        {columns.map((col) => (
+                            <div
+                                key={col.key}
+                                id={`board-col-${col.key}`}
+                                onDragOver={(e) => { e.preventDefault(); setOverCol(col.key); }}
+                                onDragLeave={() => setOverCol((c) => (c === col.key ? null : c))}
+                                onDrop={(e) => { e.preventDefault(); onDrop(col.key); }}
+                                className={`snap-start shrink-0 w-[min(100%,280px)] sm:w-[260px] rounded-xl p-2 flex flex-col gap-2 transition-colors ${
+                                    focusCol === col.key ? "ring-2 ring-primary/40 sm:ring-0" : ""
+                                } ${overCol === col.key ? "bg-primary-50 ring-2 ring-primary" : "bg-default-100/70"} ${
+                                    focusCol !== col.key ? "hidden sm:flex" : "flex"
+                                }`}
+                            >
+                                <div className="flex items-center justify-between px-1 py-1">
+                                    <span className="text-sm font-semibold flex items-center gap-2">
+                                        {col.outcome ? <Chip size="sm" variant="flat" color={col.outcome.color}>{col.label}</Chip> : col.label}
+                                    </span>
+                                    <span className="text-xs text-default-500">{col.items.length}</span>
+                                </div>
+                                {col.items.length === 0 && <div className="text-xs text-default-400 px-1 py-4 text-center">{col.outcome ? "Last 60 days" : "No cases"}</div>}
+                                {col.items.map((c: any) => <CaseCard key={c.id} c={c} />)}
                             </div>
-                            {col.items.length === 0 && <div className="text-xs text-default-400 px-1 py-4 text-center">{col.outcome ? "Last 60 days" : "No cases"}</div>}
-                            {col.items.map((c: any) => <CaseCard key={c.id} c={c} />)}
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                </>
             )}
         </div>
     );

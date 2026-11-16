@@ -14,7 +14,7 @@ import {
     Button, Card, CardBody, Chip, Input, Pagination, Select, SelectItem, Spinner,
     Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, Tab, useDisclosure, Selection,
 } from "@heroui/react";
-import { AlarmClock, Bookmark, CalendarClock, ChevronDown, Inbox, KanbanSquare, List, Plug, Plus, Search, SlidersHorizontal, Upload, UserPlus, Users, X } from "lucide-react";
+import { AlarmClock, Bookmark, CalendarClock, ChevronDown, Inbox, KanbanSquare, List, MessageCircle, MoreVertical, Pencil, Phone, Plug, Plus, Search, SlidersHorizontal, Upload, UserPlus, Users, X } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import CommonConfirmation from "@/components/CommonConfirmation";
 import LeadFormModal from "./LeadFormModal";
@@ -22,7 +22,7 @@ import ImportLeadsModal from "./ImportLeadsModal";
 import LeadBoard from "./LeadBoard";
 import {
     LEAD_SOURCES, LEAD_STATUSES, SELECTABLE_STATUSES, followUpState, formatDateTime, formatPhone,
-    sourceLabel, statusMeta, temperatureMeta, timeAgo,
+    sourceLabel, statusMeta, temperatureMeta, timeAgo, whatsappLink,
 } from "./crmShared";
 import {
     SavedView, allViews, applyFiltersToParams, filtersFromParams, loadCustomViews,
@@ -54,7 +54,7 @@ const LeadInbox = () => {
     const teamRole = useSelector((state: any) => state.login.team_role);
     const isManager = isOwner || teamRole === "branch_manager";
 
-    const status = params.get("status") || "open";
+    const status = params.get("status") || "all";
     const source = params.get("source") || "";
     const assignedTo = params.get("assigned_to") || "";
     const followUp = params.get("follow_up") || "";
@@ -103,8 +103,15 @@ const LeadInbox = () => {
     }, [panelUuid, panelIndex, leads]);
 
     const addModal = useDisclosure();
+    const editModal = useDisclosure();
+    const [editLead, setEditLead] = useState<any>(null);
     const importModal = useDisclosure();
     const deleteConfirm = useDisclosure();
+
+    const openEdit = (lead: any) => {
+        setEditLead(lead);
+        editModal.onOpen();
+    };
 
     // "+" button on phones links here with ?add=1
     useEffect(() => {
@@ -129,7 +136,7 @@ const LeadInbox = () => {
     };
     const stop = { onClick: (e: any) => e.stopPropagation(), onPointerDown: (e: any) => e.stopPropagation(), onKeyDown: (e: any) => e.stopPropagation() };
 
-    const filtered = Boolean(source || assignedTo || followUp || temperature || branch || created || params.get("search") || (status && status !== "open"));
+    const filtered = Boolean(source || assignedTo || followUp || temperature || branch || created || params.get("search") || (status && status !== "all"));
     const InboxEmpty = () => filtered ? (
         <EmptyState compact icon={Inbox} title="No leads match these filters" text="Try another status or clear the filters."
             actions={<Button size="sm" variant="flat" onPress={() => setParams(new URLSearchParams(), { replace: true })}>Clear filters</Button>} />
@@ -279,8 +286,8 @@ const LeadInbox = () => {
         : undefined;
 
     const tabs = [
-        { key: "open", label: "Open", count: openCount },
         { key: "all", label: "All", count: summary?.total },
+        { key: "open", label: "Open", count: openCount },
         ...LEAD_STATUSES.map((s) => ({ key: s.key, label: s.label, count: summary?.by_status?.[s.key] || 0 })),
     ];
 
@@ -480,6 +487,7 @@ const LeadInbox = () => {
                             <TableColumn>ASSIGNED</TableColumn>
                             <TableColumn>FOLLOW-UP</TableColumn>
                             <TableColumn>LAST ACTIVITY</TableColumn>
+                            <TableColumn align="end">ACTIONS</TableColumn>
                         </TableHeader>
                         <TableBody
                             isLoading={loading && !leads.length}
@@ -540,6 +548,48 @@ const LeadInbox = () => {
                                             ) : <span className="text-default-400 text-xs">-</span>}
                                         </TableCell>
                                         <TableCell className="text-xs text-default-500">{timeAgo(lead.last_activity_at || lead.createdAt)}</TableCell>
+                                        <TableCell>
+                                            {(() => {
+                                                const wa = whatsappLink(lead);
+                                                const tel = lead.phone_normalized ? `tel:+${String(lead.phone_normalized).replace(/\D/g, "")}` : null;
+                                                return (
+                                                    <div {...stop} className="flex justify-end">
+                                                        <Dropdown placement="bottom-end">
+                                                            <DropdownTrigger>
+                                                                <Button isIconOnly size="sm" variant="light" aria-label="Lead actions">
+                                                                    <MoreVertical size={16} />
+                                                                </Button>
+                                                            </DropdownTrigger>
+                                                            <DropdownMenu
+                                                                aria-label="Lead actions"
+                                                                onAction={(key) => {
+                                                                    const k = String(key);
+                                                                    if (k === "open") setPanelUuid(lead.uuid);
+                                                                    else if (k === "edit") openEdit(lead);
+                                                                    else if (k === "call" && tel) {
+                                                                        window.location.href = tel;
+                                                                        setTimeout(() => setPanelUuid(lead.uuid), 700);
+                                                                    } else if (k === "whatsapp" && wa) {
+                                                                        window.open(wa, "_blank", "noopener,noreferrer");
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <DropdownItem key="open">Open</DropdownItem>
+                                                                {lead.status !== "converted" ? (
+                                                                    <DropdownItem key="edit" startContent={<Pencil size={14} />}>Edit</DropdownItem>
+                                                                ) : null}
+                                                                {tel ? (
+                                                                    <DropdownItem key="call" startContent={<Phone size={14} />}>Call</DropdownItem>
+                                                                ) : null}
+                                                                {wa ? (
+                                                                    <DropdownItem key="whatsapp" startContent={<MessageCircle size={14} />} className="text-success">WhatsApp</DropdownItem>
+                                                                ) : null}
+                                                            </DropdownMenu>
+                                                        </Dropdown>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </TableCell>
                                     </TableRow>
                                 );
                             }}
@@ -569,6 +619,17 @@ const LeadInbox = () => {
                 </DrawerContent>
             </Drawer>
             <LeadFormModal isOpen={addModal.isOpen} onOpenChange={addModal.onOpenChange} team={team} canAssign={isManager} onSaved={refresh} />
+            <LeadFormModal
+                isOpen={editModal.isOpen}
+                onOpenChange={(open) => {
+                    if (open) editModal.onOpen();
+                    else { editModal.onClose(); setEditLead(null); }
+                }}
+                lead={editLead}
+                team={team}
+                canAssign={isManager}
+                onSaved={() => { setEditLead(null); refresh(); }}
+            />
             <ImportLeadsModal isOpen={importModal.isOpen} onOpenChange={importModal.onOpenChange} team={team} canAssign={isManager} onImported={refresh} />
             <CommonConfirmation
                 isOpen={deleteConfirm.isOpen}

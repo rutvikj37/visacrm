@@ -9,6 +9,7 @@ import {
 } from "@heroui/react";
 import { CalendarClock, CheckCircle2, IndianRupee, KanbanSquare, Plus, RotateCcw, XCircle, Ban } from "lucide-react";
 import InvoiceFormModal from "@/modules/AgentAdmin/Fees/InvoiceFormModal";
+import CountrySelectWithFlag from "@/modules/AgentAdmin/Crm/CountrySelectWithFlag";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast } from "@/utils/Toaster";
 import { CASE_STAGES, fmtShortDate, isOverdue, stageLabel } from "./caseShared";
@@ -63,7 +64,7 @@ const CaseToolbar = ({ caseId }: { caseId: string | number }) => {
         addModal.onOpen();
     };
     const createApplication = async (close: () => void) => {
-        if (!form.country.trim()) return ErrorToast("Please enter the country");
+        if (!form.country.trim()) return ErrorToast("Please select the country");
         setBusy(true);
         const { success, data } = await commonPostAPICall({ ...form, template_id: form.template_id || null }, `crm/cases/${caseId}/add_application`, true);
         setBusy(false);
@@ -101,29 +102,52 @@ const CaseToolbar = ({ caseId }: { caseId: string | number }) => {
                     </div>
                 </div>
 
-                {/* 2. Journey — click a stage to move (no duplicate Stage dropdown) */}
+                {/* 2. Journey — pick a stage (chips on mobile, rail on desktop) */}
                 <div>
                     <p className="text-xs font-medium text-default-600 mb-2">Case stage</p>
-                    <div className="overflow-x-auto -mx-1 px-1">
-                        <div className="flex items-start min-w-[560px]">
-                            {CASE_STAGES.map((st, i) => {
-                                const done = info.status === "visa_completed" || i < at;
-                                const current = !decided && i === at;
-                                return (
-                                    <div key={st.key} className="flex items-start flex-1 last:flex-none">
-                                        <button type="button" disabled={decided || busy || current}
-                                            onClick={() => window.confirm(`Move this case to "${st.label}"?`) && post(`crm/cases/${caseId}/stage`, { stage: st.key })}
-                                            className="flex flex-col items-center gap-1 group w-16 shrink-0" title={decided ? st.label : `Move to ${st.label}`}>
-                                            <span className={`h-7 w-7 rounded-full grid place-items-center text-xs font-semibold border-2 transition ${done ? "bg-primary border-primary text-primary-foreground" : current ? "border-primary text-primary bg-primary-50" : "border-default-300 text-default-400 group-hover:border-primary/60"}`}>
-                                                {done ? <CheckCircle2 size={14} /> : i + 1}
-                                            </span>
-                                            <span className={`text-[11px] text-center leading-tight ${current ? "text-primary font-semibold" : done ? "text-default-700" : "text-default-400"}`}>{st.label}</span>
-                                        </button>
-                                        {i < CASE_STAGES.length - 1 && <span className={`h-0.5 flex-1 mt-3.5 ${i < at || info.status === "visa_completed" ? "bg-primary" : "bg-default-200"}`} />}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                    {/* Mobile: wrap chips — no forced horizontal scroll */}
+                    <div className="flex flex-wrap gap-1.5 sm:hidden">
+                        {CASE_STAGES.map((st, i) => {
+                            const done = info.status === "visa_completed" || i < at;
+                            const current = !decided && i === at;
+                            return (
+                                <button
+                                    key={st.key}
+                                    type="button"
+                                    disabled={decided || busy || current}
+                                    onClick={() => window.confirm(`Move this case to "${st.label}"?`) && post(`crm/cases/${caseId}/stage`, { stage: st.key })}
+                                    className={`rounded-full px-3 py-1.5 text-xs font-medium border transition ${
+                                        current
+                                            ? "border-primary bg-primary text-primary-foreground"
+                                            : done
+                                                ? "border-primary/40 bg-primary-50 text-primary"
+                                                : "border-default-200 text-default-500"
+                                    }`}
+                                >
+                                    {st.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {/* Desktop: stage rail */}
+                    <div className="hidden sm:flex items-start w-full">
+                        {CASE_STAGES.map((st, i) => {
+                            const done = info.status === "visa_completed" || i < at;
+                            const current = !decided && i === at;
+                            return (
+                                <div key={st.key} className="flex items-start flex-1 last:flex-none min-w-0">
+                                    <button type="button" disabled={decided || busy || current}
+                                        onClick={() => window.confirm(`Move this case to "${st.label}"?`) && post(`crm/cases/${caseId}/stage`, { stage: st.key })}
+                                        className="flex flex-col items-center gap-1 group w-full max-w-[4.5rem] shrink-0" title={decided ? st.label : `Move to ${st.label}`}>
+                                        <span className={`h-7 w-7 rounded-full grid place-items-center text-xs font-semibold border-2 transition ${done ? "bg-primary border-primary text-primary-foreground" : current ? "border-primary text-primary bg-primary-50" : "border-default-300 text-default-400 group-hover:border-primary/60"}`}>
+                                            {done ? <CheckCircle2 size={14} /> : i + 1}
+                                        </span>
+                                        <span className={`text-[11px] text-center leading-tight ${current ? "text-primary font-semibold" : done ? "text-default-700" : "text-default-400"}`}>{st.label}</span>
+                                    </button>
+                                    {i < CASE_STAGES.length - 1 && <span className={`h-0.5 flex-1 mt-3.5 min-w-[8px] ${i < at || info.status === "visa_completed" ? "bg-primary" : "bg-default-200"}`} />}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -173,7 +197,7 @@ const CaseToolbar = ({ caseId }: { caseId: string | number }) => {
             </CardBody>
 
             <InvoiceFormModal isOpen={invoiceModal.isOpen} onOpenChange={invoiceModal.onOpenChange} caseId={caseId} studentName={info.student?.username} onCreated={(invId) => navigate(`/fees/${invId}`)} />
-            <Modal isOpen={addModal.isOpen} onOpenChange={addModal.onOpenChange} size="lg" scrollBehavior="inside">
+            <Modal isOpen={addModal.isOpen} onOpenChange={addModal.onOpenChange} size="lg" scrollBehavior="outside">
                 <ModalContent>
                     {(onClose) => (
                         <>
@@ -181,7 +205,14 @@ const CaseToolbar = ({ caseId }: { caseId: string | number }) => {
                             <ModalBody>
                                 <p className="text-sm text-default-500">Opens a separate case (another country or university) for the same student, with its own steps.</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Field label="Country *"><Input aria-label="Country" value={form.country} onValueChange={(v) => setForm({ ...form, country: v })} /></Field>
+                                    <Field label="Country *">
+                                        <CountrySelectWithFlag
+                                            aria-label="Country"
+                                            placeholder="Select country"
+                                            value={form.country}
+                                            onChange={(v) => setForm({ ...form, country: v })}
+                                        />
+                                    </Field>
                                     <Field label="University / college"><Input aria-label="University" value={form.university} onValueChange={(v) => setForm({ ...form, university: v })} /></Field>
                                     <Field label="Course"><Input aria-label="Course" value={form.course} onValueChange={(v) => setForm({ ...form, course: v })} /></Field>
                                     <Field label="Intake"><Input aria-label="Intake" placeholder="e.g. Sep 2027" value={form.intake} onValueChange={(v) => setForm({ ...form, intake: v })} /></Field>

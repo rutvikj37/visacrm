@@ -1,16 +1,14 @@
 import CaseToolbar, { StepDueDate } from "@/modules/AgentAdmin/Cases/CaseToolbar"
 import { fmtShortDate, isOverdue } from "@/modules/AgentAdmin/Cases/caseShared"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
-import { Button, Chip, Input, Radio, RadioGroup, Spinner } from "@heroui/react";
+import { Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Spinner, Textarea } from "@heroui/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import FileSaver from "file-saver";
 import { ArrowDownToLine, CheckCircle2, Clock, FileText, Plus, XCircle } from 'lucide-react';
 import moment from "moment";
 import React, { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { Steps } from "rsuite";
 
 const STATUS_COLOR: Record<string, "warning" | "success" | "danger" | "primary" | "default"> = {
     pending: "warning",
@@ -238,95 +236,96 @@ const StepDetails = ({ step_id, description, leadId }: { step_id: string | numbe
                 </Button>
             </div>
 
-            <Dialog open={questionManageModel.isOpen} onOpenChange={() => setQuestionManage(prev => ({ ...prev, isOpen: false }))}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault()
-                            manageQuestionsMutation.mutate()
-                        }}
-                    >
-                        <DialogHeader>
-                            <DialogTitle>Add question or update</DialogTitle>
-                            <DialogDescription>
-                                Shown on this step for the student to answer or review.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <Input
-                                labelPlacement="outside"
-                                label="Question / update"
-                                required
-                                placeholder="What do you need from the student?"
-                                name="question_text"
-                                value={questionManageModel.question_text}
-                                onChange={(e) => setQuestionManage(prev => ({ ...prev, question_text: e.target.value }))}
-                            />
-                            <RadioGroup
-                                isRequired
-                                label="Type"
-                                value={questionManageModel.question_type}
-                                onValueChange={(e) => setQuestionManage(prev => ({ ...prev, question_type: e }))}
-                            >
-                                <Radio value="text_input">Text answer from student</Radio>
-                                <Radio value="file_selector">Document upload from student</Radio>
-                                <Radio value="update_status">Status update (agency)</Radio>
-                                <Radio value="document_provide">Status update + document (agency)</Radio>
-                            </RadioGroup>
-                            {questionManageModel.question_type === 'document_provide' && (
-                                <div className="space-y-1">
-                                    <p className="text-sm text-default-600">Attach file</p>
-                                    <input
-                                        type="file"
-                                        name="file"
-                                        onChange={(e) => setQuestionManage(prev => ({ ...prev, selected_file: e.target.files?.[0] || null }))}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                        <DialogFooter>
-                            <Button type="submit" color="primary" isLoading={manageQuestionsMutation.isPending} startContent={<Plus className="w-4 h-4" />}>
-                                Add
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <Modal isOpen={questionManageModel.isOpen} onOpenChange={(open) => !open && setQuestionManage((prev) => ({ ...prev, isOpen: false }))} size="md" scrollBehavior="outside">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Add question or update</ModalHeader>
+                            <ModalBody>
+                                <p className="text-sm text-default-500">Shown on this step for the student to answer or review.</p>
+                                <Input
+                                    aria-label="Question / update"
+                                    label="Question / update"
+                                    labelPlacement="outside"
+                                    placeholder="What do you need from the student?"
+                                    value={questionManageModel.question_text}
+                                    onValueChange={(v) => setQuestionManage((prev) => ({ ...prev, question_text: v }))}
+                                />
+                                <RadioGroup
+                                    isRequired
+                                    label="Type"
+                                    value={questionManageModel.question_type}
+                                    onValueChange={(e) => setQuestionManage((prev) => ({ ...prev, question_type: e }))}
+                                >
+                                    <Radio value="text_input">Text answer from student</Radio>
+                                    <Radio value="file_selector">Document upload from student</Radio>
+                                    <Radio value="update_status">Status update (agency)</Radio>
+                                    <Radio value="document_provide">Status update + document (agency)</Radio>
+                                </RadioGroup>
+                                {questionManageModel.question_type === "document_provide" && (
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-default-600">Attach file</p>
+                                        <input
+                                            type="file"
+                                            name="file"
+                                            onChange={(e) => setQuestionManage((prev) => ({ ...prev, selected_file: e.target.files?.[0] || null }))}
+                                        />
+                                    </div>
+                                )}
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button
+                                    color="primary"
+                                    isLoading={manageQuestionsMutation.isPending}
+                                    isDisabled={!questionManageModel.question_text.trim()}
+                                    startContent={<Plus className="w-4 h-4" />}
+                                    onPress={() => manageQuestionsMutation.mutate()}
+                                >
+                                    Add
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
 
-            <Dialog open={rejectModel.isOpen} onOpenChange={() => setRejectModel(prev => ({ ...prev, isOpen: false }))}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault()
-                            actionStatusMutation.mutate({
-                                question_id: rejectModel.id,
-                                reason: rejectModel.reason,
-                                status: "rejected"
-                            })
-                        }}
-                    >
-                        <DialogHeader>
-                            <DialogTitle>Reason for rejection</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <Input
-                                labelPlacement="outside"
-                                label="Reason"
-                                required
-                                placeholder="Why is this rejected?"
-                                name="reason"
-                                value={rejectModel.reason}
-                                onChange={(e) => setRejectModel(prev => ({ ...prev, reason: e.target.value }))}
-                            />
-                        </div>
-                        <DialogFooter>
-                            <Button type="submit" color="danger" isLoading={actionStatusMutation.isPending} startContent={<XCircle className="w-4 h-4" />}>
-                                Reject
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <Modal isOpen={rejectModel.isOpen} onOpenChange={(open) => !open && setRejectModel((prev) => ({ ...prev, isOpen: false }))} size="md" scrollBehavior="outside">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Reason for rejection</ModalHeader>
+                            <ModalBody>
+                                <Textarea
+                                    aria-label="Reason"
+                                    label="Reason"
+                                    labelPlacement="outside"
+                                    placeholder="Why is this rejected?"
+                                    value={rejectModel.reason}
+                                    onValueChange={(v) => setRejectModel((prev) => ({ ...prev, reason: v }))}
+                                    minRows={2}
+                                />
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button
+                                    color="danger"
+                                    isLoading={actionStatusMutation.isPending}
+                                    isDisabled={!rejectModel.reason.trim()}
+                                    startContent={<XCircle className="w-4 h-4" />}
+                                    onPress={() => actionStatusMutation.mutate({
+                                        question_id: rejectModel.id,
+                                        reason: rejectModel.reason,
+                                        status: "rejected",
+                                    })}
+                                >
+                                    Reject
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
         </div>
     )
 }
@@ -454,34 +453,72 @@ const LeadsProgress = () => {
                     </div>
                 ) : (
                     <div className="grid gap-4 lg:grid-cols-3">
-                        <nav className="rounded-xl border border-default-200 bg-content1 p-3 lg:sticky lg:top-16 lg:self-start" aria-label="Steps">
-                            <Steps current={step} vertical>
-                                {tabs.map((item: any, index: number) => (
-                                    <Steps.Item
-                                        key={item?.id}
-                                        onClick={() => onChange(index)}
-                                        className="cursor-pointer"
-                                        status={item?.step_status == 1 ? "finish" : "wait"}
-                                        title={
-                                            <p className={`text-sm truncate ${step === index ? "font-semibold text-foreground" : "text-default-600"}`}>
-                                                {item?.step_title}
-                                            </p>
-                                        }
-                                        description={
-                                            <>
-                                                {item?.step_description ? (
-                                                    <p className="text-xs truncate text-default-400">{item.step_description}</p>
-                                                ) : null}
-                                                {item?.due_date ? (
-                                                    <p className={`text-xs ${isOverdue(item.due_date) && Number(item.step_status) !== 1 ? "text-danger font-medium" : "text-default-400"}`}>
-                                                        Due {fmtShortDate(item.due_date)}
-                                                    </p>
-                                                ) : null}
-                                            </>
-                                        }
-                                    />
-                                ))}
-                            </Steps>
+                        <nav className="rounded-xl border border-default-200 bg-content1 p-2 lg:sticky lg:top-16 lg:self-start" aria-label="Steps">
+                            {/* Mobile: horizontal step chips */}
+                            <div className="flex gap-1.5 overflow-x-auto pb-1 lg:hidden">
+                                {tabs.map((item: any, index: number) => {
+                                    const done = Number(item?.step_status) === 1;
+                                    const active = step === index;
+                                    return (
+                                        <button
+                                            key={item?.id}
+                                            type="button"
+                                            onClick={() => onChange(index)}
+                                            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium border transition ${
+                                                active
+                                                    ? "border-primary bg-primary text-primary-foreground"
+                                                    : done
+                                                        ? "border-success-200 bg-success-50 text-success-700"
+                                                        : "border-default-200 text-default-600"
+                                            }`}
+                                        >
+                                            {index + 1}. {item?.step_title}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {/* Desktop: vertical step list */}
+                            <ol className="hidden lg:flex flex-col gap-1">
+                                {tabs.map((item: any, index: number) => {
+                                    const done = Number(item?.step_status) === 1;
+                                    const active = step === index;
+                                    const overdue = isOverdue(item?.due_date) && !done;
+                                    return (
+                                        <li key={item?.id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => onChange(index)}
+                                                className={`w-full text-left rounded-lg px-3 py-2.5 flex gap-3 transition ${
+                                                    active ? "bg-primary-50 ring-1 ring-primary/30" : "hover:bg-default-50"
+                                                }`}
+                                            >
+                                                <span className={`mt-0.5 h-6 w-6 shrink-0 rounded-full grid place-items-center text-[11px] font-semibold border ${
+                                                    done
+                                                        ? "bg-success border-success text-success-foreground"
+                                                        : active
+                                                            ? "border-primary text-primary bg-content1"
+                                                            : "border-default-300 text-default-400"
+                                                }`}>
+                                                    {done ? <CheckCircle2 size={12} /> : index + 1}
+                                                </span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className={`block text-sm truncate ${active ? "font-semibold text-foreground" : "text-default-700"}`}>
+                                                        {item?.step_title}
+                                                    </span>
+                                                    {item?.step_description ? (
+                                                        <span className="block text-xs truncate text-default-400">{item.step_description}</span>
+                                                    ) : null}
+                                                    {item?.due_date ? (
+                                                        <span className={`block text-xs ${overdue ? "text-danger font-medium" : "text-default-400"}`}>
+                                                            Due {fmtShortDate(item.due_date)}
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ol>
                         </nav>
 
                         <div className="lg:col-span-2 space-y-3 min-w-0">
@@ -498,48 +535,46 @@ const LeadsProgress = () => {
                 )}
             </section>
 
-            <Dialog open={stepAddModal.isOpen} onOpenChange={() => setStepAddModal(prev => ({ ...prev, isOpen: false }))}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault()
-                            manageDepartmentMutation.mutate()
-                        }}
-                    >
-                        <DialogHeader>
-                            <DialogTitle>Add step</DialogTitle>
-                            <DialogDescription>
-                                Give this stage a short title and optional description.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <Input
-                                labelPlacement="outside"
-                                label="Title"
-                                required
-                                placeholder="e.g. Documents"
-                                name="step_title"
-                                value={stepAddModal.step_title}
-                                onChange={(e) => setStepAddModal(prev => ({ ...prev, step_title: e.target.value }))}
-                            />
-                            <Input
-                                labelPlacement="outside"
-                                label="Description"
-                                required
-                                placeholder="What happens in this step?"
-                                name="step_description"
-                                value={stepAddModal.step_description}
-                                onChange={(e) => setStepAddModal(prev => ({ ...prev, step_description: e.target.value }))}
-                            />
-                        </div>
-                        <DialogFooter>
-                            <Button type="submit" color="primary" isLoading={manageDepartmentMutation.isPending} startContent={<Plus className="w-4 h-4" />}>
-                                Add step
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <Modal isOpen={stepAddModal.isOpen} onOpenChange={(open) => !open && setStepAddModal((prev) => ({ ...prev, isOpen: false }))} size="md" scrollBehavior="outside">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Add step</ModalHeader>
+                            <ModalBody>
+                                <p className="text-sm text-default-500">Give this stage a short title and optional description.</p>
+                                <Input
+                                    aria-label="Title"
+                                    label="Title"
+                                    labelPlacement="outside"
+                                    placeholder="e.g. Documents"
+                                    value={stepAddModal.step_title}
+                                    onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_title: v }))}
+                                />
+                                <Input
+                                    aria-label="Description"
+                                    label="Description"
+                                    labelPlacement="outside"
+                                    placeholder="What happens in this step?"
+                                    value={stepAddModal.step_description}
+                                    onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_description: v }))}
+                                />
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button
+                                    color="primary"
+                                    isLoading={manageDepartmentMutation.isPending}
+                                    isDisabled={!stepAddModal.step_title.trim()}
+                                    startContent={<Plus className="w-4 h-4" />}
+                                    onPress={() => manageDepartmentMutation.mutate()}
+                                >
+                                    Add step
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
         </div>
     )
 }

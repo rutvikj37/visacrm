@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import ReactFlagsSelect from "react-flags-select";
+import { Autocomplete, AutocompleteItem } from "@heroui/react";
+import ReactCountryFlag from "react-country-flag";
 import { countries } from "country-data";
 
-/** Common study / visa destinations shown first in the picker. */
+/** Common study / visa destinations shown in the picker. */
 export const VISA_COUNTRY_CODES = [
     "CA", "US", "GB", "AU", "NZ", "DE", "FR", "IE", "NL", "SE",
     "DK", "FI", "IT", "ES", "PT", "AT", "CH", "BE", "PL", "MT",
@@ -53,12 +54,14 @@ export const countryCodeFromName = (name?: string | null): string => {
     return partial?.alpha2 || "";
 };
 
-/** Country display name from ISO alpha-2 (what we store on the lead). */
+/** Country display name from ISO alpha-2 (what we store on the lead / case). */
 export const countryNameFromCode = (code?: string | null): string => {
     if (!code) return "";
     const upper = String(code).toUpperCase();
     return (countries as any)[upper]?.name || upper;
 };
+
+export type CountryOption = { code: string; name: string };
 
 interface Props {
     value?: string;
@@ -66,10 +69,12 @@ interface Props {
     placeholder?: string;
     className?: string;
     "aria-label"?: string;
+    isDisabled?: boolean;
 }
 
 /**
  * Searchable country dropdown with flags.
+ * Uses HeroUI Autocomplete (portaled popover) so it works inside modals.
  * `value` / `onChange` use the country display name (e.g. "Canada") to match CRM fields.
  */
 const CountrySelectWithFlag = ({
@@ -78,30 +83,64 @@ const CountrySelectWithFlag = ({
     placeholder = "Select country",
     className = "",
     "aria-label": ariaLabel = "Country",
+    isDisabled = false,
 }: Props) => {
     const selected = useMemo(() => countryCodeFromName(value), [value]);
-    const codes = useMemo(() => {
-        if (selected && !VISA_COUNTRY_CODES.includes(selected)) {
-            return [selected, ...VISA_COUNTRY_CODES];
-        }
-        return VISA_COUNTRY_CODES;
+
+    const items = useMemo<CountryOption[]>(() => {
+        const codes = selected && !VISA_COUNTRY_CODES.includes(selected)
+            ? [selected, ...VISA_COUNTRY_CODES]
+            : VISA_COUNTRY_CODES;
+        return codes.map((code) => ({ code, name: countryNameFromCode(code) }));
     }, [selected]);
 
     return (
-        <div
-            className={`country-select-flag [&_[class*="ReactFlagsSelect-module_flagsSelect"]]:w-full [&_[class*="ReactFlagsSelect-module_selectBtn"]]:w-full [&_[class*="ReactFlagsSelect-module_selectBtn"]]:min-h-10 [&_[class*="ReactFlagsSelect-module_selectBtn"]]:rounded-xl [&_[class*="ReactFlagsSelect-module_selectBtn"]]:border [&_[class*="ReactFlagsSelect-module_selectBtn"]]:border-default-200 ${className}`}
+        <Autocomplete
             aria-label={ariaLabel}
+            className={className}
+            placeholder={placeholder}
+            isDisabled={isDisabled}
+            items={items}
+            selectedKey={selected || null}
+            onSelectionChange={(key) => {
+                if (!key) {
+                    onChange("");
+                    return;
+                }
+                onChange(countryNameFromCode(String(key)));
+            }}
+            startContent={
+                selected ? (
+                    <ReactCountryFlag
+                        countryCode={selected}
+                        svg
+                        style={{ width: "1.25em", height: "1.25em" }}
+                        aria-hidden
+                    />
+                ) : undefined
+            }
+            allowsCustomValue={false}
+            menuTrigger="focus"
+            popoverProps={{ placement: "bottom-start", shouldFlip: true }}
+            listboxProps={{ emptyContent: "No country found" }}
         >
-            <ReactFlagsSelect
-                selected={selected}
-                searchable
-                searchPlaceholder="Search country"
-                placeholder={placeholder}
-                countries={codes}
-                onSelect={(code) => onChange(countryNameFromCode(code))}
-                className="!w-full"
-            />
-        </div>
+            {(item) => (
+                <AutocompleteItem
+                    key={item.code}
+                    textValue={item.name}
+                    startContent={
+                        <ReactCountryFlag
+                            countryCode={item.code}
+                            svg
+                            style={{ width: "1.25em", height: "1.25em" }}
+                            aria-hidden
+                        />
+                    }
+                >
+                    {item.name}
+                </AutocompleteItem>
+            )}
+        </Autocomplete>
     );
 };
 

@@ -753,7 +753,9 @@ class JobPostController {
                         attributes: [] // We don’t need to include applicant details, just count
                     }
                 ],
-                group: ['JobPost.uuid'], // Group by job post to avoid duplication
+                // Group by primary key — MySQL ONLY_FULL_GROUP_BY rejects GROUP BY uuid alone
+                group: ['JobPost.id'],
+                subQuery: false,
                 order: [["createdAt", "DESC"]]
             });
 

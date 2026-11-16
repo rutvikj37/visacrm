@@ -149,7 +149,7 @@ const LeadFormModal = ({ isOpen, onOpenChange, lead, team = [], canAssign = fals
     const matchLabel = dup?.match === "both" ? "phone and email" : dup?.match || "contact details";
 
     return (
-        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl" scrollBehavior="inside">
+        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl" scrollBehavior="outside">
             <ModalContent>
                 {(onClose) => (
                     <>

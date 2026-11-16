@@ -57,6 +57,7 @@ import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import UnreadChatsBadge from "@/modules/AgentAdmin/Chats/UnreadChatsBadge"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import NotificationBell from "@/modules/AgentAdmin/Notifications/NotificationBell"
+import { isNavItemActive } from "@/utils/navActive"
 
 const AgentCRM = () => {
   // for logout
@@ -77,7 +78,7 @@ const AgentCRM = () => {
   }
 
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   // Stable route elements — avoid recreating element trees that remount pages on shell re-render
   const routeNodes = useMemo(
     () => AgentAdminRoutes.map((item: any) => (
@@ -245,7 +246,7 @@ const AgentCRM = () => {
                       <CollapsibleContent>
                         <SidebarMenuSub>
                           {item?.items?.map((subItem) => {
-                            const isActive = pathname === subItem.url || (subItem.url !== "/" && pathname.startsWith(subItem.url.split("?")[0]));
+                            const isActive = isNavItemActive(subItem.url, pathname, search);
                             return (
                               <SidebarMenuSubItem key={subItem.title}>
                                 <SidebarMenuSubButton asChild>

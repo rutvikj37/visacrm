@@ -72,13 +72,14 @@ import PanelHeader from "@/components/panel/PanelHeader"
 import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import NotificationBell from "@/modules/AgentAdmin/Notifications/NotificationBell"
+import { isNavItemActive } from "@/utils/navActive"
 
 const SubAgentCRM = () => {
   // for logout
   const { isOpen, onOpenChange } = useDisclosure();
 
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const routeNodes = useMemo(
     () => SubAgentRoutes.map((item: any) => (
       <Route key={item.path} path={item.path} element={<item.element />} />
@@ -313,7 +314,7 @@ const SubAgentCRM = () => {
                           <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton asChild>
                               <Link
-                                className={pathname === subItem.url || (subItem.url !== "/" && pathname.startsWith(subItem.url.split("?")[0])) ? "!bg-primary !text-primary-foreground font-semibold hover:!bg-primary hover:!text-primary-foreground" : ""}
+                                className={isNavItemActive(subItem.url, pathname, search) ? "!bg-primary !text-primary-foreground font-semibold hover:!bg-primary hover:!text-primary-foreground" : ""}
                                 to={subItem.url}
                               ><span className="flex items-center w-full">{subItem.title}{subItem.url === "/crm/chats" && <UnreadChatsBadge />}</span></Link>
                             </SidebarMenuSubButton>
