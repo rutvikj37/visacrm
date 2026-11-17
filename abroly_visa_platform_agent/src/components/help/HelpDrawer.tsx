@@ -152,9 +152,8 @@ const HelpDrawer = () => {
                         )}
                     </DrawerBody>
                     <DrawerFooter className="flex-col items-stretch gap-2">
-                        {data?.support_whatsapp
-                            ? <Button as="a" href={`https://wa.me/${data.support_whatsapp}?text=${supportText}`} target="_blank" rel="noopener" color="success" variant="flat" startContent={<MessageCircle size={16} />}>Chat with support on WhatsApp</Button>
-                            : <Button variant="flat" onPress={() => go("/contact_us")}>Contact support</Button>}
+                        {/* /contact_us in the panel is the agency's own contact-form inbox, not support - so no fallback link */}
+                        {data?.support_whatsapp && <Button as="a" href={`https://wa.me/${data.support_whatsapp}?text=${supportText}`} target="_blank" rel="noopener" color="success" variant="flat" startContent={<MessageCircle size={16} />}>Chat with support on WhatsApp</Button>}
                     </DrawerFooter>
                 </DrawerContent>
             </Drawer>

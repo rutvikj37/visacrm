@@ -1,4 +1,4 @@
-import { Button, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, useDisclosure, Chip } from "@heroui/react"
+import { Button, Spinner, Tab, Tabs, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, useDisclosure, Chip } from "@heroui/react"
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import CommonConfirmation from '@/components/CommonConfirmation'
@@ -60,9 +60,9 @@ const JobPost = () => {
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Job posts</h1>
+                        <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Job openings for students</h1>
                         <p className="text-sm text-default-500">
-                            {status === 'active' ? 'Active openings on your portal' : 'Inactive openings'}
+                            Jobs you list for your students. Active ones appear under Career in your student portal, where students can apply.
                         </p>
                     </div>
                     <Button
@@ -74,6 +74,12 @@ const JobPost = () => {
                         Add job post
                     </Button>
                 </div>
+
+                <Tabs aria-label="Job status" variant="underlined" selectedKey={status === "inactive" ? "inactive" : "active"}
+                    onSelectionChange={(k) => navigate(`/job_post/find/${k}`)}>
+                    <Tab key="active" title="Active" />
+                    <Tab key="inactive" title="Inactive" />
+                </Tabs>
 
                 <div className="rounded-xl border border-default-200 bg-content1 overflow-hidden">
                     <div className="p-3 sm:p-4">

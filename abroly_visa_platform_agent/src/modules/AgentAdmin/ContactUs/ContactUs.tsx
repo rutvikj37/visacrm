@@ -46,8 +46,8 @@ const ContactUs = () => {
     <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Contact requests</h1>
-          <p className="text-sm text-default-500">Messages from your public contact form</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Contact form messages</h1>
+          <p className="text-sm text-default-500">Messages from your website contact form. Each one also becomes a lead in your Lead Inbox (source "Portal") - work on them there.</p>
         </div>
         {total > 0 && <p className="text-sm text-default-500"><span className="font-semibold text-foreground">{total}</span> total</p>}
       </div>

@@ -5,7 +5,6 @@ import {
   LogOut,
   Users,
   Home,
-  BarChart3,
 } from "lucide-react"
 
 import {
@@ -59,173 +58,44 @@ const SubAgentCRM = () => {
   const teamRoleForMenu = useSelector((state: any) => state.login.team_role)
   const branchForMenu = useSelector((state: any) => state.login.branch_id)
   const data = {
+    // same groups and names as the owner menu (owner-only pages left out)
     navMain: [
-      // a branch manager sees their branch's report
-      ...(teamRoleForMenu === "branch_manager" && branchForMenu ? [{
-        title: "Branch",
-        url: "#",
-        icon: BarChart3,
-        isActive: true,
-        items: [{ title: "Branch report", url: "/reports" }],
-      }] : []),
       {
         title: "Home",
         url: "#",
         icon: Home,
         isActive: true,
-        items: [{ title: "Today", url: "/" }],
+        items: [
+          { title: "Today", url: "/" },
+          { title: "Calendar", url: "/crm/calendar" },
+          { title: "Tasks", url: "/crm/tasks" },
+          { title: "Chats", url: "/crm/chats" },
+          // a branch manager sees their branch's report
+          ...(teamRoleForMenu === "branch_manager" && branchForMenu ? [{ title: "Reports", url: "/reports" }] : []),
+        ],
       },
-      // Lead CRM (leads assigned to me)
       {
-        title: "Lead CRM",
+        title: "Leads",
         url: "#",
         icon: Users,
         isActive: true,
         items: [
-          {
-            title: "Lead Inbox",
-            url: "/crm/leads",
-          },
-          {
-            title: "Chats",
-            url: "/crm/chats",
-          },
-          {
-            title: "Tasks",
-            url: "/crm/tasks",
-          },
-          {
-            title: "Follow-ups Today",
-            url: "/crm/leads?follow_up=today",
-          },
-          {
-            title: "Calendar",
-            url: "/crm/calendar",
-          },
+          { title: "Lead Inbox", url: "/crm/leads" },
+          { title: "Follow-ups today", url: "/crm/leads?follow_up=today" },
         ],
       },
       {
-        title: "Visa Processing",
+        title: "Visa cases",
         url: "#",
         icon: Inbox,
         isActive: true,
         items: [
-          {
-            title: "Case Board",
-            url: "/cases/board",
-          },
-          {
-            title: "Client Fees",
-            url: "/fees",
-          },
+          { title: "Case board", url: "/cases/board" },
+          { title: "Client fees", url: "/fees" },
           // money from universities: Accounts and branch managers only
-          ...(teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager" ? [{
-            title: "Commissions",
-            url: "/commissions",
-          }] : []),
-          // {
-          //   title: "Leads",
-          //   url: "/leads",
-          // },
-          {
-            title: "Students",
-            url: "/leads/students",
-          },
-          {
-            title: "Applications",
-            url: "/leads/applications",
-          },
+          ...(teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager" ? [{ title: "Commissions", url: "/commissions" }] : []),
         ],
       },
-      // {
-      //   title: "Calendar",
-      //   url: "/",
-      //   icon: Calendar,
-      //   isActive: true,
-      //   items: [
-      //     {
-      //       title: "Remiders",
-      //       url: "/",
-      //     },
-      //   ],
-      // },
-      // {
-      //   title: "Users",
-      //   url: "#",
-      //   icon: Users,
-      //   isActive: true,
-      //   items: [
-      //     {
-      //       title: "Sub Agents",
-      //       url: "/sub_agent",
-      //     },
-      //   ],
-      // },
-      // {
-      //   title: "Models",
-      //   url: "#",
-      //   icon: Bot,
-      //   items: [
-      //     {
-      //       title: "Genesis",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Explorer",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Quantum",
-      //       url: "#",
-      //     },
-      //   ],
-      // },
-      // {
-      //   title: "Documentation",
-      //   url: "#",
-      //   icon: BookOpen,
-      //   items: [
-      //     {
-      //       title: "Introduction",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Get Started",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Tutorials",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Changelog",
-      //       url: "#",
-      //     },
-      //   ],
-      // },
-      // {
-      //   title: "Settings",
-      //   url: "#",
-      //   icon: Settings2,
-      //   items: [
-      //     {
-      //       title: "General",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Team",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Billing",
-      //       url: "#",
-      //     },
-      //     {
-      //       title: "Limits",
-      //       url: "#",
-      //     },
-      //   ],
-      // },
     ],
     projects: [
       // {

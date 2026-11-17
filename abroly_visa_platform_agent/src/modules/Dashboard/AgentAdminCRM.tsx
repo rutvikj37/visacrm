@@ -1,4 +1,4 @@
-import { ChevronsUpDown, Inbox, LogOut, SquareTerminal, Users, Home, KanbanSquare, Settings } from "lucide-react"
+import { ChevronsUpDown, Inbox, LogOut, Users, Home, KanbanSquare, Settings, GraduationCap } from "lucide-react"
 
 
 import {
@@ -39,7 +39,6 @@ import { AgentAdminRoutes } from "@/routes/AuthRoutes"
 import { useSelector } from "react-redux"
 import { useEffect, useMemo, useState } from "react"
 import { commonGetAPICalls } from "@/utils/ApiCallUtils"
-import { RiAdvertisementFill } from "react-icons/ri"
 import SidebarNavGroup from "@/components/panel/SidebarNavGroup"
 import SubscriptionBanner from "@/modules/AgentAdmin/Subscription/SubscriptionBanner"
 import AnnouncementBanner from "@/modules/AgentAdmin/Notifications/AnnouncementBanner"
@@ -86,6 +85,9 @@ const AgentCRM = () => {
         isActive: true,
         items: [
           { title: "Today", url: "/" },
+          { title: "Calendar", url: "/crm/calendar" },
+          { title: "Tasks", url: "/crm/tasks" },
+          { title: "Chats", url: "/crm/chats" },
           { title: "Reports", url: "/reports" },
         ],
       },
@@ -96,12 +98,8 @@ const AgentCRM = () => {
         isActive: true,
         items: [
           { title: "Lead Inbox", url: "/crm/leads" },
-          { title: "Chats", url: "/crm/chats" },
-          { title: "Tasks", url: "/crm/tasks" },
           { title: "Follow-ups today", url: "/crm/leads?follow_up=today" },
-          { title: "Calendar", url: "/crm/calendar" },
-          // Messages (broadcast templates) hidden for now
-          { title: "Contact requests", url: "/contact_us" },
+          // contact form messages arrive in the Lead Inbox (source "Portal"); the old list is linked from Lead sources
         ],
       },
       {
@@ -113,7 +111,18 @@ const AgentCRM = () => {
           { title: "Case board", url: "/cases/board" },
           { title: "Client fees", url: "/fees" },
           { title: "Commissions", url: "/commissions" },
+        ],
+      },
+      {
+        // what students see in the agency's student portal (job openings / banners are paid add-ons)
+        title: "Student portal",
+        url: "#",
+        icon: GraduationCap,
+        isActive: false,
+        items: [
           { title: "Services store", url: "/services" },
+          { title: "Portal banners", url: "/side_banner/current", addon: "side_banner" },
+          { title: "Job openings", url: "/job_post/find/active", addon: "jobs" },
         ],
       },
       {
@@ -140,30 +149,6 @@ const AgentCRM = () => {
           { title: "Payments (Razorpay)", url: "/settings/payments" },
           { title: "Subscription", url: "/subscription" },
           { title: "My profile", url: "/basic_profile" },
-        ],
-      },
-      // paid add-ons (shown only when the plan includes them)
-      // Service requests (health/SIM) removed — covered by Services store under Visa cases
-      {
-        title: "Jobs",
-        addon: "jobs",
-        url: "#",
-        icon: SquareTerminal,
-        isActive: false,
-        items: [
-          { title: "Active", url: "/job_post/find/active" },
-          { title: "Inactive", url: "/job_post/find/inactive" },
-        ],
-      },
-      {
-        title: "Side banners",
-        addon: "side_banner",
-        url: "#",
-        icon: RiAdvertisementFill,
-        isActive: false,
-        items: [
-          { title: "Active campaigns", url: "/side_banner/current" },
-          { title: "Past campaigns", url: "/side_banner/past" },
         ],
       },
     ],
@@ -205,7 +190,11 @@ const AgentCRM = () => {
             <SidebarGroup>
               <SidebarGroupLabel>Menu</SidebarGroupLabel>
               <SidebarMenu>
-                {data.navMain.filter((item: any) => !item.addon || !planAddons || planAddons.includes(item.addon)).map((item) => (
+                {data.navMain
+                  .filter((item: any) => !item.addon || !planAddons || planAddons.includes(item.addon))
+                  // add-on pages inside a group are hidden one by one
+                  .map((item: any) => ({ ...item, items: item.items?.filter((sub: any) => !sub.addon || !planAddons || planAddons.includes(sub.addon)) }))
+                  .map((item: any) => (
                   <SidebarNavGroup key={item.title} item={item} styledLinks />
                 ))}
               </SidebarMenu>

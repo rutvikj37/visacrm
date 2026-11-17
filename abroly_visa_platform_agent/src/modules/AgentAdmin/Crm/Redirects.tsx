@@ -24,3 +24,5 @@ export const RedirectToRejectedCases = redirectTo("/cases/board?stage=rejected")
 export const RedirectToWithdrawnCases = redirectTo("/cases/board?stage=withdrawn");
 // owner reports used to live at /dashboard; everyone now uses /reports
 export const RedirectToReports = redirectTo("/reports");
+// old "Students" / "Applications" lists → cases accepted but not started yet
+export const RedirectToNotStartedCases = redirectTo("/cases/board?stage=not_started");

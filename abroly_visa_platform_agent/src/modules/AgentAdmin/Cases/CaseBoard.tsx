@@ -67,7 +67,7 @@ const CaseBoard = () => {
         if (assignee) q.set("assigned_to", assignee);
         if (branch) q.set("branch", branch);
         // a result filter loads every case with that result, not only the last 60 days
-        const result = OUTCOMES.some((o) => o.key === stageFilter) ? stageFilter : "";
+        const result = OUTCOMES.some((o) => o.key === stageFilter) || stageFilter === "not_started" ? stageFilter : "";
         if (result) q.set("result", result);
         if (convertedFilter) {
             q.set("converted", "1");
@@ -96,6 +96,7 @@ const CaseBoard = () => {
     const visible = cases.filter((c) => {
         if (country && c.country !== country) return false;
         if (stageFilter) {
+            if (stageFilter === "not_started") return Boolean(c.not_started);
             if (OUTCOMES.some((o) => o.key === stageFilter)) return c.outcome === stageFilter;
             return !c.outcome && c.stage === stageFilter;
         }
@@ -153,6 +154,7 @@ const CaseBoard = () => {
         if (c.outcome === "approved") return <Chip size="sm" variant="flat" color="success">Approved</Chip>;
         if (c.outcome === "rejected") return <Chip size="sm" variant="flat" color="danger">Rejected</Chip>;
         if (c.outcome === "withdrawn") return <Chip size="sm" variant="flat">Withdrawn</Chip>;
+        if (c.not_started) return <Chip size="sm" variant="flat" color="warning">Not started</Chip>;
         return <Chip size="sm" variant="flat" color="primary">{stageLabel(c.stage || "documents")}</Chip>;
     };
 
@@ -269,6 +271,7 @@ const CaseBoard = () => {
                     }}
                 >
                     {[
+                        <SelectItem key="not_started">Not started</SelectItem>,
                         ...CASE_STAGES.map((s) => <SelectItem key={s.key}>{s.label}</SelectItem>),
                         ...OUTCOMES.map((o) => <SelectItem key={o.key}>{o.label}</SelectItem>),
                     ]}
@@ -346,6 +349,15 @@ const CaseBoard = () => {
             )}
 
             {loading ? (view === "list" ? <Card shadow="sm"><CardBody className="p-3"><ListSkeleton rows={6} /></CardBody></Card> : <BoardSkeleton />) : !cases.length ? (
+                stageFilter && !convertedFilter ? (
+                <EmptyState
+                    compact
+                    icon={KanbanSquare}
+                    title="No cases here"
+                    text={stageFilter === "not_started" ? "No accepted cases are waiting to start." : "No cases match this filter."}
+                    actions={<Button size="sm" variant="flat" onPress={() => setStageFilter("")}>Show all cases</Button>}
+                />
+                ) : (
                 <EmptyState
                     icon={KanbanSquare}
                     title={convertedFilter ? "No converted cases match" : "No visa cases yet"}
@@ -356,6 +368,7 @@ const CaseBoard = () => {
                         ? <Button size="sm" color="primary" onPress={clearConvertedFilter}>Clear converted filter</Button>
                         : <Button size="sm" color="primary" onPress={() => navigate("/crm/leads?status=interested")}>Open interested leads</Button>}
                 />
+                )
             ) : view === "list" ? (
                 <>
                     {/* Mobile cards */}

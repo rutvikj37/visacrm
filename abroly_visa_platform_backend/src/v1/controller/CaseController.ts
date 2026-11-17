@@ -29,6 +29,8 @@ export const CASE_STAGES = ["documents", "application", "offer", "funds", "visa_
 const STAGE_NAMES: Record<string, string> = { documents: "Documents", application: "Application", offer: "Offer", funds: "Fees & funds", visa_filed: "Visa filed", biometrics: "Biometrics", decision: "Decision" };
 const OUTCOMES: Record<string, string> = { approved: "visa_completed", rejected: "visa_rejected", withdrawn: "withdrawn", reopen: "visa_progress" };
 const DONE_STATUSES = ["visa_completed", "visa_rejected", "withdrawn", "withdrawn_by_student"];
+// accepted by the agency but the visa work has not started yet (old "Students" / "Applications" lists)
+const NOT_STARTED = ["accepted", "assign_to_agent", "application_progress"];
 
 /** Why a visa was refused (shown in Reports as refusal reasons by country). */
 export const REFUSAL_REASONS: Record<string, string> = {
@@ -120,7 +122,7 @@ class CaseController {
                 ...branchFilter(req),
             };
             // ?result=approved|rejected|withdrawn → every case with that result (all time)
-            const RESULT_STATUSES: Record<string, string[]> = { approved: ["visa_completed"], rejected: ["visa_rejected"], withdrawn: ["withdrawn", "withdrawn_by_student"] };
+            const RESULT_STATUSES: Record<string, string[]> = { approved: ["visa_completed"], rejected: ["visa_rejected"], withdrawn: ["withdrawn", "withdrawn_by_student"], not_started: NOT_STARTED };
             const resultStatuses = RESULT_STATUSES[String(q.result || "")];
             if (resultStatuses && !convertedOnly) where.status = resultStatuses;
             else if (!convertedOnly) {
@@ -200,6 +202,7 @@ class CaseController {
                     status: x.status,
                     stage: x.status === "visa_progress" ? (x.case_stage || "documents") : null,
                     outcome: x.status === "visa_completed" ? "approved" : x.status === "visa_rejected" ? "rejected" : DONE_STATUSES.includes(x.status) ? "withdrawn" : null,
+                    not_started: NOT_STARTED.includes(x.status),
                     student: { id: x.user_of?.id, name: x.user_of?.username, phone: `${x.user_of?.country_code || ""} ${x.user_of?.phone_number || ""}`.trim() },
                     country: x.selected_country || sel.country || null,
                     university: x.university || sel.university || null,
@@ -246,6 +249,7 @@ class CaseController {
                 id: x.id,
                 status: x.status,
                 stage: x.status === "visa_progress" ? (x.case_stage || "documents") : null,
+                not_started: NOT_STARTED.includes(x.status),
                 student: x.user_of,
                 country: x.selected_country || sel.country || null,
                 university: x.university || sel.university || null,
@@ -291,8 +295,10 @@ class CaseController {
             if (!(CASE_STAGES as readonly string[]).includes(stage)) return returnHelper(res, 200, false, "Invalid stage");
             const c: any = await findCase(req, req.params.id);
             if (!c) return returnHelper(res, 200, false, "Case not found");
-            if (c.dataValues.status !== "visa_progress") return returnHelper(res, 200, false, "Reopen the case first");
-            await AgencyLeads.update({ case_stage: stage, stage_updated_at: new Date() }, { where: { id: c.dataValues.id } });
+            const starting = NOT_STARTED.includes(c.dataValues.status);
+            if (c.dataValues.status !== "visa_progress" && !starting) return returnHelper(res, 200, false, "Reopen the case first");
+            await AgencyLeads.update({ case_stage: stage, stage_updated_at: new Date(), ...(starting && { status: "visa_progress" }) }, { where: { id: c.dataValues.id } });
+            if (starting) audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "stage", summary: `Visa work started at ${STAGE_NAMES[stage]}` });
             if (c.dataValues.case_stage !== stage) {
                 audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "stage", summary: `Stage: ${STAGE_NAMES[c.dataValues.case_stage] || "-"} → ${STAGE_NAMES[stage]}`, meta: { from: c.dataValues.case_stage, to: stage } });
             }
@@ -439,8 +445,8 @@ class CaseController {
             if (action === "stage") {
                 const stage = String(value || "");
                 if (!(CASE_STAGES as readonly string[]).includes(stage)) return returnHelper(res, 200, false, "Invalid stage");
-                const open = cases.filter((c) => c.dataValues.status === "visa_progress" && c.dataValues.case_stage !== stage);
-                if (open.length) await AgencyLeads.update({ case_stage: stage, stage_updated_at: new Date() }, { where: { id: open.map((c) => c.dataValues.id) } });
+                const open = cases.filter((c) => (c.dataValues.status === "visa_progress" && c.dataValues.case_stage !== stage) || NOT_STARTED.includes(c.dataValues.status));
+                if (open.length) await AgencyLeads.update({ case_stage: stage, stage_updated_at: new Date(), status: "visa_progress" }, { where: { id: open.map((c) => c.dataValues.id) } });
                 for (const c of open) {
                     audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "stage", summary: `Stage: ${STAGE_NAMES[c.dataValues.case_stage] || "-"} → ${STAGE_NAMES[stage]} (bulk)`, meta: { from: c.dataValues.case_stage, to: stage } });
                 }

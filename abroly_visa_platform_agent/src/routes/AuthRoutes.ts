@@ -1,5 +1,5 @@
 import { lazy } from "react"
-import { RedirectToApprovedCases, RedirectToCaseBoard, RedirectToCrmCalendar, RedirectToLeadInbox, RedirectToRejectedCases, RedirectToReports, RedirectToWithdrawnCases } from "@/modules/AgentAdmin/Crm/Redirects"
+import { RedirectToApprovedCases, RedirectToCaseBoard, RedirectToCrmCalendar, RedirectToLeadInbox, RedirectToNotStartedCases, RedirectToRejectedCases, RedirectToReports, RedirectToWithdrawnCases } from "@/modules/AgentAdmin/Crm/Redirects"
 
 // Authenticated CRM pages: eager imports so Suspense does not blank the shell on every nav click.
 import JobPost from "@/modules/AgentAdmin/JobPost/JobPost"
@@ -12,8 +12,6 @@ import ServiceProfile from "@/modules/AgentAdmin/Profile/ServiceProfile"
 import SideBanner from "@/modules/AgentAdmin/SideBanner/SideBanner"
 import AddSideBanner from "@/modules/AgentAdmin/SideBanner/AddSideBanner"
 import Responses from "@/modules/AgentAdmin/SideBanner/Responses"
-import LeadsStudents from "@/modules/AgentAdmin/Leads/students/LeadsStudents"
-import LeadsApplications from "@/modules/AgentAdmin/Leads/applications/LeadsApplications"
 import LeadsProgress from "@/modules/AgentAdmin/Leads/progress/LeadsProgress"
 import StudentProfile from "@/modules/AgentAdmin/Leads/IncomingRequest/StudentProfile"
 import AgentEventBanners from "@/modules/AgentAdmin/event_banners/AgentEventBanners"
@@ -312,11 +310,11 @@ export const AgentAdminRoutes = [
     },
     {
         path: "/leads/students",
-        element: LeadsStudents
+        element: RedirectToNotStartedCases
     },
     {
         path: "/leads/applications",
-        element: LeadsApplications
+        element: RedirectToNotStartedCases
     },
     {
         path: "/leads/visa",
@@ -511,11 +509,11 @@ export const SubAgentRoutes = [
     },
     {
         path: "/leads/students",
-        element: LeadsStudents
+        element: RedirectToNotStartedCases
     },
     {
         path: "/leads/applications",
-        element: LeadsApplications
+        element: RedirectToNotStartedCases
     },
     {
         path: "/leads/visa",

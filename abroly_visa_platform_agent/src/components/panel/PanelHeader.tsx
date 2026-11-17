@@ -12,7 +12,7 @@ const TITLES: [string, string][] = [
     ["/crm/leads", "Lead Inbox"], ["/crm/chats", "Chats"], ["/crm/tasks", "Tasks"], ["/crm/calendar", "Calendar"], ["/crm/sources", "Lead sources"], ["/crm/templates", "Visa templates"],
     ["/cases/board", "Case board"], ["/leads/progress", "Visa case"], ["/leads", "Visa cases"], ["/fees", "Client fees"], ["/commissions", "Commissions"], ["/students", "Student timeline"], ["/services", "Services store"], ["/services/orders", "Service order"], ["/settings/payments", "Payments"],
     ["/branches", "Branches"], ["/activity", "Activity log"], ["/team/roles", "Roles & branches"], ["/sub_agent", "Team"], ["/subscription", "Subscription"], ["/branding", "Branding"],
-    ["/profile", "Profile"], ["/contact_us", "Contact us"],
+    ["/profile", "Profile"], ["/contact_us", "Contact form messages"], ["/side_banner", "Portal banners"], ["/add_side_banner", "Portal banners"], ["/responses_side_banner", "Portal banners"], ["/job_post", "Job openings"], ["/job_posts", "Job openings"],
 ];
 
 export const pageTitle = (path: string, isOwner: boolean) => {

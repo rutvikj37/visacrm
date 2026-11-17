@@ -110,10 +110,12 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
         </Select>
     );
 
-    const decided = info.status !== "visa_progress";
+    const notStarted = Boolean(info.not_started);
+    const decided = info.status !== "visa_progress" && !notStarted;
     const result = info.status === "visa_completed" ? { label: "Visa approved", color: "success" as const }
         : info.status === "visa_rejected" ? { label: "Visa rejected", color: "danger" as const }
-            : decided ? { label: "Withdrawn", color: "default" as const } : null;
+            : notStarted ? { label: "Not started", color: "warning" as const }
+                : decided ? { label: "Withdrawn", color: "default" as const } : null;
     const at = Math.max(0, CASE_STAGES.findIndex((x) => x.key === (info.stage || "documents")));
 
     return (
@@ -156,7 +158,7 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                     <div className="flex flex-wrap gap-1.5 sm:hidden">
                         {CASE_STAGES.map((st, i) => {
                             const done = info.status === "visa_completed" || i < at;
-                            const current = !decided && i === at;
+                            const current = !decided && !notStarted && i === at;
                             return (
                                 <button
                                     key={st.key}
@@ -180,7 +182,7 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                     <div className="hidden sm:flex items-start w-full">
                         {CASE_STAGES.map((st, i) => {
                             const done = info.status === "visa_completed" || i < at;
-                            const current = !decided && i === at;
+                            const current = !decided && !notStarted && i === at;
                             return (
                                 <div key={st.key} className="flex items-start flex-1 last:flex-none min-w-0">
                                     <button type="button" disabled={decided || busy || current}
@@ -234,7 +236,10 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
 
                 {/* 5. Outcomes & billing */}
                 <div className="flex flex-wrap gap-2 pt-1 border-t border-default-100">
-                    {decided ? (
+                    {notStarted ? (
+                        <Button size="sm" color="primary" variant="flat" startContent={<CheckCircle2 size={14} />} isLoading={busy}
+                            onPress={() => post(`crm/cases/${caseId}/stage`, { stage: "documents" })}>Start visa work</Button>
+                    ) : decided ? (
                         <Button size="sm" variant="flat" startContent={<RotateCcw size={14} />} isLoading={busy} onPress={() => post(`crm/cases/${caseId}/outcome`, { outcome: "reopen" })}>Reopen case</Button>
                     ) : (
                         <>

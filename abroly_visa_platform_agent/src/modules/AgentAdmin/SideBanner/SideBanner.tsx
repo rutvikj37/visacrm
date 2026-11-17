@@ -1,5 +1,5 @@
 import useApiCallUtils from '@/hooks/useApiCallUtils'
-import { Button, Card, CardBody, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, getKeyValue, Spinner, Chip } from "@heroui/react"
+import { Button, Card, CardBody, Tab, Tabs, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, getKeyValue, Spinner, Chip } from "@heroui/react"
 import { Calendar, Target, TrendingUp, Plus, Eye } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { RiAdvertisementLine } from 'react-icons/ri'
@@ -50,13 +50,9 @@ const SideBanner = () => {
     <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-semibold text-foreground">
-                    {find_for == "current" ? "Active campaigns" : "Campaign history"}
-                  </h1>
+                  <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Portal banners</h1>
                   <p className="text-sm text-default-500">
-                    {find_for == "current"
-                      ? "Live and upcoming banners — student home shows all live ones; service pages show matching targets only"
-                      : "Past banner campaigns"}
+                    Promotions shown to students in your student portal. The home page shows every live banner; service pages show banners targeted to them.
                   </p>
                 </div>
               {find_for == "current" && (
@@ -70,6 +66,12 @@ const SideBanner = () => {
                 </Button>
               )}
               </div>
+
+        <Tabs aria-label="Banner campaigns" variant="underlined" selectedKey={find_for === "past" ? "past" : "current"}
+          onSelectionChange={(k) => navigate(`/side_banner/${k}`)}>
+          <Tab key="current" title="Live & upcoming" />
+          <Tab key="past" title="Past" />
+        </Tabs>
 
         <div className="rounded-xl border border-default-200 bg-content1 overflow-hidden">
           <div className="p-3 sm:p-4">

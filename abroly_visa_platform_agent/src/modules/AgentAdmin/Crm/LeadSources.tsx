@@ -138,6 +138,12 @@ const LeadSources = () => {
                 <div>
                     <h1 className="text-2xl font-semibold">Lead sources</h1>
                     <p className="text-sm text-default-500">Connect where your enquiries come from. New leads land in your Lead Inbox automatically.</p>
+                    <p className="text-xs text-default-500 mt-1">
+                        Your website contact form also creates leads (source "Portal").{" "}
+                        <button type="button" className="text-primary hover:underline" onClick={() => navigate("/crm/leads?source=portal")}>See them in the inbox</button>
+                        {" · "}
+                        <button type="button" className="text-primary hover:underline" onClick={() => navigate("/contact_us")}>Original contact form messages</button>
+                    </p>
                 </div>
             </div>
 
