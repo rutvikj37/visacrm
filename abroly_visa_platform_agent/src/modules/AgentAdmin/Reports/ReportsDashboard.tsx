@@ -7,15 +7,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
-    Button, Card, CardBody, CardHeader, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Tab, Tabs, useDisclosure,
+    Button, Card, CardBody, CardHeader, Tab, Tabs,
 } from "@heroui/react";
-import { BarChart3, IndianRupee, Wallet } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { Line } from "react-chartjs-2";
 import {
     Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler,
 } from "chart.js";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
-import { sourceLabel, LEAD_SOURCES } from "../Crm/crmShared";
+import { sourceLabel } from "../Crm/crmShared";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
 
@@ -33,7 +33,6 @@ const RANGES = [
 ];
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const rupees = (n?: number | null) => (n === null || n === undefined ? "-" : `₹${Number(n).toLocaleString("en-IN")}`);
 const fmtDay = (k: string) => {
     const d = new Date(k);
     return isNaN(d.getTime()) ? k : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -60,7 +59,7 @@ type ReportSection = "overview" | "pipeline" | "branches";
 
 const ReportsDashboard = () => {
     const navigate = useNavigate();
-    const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
+    const { commonGetAPICalls } = useApiCallUtils();
     const isOwner = useSelector((state: any) => state.login.role_type) === "agent";
     const teamRole = useSelector((state: any) => state.login.team_role);
     // full overview/branch compare: owner + branch managers; pipeline: any agency user (API scopes)
@@ -78,11 +77,6 @@ const ReportsDashboard = () => {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<"chart" | "table">("chart");
-
-    const spendModal = useDisclosure();
-    const [spendMonth, setSpendMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [spend, setSpend] = useState<Record<string, string>>({});
-    const [savingSpend, setSavingSpend] = useState(false);
 
     const hasDataRef = useRef(false);
     const load = useCallback(async () => {
@@ -108,21 +102,6 @@ const ReportsDashboard = () => {
     }, [section, branch]);
     const periodTo = ymd(new Date());
     const periodFrom = ymd(new Date(Date.now() - (Number(range) - 1) * 24 * 60 * 60 * 1000));
-
-    const openSpend = async (month = spendMonth) => {
-        setSpendMonth(month);
-        const { success, data } = await commonGetAPICalls(`/crm/reports/spend?month=${month}`);
-        setSpend(success ? Object.fromEntries(Object.entries(data.spend || {}).map(([k, v]) => [k, String(v)])) : {});
-        spendModal.onOpen();
-    };
-    const saveSpend = async (close: () => void) => {
-        setSavingSpend(true);
-        const body: Record<string, number> = {};
-        for (const s of LEAD_SOURCES) body[s.key] = Number(spend[s.key] || 0);
-        const { success } = await commonPostAPICall({ month: spendMonth, spend: body }, "crm/reports/spend", true);
-        setSavingSpend(false);
-        if (success) { close(); load(); }
-    };
 
     const chart = useMemo(() => {
         if (!data) return null;
@@ -185,12 +164,11 @@ const ReportsDashboard = () => {
                             {RANGES.map((r) => <Tab key={r.key} title={r.label} />)}
                         </Tabs>
                     )}
-                    {isOwner && section !== "pipeline" && <Button size="sm" variant="flat" startContent={<Wallet size={14} />} onPress={() => openSpend()}>Ad spend</Button>}
                     {isOwner && section !== "pipeline" && <MonthlySummaryButton />}
                 </div>
             </div>
             {section === "overview" && data?.branch && isOwner && (
-                <div className="text-sm rounded-lg bg-primary-50 text-primary-800 px-3 py-2">Showing {data.branch.name} only. Ad spend is entered for the whole agency, so cost per lead is shown in the all-branches view.</div>
+                <div className="text-sm rounded-lg bg-primary-50 text-primary-800 px-3 py-2">Showing {data.branch.name} only.</div>
             )}
 
             {section === "pipeline" ? (
@@ -202,17 +180,12 @@ const ReportsDashboard = () => {
             ) : !data ? <PageSkeleton /> : (
                 <div className={loading ? "opacity-70 transition-opacity flex flex-col gap-4" : "flex flex-col gap-4"}>
                     {/* headline numbers */}
-                    <div className={`grid grid-cols-2 ${data.branch ? "lg:grid-cols-4" : "lg:grid-cols-5"} gap-3`}>
+                    <div className={`grid grid-cols-2 ${data.branch ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3`}>
                         <Tile label="New leads" value={s.leads} />
                         <Tile label="Converted to visa case" value={s.converted} hint={`${s.conversion_rate}% of leads`} />
                         <Tile label="Visa approved" value={s.visa_approved} hint="from these leads" />
-                        {data.branch ? (
+                        {data.branch && (
                             <Tile label="Open leads not assigned" value={s.unassigned_open} hint="waiting for someone in this branch" />
-                        ) : (
-                            <>
-                                <Tile label="Ad spend" value={rupees(s.spend)} hint={s.spend ? undefined : "Add it with 'Ad spend'"} />
-                                <Tile label="Cost per lead" value={rupees(s.cost_per_lead)} />
-                            </>
                         )}
                     </div>
 
@@ -265,22 +238,17 @@ const ReportsDashboard = () => {
                     <Card shadow="sm">
                         <CardHeader className="font-semibold">Lead sources</CardHeader>
                         <CardBody className="pt-0 overflow-x-auto">
-                            <table className="w-full text-sm min-w-[640px]">
+                            <table className="w-full text-sm min-w-[480px]">
                                 <thead className="text-xs text-default-500"><tr>
-                                    <th className="text-left py-2">Source</th><th className="text-left w-[30%]">Leads</th><th className="text-right">Converted</th>
-                                    <th className="text-right">Conversion</th><th className="text-right">Spend</th><th className="text-right">Cost / lead</th><th className="text-right">Cost / conversion</th>
+                                    <th className="text-left py-2">Source</th><th className="text-left w-[40%]">Leads</th><th className="text-right">Converted</th>
                                 </tr></thead>
                                 <tbody>
-                                    {data.sources.length === 0 && <tr><td colSpan={7} className="py-4 text-default-500">No leads in this period.</td></tr>}
+                                    {data.sources.length === 0 && <tr><td colSpan={3} className="py-4 text-default-500">No leads in this period.</td></tr>}
                                     {data.sources.map((r: any) => (
                                         <tr key={r.source} className="border-t border-default-100">
                                             <td className="py-2">{sourceLabel(r.source)}</td>
                                             <td><div className="flex items-center gap-2"><span className="w-8 text-right">{r.leads}</span><Bar value={r.leads} max={sourceMax} color={colors.leads} /></div></td>
                                             <td className="text-right">{r.converted}</td>
-                                            <td className="text-right">{r.conversion_rate}%</td>
-                                            <td className="text-right">{r.spend ? rupees(r.spend) : "-"}</td>
-                                            <td className="text-right">{rupees(r.cost_per_lead)}</td>
-                                            <td className="text-right">{rupees(r.cost_per_conversion)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -356,32 +324,6 @@ const ReportsDashboard = () => {
                     </div>
                 </div>
             )}
-
-            <Modal isOpen={spendModal.isOpen} onOpenChange={spendModal.onOpenChange} scrollBehavior="inside">
-                <ModalContent>
-                    {(onClose) => (
-                        <>
-                            <ModalHeader className="flex items-center gap-2"><IndianRupee size={18} /> Ad spend</ModalHeader>
-                            <ModalBody>
-                                <p className="text-sm text-default-500">Enter what you spent on each source in a month. Reports use it for cost per lead and cost per conversion.</p>
-                                <Input type="month" aria-label="Month" value={spendMonth} onValueChange={(v) => v && openSpend(v)} />
-                                <div className="grid grid-cols-2 gap-3">
-                                    {LEAD_SOURCES.filter((x) => x.key !== "manual" && x.key !== "csv").map((x) => (
-                                        <div key={x.key} className="flex flex-col gap-1">
-                                            <span className="text-xs font-medium text-default-600">{x.label} (₹)</span>
-                                            <Input aria-label={`${x.label} spend`} type="number" min={0} value={spend[x.key] || ""} onValueChange={(v) => setSpend((p) => ({ ...p, [x.key]: v }))} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </ModalBody>
-                            <ModalFooter>
-                                <Button variant="light" onPress={onClose}>Cancel</Button>
-                                <Button color="primary" isLoading={savingSpend} onPress={() => saveSpend(onClose)}>Save</Button>
-                            </ModalFooter>
-                        </>
-                    )}
-                </ModalContent>
-            </Modal>
         </div>
     );
 };

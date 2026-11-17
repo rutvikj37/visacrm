@@ -76,7 +76,7 @@ const HELP: [string, Help][] = [
     ["/branches", { title: "Branches", points: ["Add each office. New leads go to a branch by their source, then city, then the person assigned. Each branch can have its own GSTIN and invoice numbers."] }],
     ["/team/roles", { title: "Roles & branches", points: ["Choose what each team member can do (counsellor, documents, accounts, branch manager) and which branch they belong to."] }],
     ["/sub_agent", { title: "Team", points: ["Add counsellors and staff. They sign in with their own phone number and see only their own leads (managers see their branch)."] }],
-    ["/dashboard", { title: "Reports", points: ["Overview for leads, spend and visas. Pipeline tab shows conversion rates by source, counsellor and branch. Pick a period or compare branches."] }],
+    ["/dashboard", { title: "Reports", points: ["Overview for leads and visas. Pipeline tab shows conversion rates by source, counsellor and branch. Pick a period or compare branches."] }],
     ["/branding", { title: "Branding", points: ["Your logo, name and colour appear on the student portal, this panel, invoices and emails."] }],
     ["/subscription", { title: "Subscription", points: ["Your plan, renewal date and GST invoices for what you paid us."] }],
 ];
