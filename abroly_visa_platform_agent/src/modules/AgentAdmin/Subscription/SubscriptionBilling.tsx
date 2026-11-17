@@ -49,7 +49,13 @@ export const CheckoutModal = ({ plan, billing, isOpen, onClose, onPay, paying }:
             <ModalContent>
                 <ModalHeader className="flex flex-col items-start gap-0.5">
                     <span>{plan?.name} plan</span>
-                    <span className="text-sm font-normal text-default-500">{billing === "yearly" ? "Billed yearly · 1 year" : "Billed monthly · 1 month"}</span>
+                    <span className="text-sm font-normal text-default-500">
+                        {Number(plan?.duration_months) === 12
+                            ? "12 months access"
+                            : Number(plan?.duration_months) === 6
+                                ? "6 months access"
+                                : (billing === "yearly" ? "Billed yearly · 1 year" : "Billed monthly · 1 month")}
+                    </span>
                 </ModalHeader>
                 <ModalBody>
                     {!quote ? <div className="flex justify-center py-6"><Spinner /></div> : (

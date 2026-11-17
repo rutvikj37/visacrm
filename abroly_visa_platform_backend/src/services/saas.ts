@@ -57,12 +57,12 @@ export const cleanFeatures = (raw: any) => ({
     addons: Array.isArray(raw?.addons) ? raw.addons.filter((k: string) => ADDON_KEYS.includes(k)) : [],
 });
 
-/** Default plans: 6 and 12 months, full features. Price 0 = activate manually after payment. */
+/** Default plans: 6 and 12 months, full features. */
 const DEFAULT_PLANS = [
     {
         name: "6 Months",
-        description: "Full CRM access for 6 months. Activate after you receive payment.",
-        price_monthly: 0,
+        description: "Full CRM access for 6 months.",
+        price_monthly: 19999,
         price_yearly: 0,
         duration_months: 6,
         max_team_members: null,
@@ -72,9 +72,9 @@ const DEFAULT_PLANS = [
     },
     {
         name: "12 Months",
-        description: "Full CRM access for 12 months. Activate after you receive payment.",
+        description: "Full CRM access for 12 months.",
         price_monthly: 0,
-        price_yearly: 0,
+        price_yearly: 24999,
         duration_months: 12,
         max_team_members: null,
         sort_order: 2,
@@ -98,6 +98,8 @@ export const ensureDefaultPlans = async () => {
         if (existing.dataValues.deletedAt) await existing.restore();
         await existing.update({
             description: plan.description,
+            price_monthly: plan.price_monthly,
+            price_yearly: plan.price_yearly,
             duration_months: plan.duration_months,
             max_team_members: null,
             features: plan.features,

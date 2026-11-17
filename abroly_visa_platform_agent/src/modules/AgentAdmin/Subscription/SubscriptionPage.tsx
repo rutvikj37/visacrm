@@ -1,7 +1,7 @@
 import { PRIMARY_COLOR } from "@/lib/theme";
 import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Button, Card, CardBody, CardFooter, CardHeader, Chip, Spinner, Tab, Tabs } from "@heroui/react";
+import { Button, Card, CardBody, CardFooter, CardHeader, Chip, Spinner } from "@heroui/react";
 import { Check, CreditCard, Lock, Phone, Mail, Users, FileText, CalendarClock } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { setSubscription } from "@/redux/slices/loginSlice";
@@ -44,10 +44,23 @@ const SubscriptionPage = ({ onRenewed }: { onRenewed?: () => void }) => {
     const profile = useSelector((state: any) => state.login);
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
     const [paying, setPaying] = useState<string | null>(null);
     const [checkoutPlan, setCheckoutPlan] = useState<any>(null);
     const navigate = useNavigate();
+
+    const planPrice = (p: any) => {
+        const months = Number(p?.duration_months);
+        if (months === 12) return Number(p.price_yearly || p.price_monthly || 0);
+        if (months === 6) return Number(p.price_monthly || p.price_yearly || 0);
+        return Number(p.price_yearly || p.price_monthly || 0);
+    };
+    const planBilling = (p: any): "monthly" | "yearly" => (Number(p?.duration_months) === 12 ? "yearly" : "monthly");
+    const planPeriod = (p: any) => {
+        const months = Number(p?.duration_months);
+        if (months === 12) return "12 months";
+        if (months === 6) return "6 months";
+        return "package";
+    };
 
     const load = useCallback(async () => {
         const { success, data } = await commonGetAPICalls("/crm/subscription");
@@ -68,7 +81,7 @@ const SubscriptionPage = ({ onRenewed }: { onRenewed?: () => void }) => {
             setPaying(null);
             return ErrorToast("Could not load Razorpay. Please check your internet and try again.");
         }
-        const { success, data: order } = await commonPostAPICall({ plan_id: plan.id, billing, coupon }, "crm/subscription/razorpay/order", true);
+        const { success, data: order } = await commonPostAPICall({ plan_id: plan.id, billing: planBilling(plan), coupon }, "crm/subscription/razorpay/order", true);
         if (!success) {
             setPaying(null);
             return;
@@ -86,7 +99,7 @@ const SubscriptionPage = ({ onRenewed }: { onRenewed?: () => void }) => {
             amount: order.amount,
             currency: order.currency,
             name: "Subscription",
-            description: `${order.plan_name} - ${order.months === 12 ? "1 year" : "1 month"}${coupon ? ` (coupon ${coupon})` : ""}`,
+            description: `${order.plan_name} - ${order.months === 12 ? "12 months" : `${order.months || 6} months`}${coupon ? ` (coupon ${coupon})` : ""}`,
             prefill: { name: profile.user_name || "", email: profile.email || "", contact: (profile.phone || "").replace(/\s/g, "") },
             theme: { color: PRIMARY_COLOR },
             handler: async (response: any) => {
@@ -184,26 +197,14 @@ const SubscriptionPage = ({ onRenewed }: { onRenewed?: () => void }) => {
                 <>
                     {/* Renew / upgrade */}
                     <section className="flex flex-col gap-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div>
-                                <h2 className="text-lg font-semibold text-foreground">{data.expired ? "Choose a plan to continue" : "Renew or upgrade"}</h2>
-                                <p className="text-xs text-default-500 mt-0.5">Paying early never loses days — the new period starts after your current end date.</p>
-                            </div>
-                            <Tabs
-                                size="sm"
-                                selectedKey={billing}
-                                onSelectionChange={(k) => setBilling(k as any)}
-                                aria-label="Billing period"
-                                classNames={{ tabList: "bg-default-100" }}
-                            >
-                                <Tab key="monthly" title="Monthly" />
-                                <Tab key="yearly" title="Yearly" />
-                            </Tabs>
+                        <div>
+                            <h2 className="text-lg font-semibold text-foreground">{data.expired ? "Choose a plan to continue" : "Renew or upgrade"}</h2>
+                            <p className="text-xs text-default-500 mt-0.5">Paying early never loses days — the new period starts after your current end date.</p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {data.plans.map((p: any) => {
-                                const price = billing === "yearly" ? p.price_yearly : p.price_monthly;
+                                const price = planPrice(p);
                                 const current = plan?.id === p.id;
                                 return (
                                     <Card key={p.id} shadow="sm" className={current ? "border-2 border-primary" : "border border-default-200"}>
@@ -217,7 +218,7 @@ const SubscriptionPage = ({ onRenewed }: { onRenewed?: () => void }) => {
                                                 <span className="text-2xl font-bold tracking-tight">{price ? rupees(price) : "Contact us"}</span>
                                                 {price > 0 && (
                                                     <span className="text-sm text-default-500">
-                                                        {" "}/ {billing === "yearly" ? "year" : "month"}
+                                                        {" "}/ {planPeriod(p)}
                                                         {data.pricing && data.pricing.gst_percent > 0
                                                             ? (data.pricing.prices_include_gst ? " incl. GST" : ` + ${data.pricing.gst_percent}% GST`)
                                                             : ""}
@@ -269,7 +270,7 @@ const SubscriptionPage = ({ onRenewed }: { onRenewed?: () => void }) => {
 
                     <CheckoutModal
                         plan={checkoutPlan}
-                        billing={billing}
+                        billing={checkoutPlan ? planBilling(checkoutPlan) : "yearly"}
                         isOpen={Boolean(checkoutPlan)}
                         onClose={() => !paying && setCheckoutPlan(null)}
                         paying={Boolean(paying)}

@@ -182,14 +182,26 @@ export const describeCoupon = (coupon: any) => {
 
 // ---------------------------------------------------------------- quote
 
-/** Price of a plan for an agency, with an optional coupon. */
+/** Package price for a plan (6 mo → price_monthly, 12 mo → price_yearly). */
+export const planPackagePrice = (plan: any) => {
+    const p = plan?.dataValues || plan || {};
+    const duration = Number(p.duration_months);
+    if (duration === 12) return Number(p.price_yearly) || Number(p.price_monthly) || 0;
+    if (duration === 6) return Number(p.price_monthly) || Number(p.price_yearly) || 0;
+    return 0;
+};
+
+/** Price of a plan for an agency, with an optional coupon. Uses plan duration (6/12 months). */
 export const quotePlan = async (agencyUuid: string, planUuid: string, billing: "monthly" | "yearly", couponCode?: any) => {
     const plan: any = await SaasPlan.findOne({ where: { uuid: planUuid, status: "active" } });
     if (!plan) throw new SaasError("Plan not found");
-    const rupees = billing === "yearly" ? Number(plan.dataValues.price_yearly) : Number(plan.dataValues.price_monthly);
+    const duration = Number(plan.dataValues.duration_months);
+    const months = duration === 6 || duration === 12 ? duration : (billing === "yearly" ? 12 : 1);
+    const effectiveBilling: "monthly" | "yearly" = months === 12 ? "yearly" : "monthly";
+    const rupees = planPackagePrice(plan) || (billing === "yearly" ? Number(plan.dataValues.price_yearly) : Number(plan.dataValues.price_monthly));
     if (!rupees || rupees <= 0) throw new SaasError("This plan can not be bought online. Please contact us.");
     const settings = await getPlatformBilling();
-    const coupon = await findUsableCoupon(couponCode, agencyUuid, plan.dataValues.id, billing);
+    const coupon = await findUsableCoupon(couponCode, agencyUuid, plan.dataValues.id, effectiveBilling);
     const list = rupees * 100;
     const discount = discountFor(coupon, list);
     const afterDiscount = list - discount;
@@ -198,14 +210,15 @@ export const quotePlan = async (agencyUuid: string, planUuid: string, billing: "
     return {
         plan,
         coupon,
-        months: billing === "yearly" ? 12 : 1,
+        months,
         list_amount: list,
         discount,
         gst_added: gstAdded,
         total,
         view: {
             plan_name: plan.dataValues.name,
-            billing,
+            billing: effectiveBilling,
+            months,
             price: list / 100,
             discount: discount / 100,
             gst_percent: settings.gst_percent,
