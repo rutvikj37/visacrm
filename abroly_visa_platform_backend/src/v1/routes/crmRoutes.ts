@@ -151,6 +151,7 @@ crmRoutes.route("/reports/spend").post(validateAgent, ReportsCrmController.saveS
 // visa cases: board, stage, outcome, assignment, step due dates, more applications
 crmRoutes.route("/cases").get(validateAgent, CaseController.board)
 crmRoutes.route("/cases/steps/:stepId/due").post(validateAgent, CaseController.setStepDue)
+crmRoutes.route("/cases/bulk").post(validateAgent, CaseController.bulk)
 crmRoutes.route("/cases/:id").get(validateAgent, CaseController.details)
 crmRoutes.route("/cases/:id/history").get(validateAgent, CaseController.history)
 crmRoutes.route("/activity_log").get(validateAgent, ActivityLogController.list)

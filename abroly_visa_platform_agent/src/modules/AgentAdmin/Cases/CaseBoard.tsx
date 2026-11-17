@@ -6,10 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
-    Button, Card, CardBody, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Input, Select, SelectItem,
-    Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, Tab,
+    Button, Card, CardBody, Checkbox, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Input, Modal, ModalBody, ModalContent,
+    ModalFooter, ModalHeader, Select, SelectItem, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, Tab, Textarea, useDisclosure,
 } from "@heroui/react";
-import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, List, MoreVertical, Search, User, X } from "lucide-react";
+import type { Selection } from "@heroui/react";
+import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, List, MessageCircle, MoreVertical, Search, User, UserPlus, X } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { sourceLabel } from "@/modules/AgentAdmin/Crm/crmShared";
 import { CASE_STAGES, OUTCOMES, fmtShortDate, stageLabel } from "./caseShared";
@@ -38,6 +39,11 @@ const CaseBoard = () => {
     const [stageFilter, setStageFilter] = useState(() => params.get("stage") || "");
     const [branch, setBranch] = useState(() => new URLSearchParams(window.location.search).get("branch") || "");
     const [focusCol, setFocusCol] = useState<string>("documents");
+    // bulk actions (list view)
+    const [selected, setSelected] = useState<Selection>(new Set());
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const [bulkText, setBulkText] = useState("");
+    const messageModal = useDisclosure();
     const branches = useBranches();
     const [dragId, setDragId] = useState<number | null>(null);
     const [overCol, setOverCol] = useState<string | null>(null);
@@ -105,6 +111,21 @@ const CaseBoard = () => {
     const setOutcome = async (c: any, outcome: string) => {
         const { success } = await commonPostAPICall({ outcome }, `crm/cases/${c.id}/outcome`, true);
         if (success) load();
+    };
+
+    const selectedIds: number[] = selected === "all" ? visible.map((c) => c.id) : Array.from(selected).map((k) => Number(k)).filter((id) => visible.some((c) => c.id === id));
+    const toggleOne = (id: number, on: boolean) => {
+        const next = new Set(selected === "all" ? visible.map((c) => String(c.id)) : Array.from(selected).map(String));
+        if (on) next.add(String(id)); else next.delete(String(id));
+        setSelected(next);
+    };
+    const runBulk = async (action: string, extra: object) => {
+        if (!selectedIds.length) return false;
+        setBulkBusy(true);
+        const { success } = await commonPostAPICall({ ids: selectedIds, action, ...extra }, "crm/cases/bulk", true);
+        setBulkBusy(false);
+        if (success) { if (action !== "message") load(); setSelected(new Set()); }
+        return success;
     };
 
     const onDrop = async (col: string) => {
@@ -302,6 +323,28 @@ const CaseBoard = () => {
 
             {filters}
 
+            {view === "list" && selectedIds.length > 0 && (
+                <div className="sticky top-14 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 shadow-sm">
+                    <span className="text-sm font-medium text-primary-700">{selectedIds.length} selected</span>
+                    {isManager && (
+                        <Dropdown>
+                            <DropdownTrigger><Button size="sm" variant="flat" startContent={<UserPlus size={14} />} isDisabled={bulkBusy}>Assign</Button></DropdownTrigger>
+                            <DropdownMenu aria-label="Assign to" className="max-h-80 overflow-y-auto" onAction={(k) => runBulk("assign", { value: k === "none" ? null : Number(k) })}>
+                                {[<DropdownItem key="none">Unassigned</DropdownItem>, ...team.map((m) => <DropdownItem key={String(m.id)}>{m.username}</DropdownItem>)]}
+                            </DropdownMenu>
+                        </Dropdown>
+                    )}
+                    <Dropdown>
+                        <DropdownTrigger><Button size="sm" variant="flat" startContent={<KanbanSquare size={14} />} isDisabled={bulkBusy}>Move stage</Button></DropdownTrigger>
+                        <DropdownMenu aria-label="Move to stage" onAction={(k) => runBulk("stage", { value: String(k) })}>
+                            {CASE_STAGES.map((st) => <DropdownItem key={st.key}>{st.label}</DropdownItem>)}
+                        </DropdownMenu>
+                    </Dropdown>
+                    <Button size="sm" variant="flat" startContent={<MessageCircle size={14} />} isDisabled={bulkBusy} onPress={() => { setBulkText(""); messageModal.onOpen(); }}>Message</Button>
+                    <Button size="sm" variant="light" className="ml-auto" onPress={() => setSelected(new Set())}>Clear</Button>
+                </div>
+            )}
+
             {loading ? (view === "list" ? <Card shadow="sm"><CardBody className="p-3"><ListSkeleton rows={6} /></CardBody></Card> : <BoardSkeleton />) : !cases.length ? (
                 <EmptyState
                     icon={KanbanSquare}
@@ -325,6 +368,9 @@ const CaseBoard = () => {
                                 <Card key={c.id} shadow="sm" isPressable onPress={() => navigate(`/leads/progress/${c.id}`)}>
                                     <CardBody className="p-3 gap-2">
                                         <div className="flex items-start gap-2">
+                                            <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                                                <Checkbox aria-label={`Select ${c.student?.name || "case"}`} size="sm" isSelected={selectedIds.includes(c.id)} onValueChange={(on) => toggleOne(c.id, on)} />
+                                            </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-medium text-sm truncate">{c.student?.name || "Student"}</div>
                                                 <div className="text-xs text-default-500 truncate">{[c.country, c.university, c.course].filter(Boolean).join(" · ") || "-"}</div>
@@ -354,7 +400,8 @@ const CaseBoard = () => {
                     {/* Desktop table */}
                     <Card shadow="sm" className="max-md:hidden">
                         <CardBody className="p-0 overflow-x-auto">
-                            <Table aria-label="Visa cases" removeWrapper selectionMode="none" onRowAction={(key) => navigate(`/leads/progress/${key}`)} className="min-w-[860px]">
+                            <Table aria-label="Visa cases" removeWrapper selectionMode="multiple" selectionBehavior="toggle" selectedKeys={selected} onSelectionChange={setSelected}
+                                onRowAction={(key) => navigate(`/leads/progress/${key}`)} className="min-w-[860px]">
                                 <TableHeader>
                                     <TableColumn>STUDENT</TableColumn>
                                     <TableColumn>COUNTRY / PROGRAM</TableColumn>
@@ -457,6 +504,24 @@ const CaseBoard = () => {
                     </div>
                 </>
             )}
+            <Modal isOpen={messageModal.isOpen} onOpenChange={messageModal.onOpenChange} size="lg">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Message {selectedIds.length} case{selectedIds.length === 1 ? "" : "s"}</ModalHeader>
+                            <ModalBody>
+                                <p className="text-sm text-default-500">Each student gets this in their portal chat (once, even with several selected cases). Use {"{name}"} for the student's first name.</p>
+                                <Textarea aria-label="Message" autoFocus minRows={4} maxLength={2000} placeholder="Hi {name}, please upload your updated bank statement by Friday."
+                                    value={bulkText} onValueChange={setBulkText} />
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button color="primary" isLoading={bulkBusy} isDisabled={!bulkText.trim()} onPress={async () => { if (await runBulk("message", { message: bulkText })) onClose(); }}>Send</Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
         </div>
     );
 };

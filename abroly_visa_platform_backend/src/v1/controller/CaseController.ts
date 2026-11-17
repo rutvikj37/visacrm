@@ -18,6 +18,7 @@ import { isAgencyMember } from "../../services/leadIngestion";
 import { resolveTemplate } from "./VisaTemplateController";
 import { notifyLater } from "../../services/notifications";
 import { accessOf, canAssignTo, caseScope } from "../../helpers/access";
+import PortalChatMessage from "../../model/PortalChatMessage";
 
 /**
  * Visa cases (AgencyLeads): board by stage, outcome, assignment, step due dates, extra applications.
@@ -399,6 +400,70 @@ class CaseController {
             return returnHelper(res, 200, true, raw ? "Due date set" : "Due date removed");
         } catch (error) {
             console.error("set step due failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/cases/bulk { ids: number[], action: "assign" | "stage" | "message", value?, message? }
+    async bulk(req: RequestWithUser, res: Response) {
+        try {
+            const { agencyUuid, userId } = ctx(req);
+            const a = accessOf(req);
+            const { ids, action, value } = req.body || {};
+            if (!Array.isArray(ids) || !ids.length || ids.length > 300) return returnHelper(res, 200, false, "Select between 1 and 300 cases");
+            const cases: any[] = await AgencyLeads.findAll({
+                where: { ...scope(req), id: ids.map((x: any) => Number(x) || 0) },
+                include: [{ model: User, as: "user_of", attributes: ["id", "username"], required: false }],
+                attributes: ["id", "status", "case_stage", "assign_id", "branch_id", "user_id"],
+            });
+            if (!cases.length) return returnHelper(res, 200, false, "No cases found");
+
+            if (action === "assign") {
+                if (!a.isManager) return returnHelper(res, 200, false, "Only the owner or a branch manager can reassign cases");
+                const agentId = value ? Number(value) : null;
+                if (agentId && (!(await isAgencyMember(agencyUuid, agentId)) || !canAssignTo(req, agentId))) return returnHelper(res, 200, false, "Team member not found");
+                const newBranch = await branchOfAgent(agentId);
+                const assignee: any = agentId ? await Agent.findOne({ where: { id: agentId }, attributes: ["username"], raw: true }) : null;
+                const changed = cases.filter((c) => (c.dataValues.assign_id || null) !== agentId);
+                for (const c of changed) {
+                    const moves = Boolean(newBranch && newBranch !== c.dataValues.branch_id);
+                    await AgencyLeads.update({ assign_id: agentId, ...(moves && { branch_id: newBranch }) }, { where: { id: c.dataValues.id } });
+                    audit(req, { entity: "case", entityId: c.dataValues.id, branchId: moves ? newBranch : c.dataValues.branch_id, action: "assign", summary: `${agentId ? `Assigned to ${assignee?.username || "a team member"}` : "Unassigned"} (bulk)`, meta: { from: c.dataValues.assign_id, to: agentId } });
+                }
+                if (agentId && agentId !== userId && changed.length) {
+                    notifyLater({ agencyUuid, recipientIds: [agentId], type: "case_assigned", title: `${changed.length} visa case${changed.length > 1 ? "s were" : " was"} assigned to you`, link: "/cases/board", email: true });
+                }
+                return returnHelper(res, 200, true, `${changed.length} case${changed.length === 1 ? "" : "s"} ${agentId ? "assigned" : "unassigned"}`, { updated: changed.length });
+            }
+
+            if (action === "stage") {
+                const stage = String(value || "");
+                if (!(CASE_STAGES as readonly string[]).includes(stage)) return returnHelper(res, 200, false, "Invalid stage");
+                const open = cases.filter((c) => c.dataValues.status === "visa_progress" && c.dataValues.case_stage !== stage);
+                if (open.length) await AgencyLeads.update({ case_stage: stage, stage_updated_at: new Date() }, { where: { id: open.map((c) => c.dataValues.id) } });
+                for (const c of open) {
+                    audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "stage", summary: `Stage: ${STAGE_NAMES[c.dataValues.case_stage] || "-"} → ${STAGE_NAMES[stage]} (bulk)`, meta: { from: c.dataValues.case_stage, to: stage } });
+                }
+                const skipped = cases.length - open.length;
+                return returnHelper(res, 200, true, `${open.length} case${open.length === 1 ? "" : "s"} moved to ${STAGE_NAMES[stage]}${skipped ? ` (${skipped} skipped: closed or already there)` : ""}`, { updated: open.length });
+            }
+
+            if (action === "message") {
+                const text = String(req.body?.message || "").trim().slice(0, 2000);
+                if (!text) return returnHelper(res, 200, false, "Type a message");
+                // one message per student, even if they have several selected cases
+                const students = new Map<number, string>();
+                for (const c of cases) if (c.dataValues.user_id) students.set(c.dataValues.user_id, c.user_of?.dataValues?.username || "");
+                await PortalChatMessage.bulkCreate([...students.entries()].map(([studentId, name]) => ({
+                    agency_uuid: agencyUuid, student_id: studentId, sender_type: "agent", sender_id: userId,
+                    body: text.replace(/\{name\}/gi, String(name).trim().split(/\s+/)[0] || "there"),
+                })));
+                return returnHelper(res, 200, true, `Message sent to ${students.size} student${students.size === 1 ? "" : "s"} in their portal chat`, { sent: students.size });
+            }
+
+            return returnHelper(res, 200, false, "Unknown action");
+        } catch (error) {
+            console.error("case bulk action failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }
