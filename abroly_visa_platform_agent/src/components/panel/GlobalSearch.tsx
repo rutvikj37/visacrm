@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Input, Kbd, Modal, ModalBody, ModalContent, Spinner } from "@heroui/react";
-import { FileText, Inbox, Search, UserRound } from "lucide-react";
+import { BadgeDollarSign, CheckSquare, FileText, GraduationCap, Inbox, Search, UserRound } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 
-const ICON: Record<string, any> = { lead: Inbox, case: UserRound, invoice: FileText };
-const LABEL: Record<string, string> = { lead: "Lead", case: "Student", invoice: "Invoice" };
+const ICON: Record<string, any> = { lead: Inbox, case: UserRound, invoice: FileText, university: GraduationCap, task: CheckSquare, commission: BadgeDollarSign };
+const LABEL: Record<string, string> = { lead: "Lead", case: "Student", invoice: "Invoice", university: "University", task: "Task", commission: "Commission" };
 
-/** Find a lead, student (visa case) or invoice by name, phone, email or invoice number. Ctrl/Cmd+K opens it. */
+/** Find a lead, student (visa case), invoice, university application, task or commission. Ctrl/Cmd+K opens it. */
 const GlobalSearch = () => {
     const navigate = useNavigate();
     const { commonGetAPICalls } = useApiCallUtils();
@@ -59,7 +59,7 @@ const GlobalSearch = () => {
             <Modal isOpen={open} onOpenChange={setOpen} placement="top" size="xl" hideCloseButton>
                 <ModalContent>
                     <ModalBody className="p-3 gap-2">
-                        <Input autoFocus aria-label="Search" placeholder="Name, phone, email or invoice number" startContent={<Search size={16} />}
+                        <Input autoFocus aria-label="Search" placeholder="Name, phone, email, university, task, invoice or #case" startContent={<Search size={16} />}
                             endContent={loading ? <Spinner size="sm" /> : null} value={q} onValueChange={setQ}
                             onKeyDown={(e) => {
                                 // one Escape closes the search (the input would otherwise only clear its text first)
@@ -69,7 +69,7 @@ const GlobalSearch = () => {
                                 if (e.key === "Enter" && results[active]) go(results[active]);
                             }} />
                         <div className="max-h-[60vh] overflow-y-auto flex flex-col">
-                            {q.trim().length < 2 && <div className="text-sm text-default-500 px-2 py-3">Type at least 2 letters or 4 digits of a phone number.</div>}
+                            {q.trim().length < 2 && <div className="text-sm text-default-500 px-2 py-3">Type at least 2 letters or 4 digits of a phone number. Use #48 to open case 48.</div>}
                             {q.trim().length >= 2 && !loading && !results.length && <div className="text-sm text-default-500 px-2 py-3">Nothing found for "{q}".</div>}
                             {results.map((r, i) => {
                                 const Icon = ICON[r.type] || Search;

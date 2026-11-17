@@ -2,7 +2,10 @@ import { Response } from "express";
 import { Op } from "sequelize";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
-import { accessOf, caseScope, leadScope } from "../../helpers/access";
+import { accessOf, caseScope, leadScope, taskScope } from "../../helpers/access";
+import AgencyTask from "../../model/AgencyTask";
+import UniversityApplication from "../../model/UniversityApplication";
+import Commission from "../../model/Commission";
 import CrmLead from "../../model/CrmLead";
 import AgencyLeads from "../../model/AgencyLeads";
 import Step from "../../model/Step";
@@ -108,7 +111,13 @@ class TodayController {
             const userOr: any[] = [{ username: { [Op.like]: like } }, { email: { [Op.like]: like } }];
             if (digits.length >= 4) userOr.push({ phone_number: { [Op.like]: `%${digits}%` } });
 
-            const [leads, cases, invoices]: any[] = await Promise.all([
+            // "#48" or "case 48" → that case number
+            const caseNo = q.match(/^(?:#|case\s*#?)\s*(\d{1,9})$/i)?.[1];
+            const a = accessOf(req);
+            const seesMoney = a.isOwner || a.teamRole === "accounts" || a.teamRole === "branch_manager";
+            const caseIdsSeen = async () => (await AgencyLeads.findAll({ where: caseScope(req), attributes: ["id"], raw: true }) as any[]).map((r) => r.id);
+
+            const [leads, cases, invoices, byNumber, tasks, uniApps, commissions]: any[] = await Promise.all([
                 CrmLead.findAll({ where: { ...leadScope(req), [Op.or]: leadOr }, attributes: ["uuid", "name", "phone_number", "country_code", "status", "interested_country"], order: [["last_activity_at", "DESC"]], limit: 6 }),
                 AgencyLeads.findAll({
                     where: { ...caseScope(req), status: ["visa_progress", "visa_completed", "visa_rejected", "withdrawn"] },
@@ -120,12 +129,38 @@ class TodayController {
                     include: [{ model: User, as: "student", attributes: ["username"], required: false }],
                     attributes: ["uuid", "number", "title", "status", "total"], order: [["createdAt", "DESC"]], limit: 5,
                 }) : Promise.resolve([]),
+                caseNo ? AgencyLeads.findAll({
+                    where: { ...caseScope(req), id: Number(caseNo) },
+                    include: [{ model: User, as: "user_of", attributes: ["username"], required: false }],
+                    attributes: ["id", "status", "selected_country", "university"], limit: 1,
+                }) : Promise.resolve([]),
+                AgencyTask.findAll({ where: { ...taskScope(req), title: { [Op.like]: like } }, attributes: ["id", "title", "status", "due_at"], order: [["updatedAt", "DESC"]], limit: 5 }),
+                (async () => {
+                    const where: any = { agency_uuid: a.agencyUuid, [Op.or]: [{ university: { [Op.like]: like } }, { application_ref: { [Op.like]: like } }, { course: { [Op.like]: like } }] };
+                    const rows: any[] = await UniversityApplication.findAll({ where, attributes: ["id", "case_id", "student_id", "university", "course", "status", "application_ref"], order: [["updatedAt", "DESC"]], limit: 20 });
+                    if (!rows.length) return [];
+                    const allowed = new Set(await caseIdsSeen());
+                    const visible = rows.filter((r) => allowed.has(r.dataValues.case_id)).slice(0, 5);
+                    const students: any[] = visible.length ? await User.findAll({ where: { id: visible.map((r) => r.dataValues.student_id) }, attributes: ["id", "username"], raw: true }) : [];
+                    return visible.map((r) => ({ ...r.dataValues, student: students.find((u) => u.id === r.dataValues.student_id)?.username }));
+                })(),
+                seesMoney ? (async () => {
+                    const where: any = { agency_uuid: a.agencyUuid, [Op.or]: [{ partner: { [Op.like]: like } }, { invoice_ref: { [Op.like]: like } }] };
+                    if (!(a.isOwner || a.teamRole === "accounts" || a.seesAll)) { const ids = await caseIdsSeen(); where.case_id = ids.length ? ids : [-1]; }
+                    return Commission.findAll({ where, attributes: ["id", "case_id", "partner", "status", "currency", "amount_expected", "invoice_ref"], order: [["updatedAt", "DESC"]], limit: 4, raw: true });
+                })() : Promise.resolve([]),
             ]);
             const CASE_STATUS: Record<string, string> = { visa_progress: "In progress", visa_completed: "Approved", visa_rejected: "Rejected", withdrawn: "Withdrawn" };
+            const UNI: Record<string, string> = { shortlisted: "Shortlisted", applied: "Applied", offer: "Offer", conditional: "Conditional offer", unconditional: "Unconditional offer", cas: "CAS / I-20", deposit_paid: "Deposit paid", rejected: "Rejected", withdrawn: "Withdrawn" };
+            const TASK: Record<string, string> = { todo: "To do", in_progress: "In progress", done: "Done" };
             const results = [
+                ...byNumber.map((c: any) => { const x = c.toJSON(); return { type: "case", title: `Case #${x.id} · ${x.user_of?.username || "Student"}`, subtitle: [x.selected_country, x.university, CASE_STATUS[x.status]].filter(Boolean).join(" · "), link: `/leads/progress/${x.id}` }; }),
                 ...leads.map((l: any) => ({ type: "lead", title: l.dataValues.name || "Unnamed lead", subtitle: [phoneOf(l.dataValues), l.dataValues.interested_country, l.dataValues.status].filter(Boolean).join(" · "), link: `/crm/leads/${l.dataValues.uuid}` })),
                 ...cases.map((c: any) => { const x = c.toJSON(); return { type: "case", title: x.user_of?.username || "Student", subtitle: [x.selected_country, x.university, CASE_STATUS[x.status]].filter(Boolean).join(" · "), link: `/leads/progress/${x.id}` }; }),
                 ...invoices.map((i: any) => { const x = i.toJSON(); return { type: "invoice", title: `${x.number} · ${x.student?.username || ""}`.trim(), subtitle: [x.title, `Rs ${(Number(x.total) / 100).toLocaleString("en-IN")}`, x.status].filter(Boolean).join(" · "), link: `/fees/${x.uuid}` }; }),
+                ...uniApps.map((u: any) => ({ type: "university", title: `${u.university}${u.student ? ` · ${u.student}` : ""}`, subtitle: [u.course, UNI[u.status], u.application_ref && `Ref ${u.application_ref}`].filter(Boolean).join(" · "), link: `/leads/progress/${u.case_id}` })),
+                ...tasks.map((t: any) => ({ type: "task", title: t.dataValues.title, subtitle: [TASK[t.dataValues.status], t.dataValues.due_at && `Due ${new Date(t.dataValues.due_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`].filter(Boolean).join(" · "), link: `/crm/tasks?task=${t.dataValues.id}` })),
+                ...commissions.map((c: any) => ({ type: "commission", title: `Commission · ${c.partner}`, subtitle: [`${c.currency} ${(Number(c.amount_expected) / 100).toLocaleString("en-IN")}`, c.status, c.invoice_ref].filter(Boolean).join(" · "), link: c.case_id ? `/leads/progress/${c.case_id}` : "/commissions" })),
             ];
             return returnHelper(res, 200, true, "Search", { results });
         } catch (error) {
