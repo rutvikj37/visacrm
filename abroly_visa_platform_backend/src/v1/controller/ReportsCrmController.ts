@@ -11,6 +11,7 @@ import AgencyBranch from "../../model/AgencyBranch";
 import { QueryTypes } from "sequelize";
 import sequelize from "../../config/dbconfig";
 import { accessOf } from "../../helpers/access";
+import { REFUSAL_REASONS } from "./CaseController";
 
 /**
  * Whose numbers a person may see: the owner everything (optionally one branch with ?branch=),
@@ -270,6 +271,31 @@ class ReportsCrmController {
                 .map((c: any) => ({ ...c, success_rate: pct(c.approved, c.approved + c.rejected) }))
                 .sort((a: any, b: any) => (b.approved + b.rejected + b.in_progress) - (a.approved + a.rejected + a.in_progress));
 
+            // ---- why visas were refused (decided in the period) and how long decisions take
+            const refusedRows: any[] = await AgencyLeads.findAll({
+                where: { agent_uuid: agencyUuid, ...bf, status: "visa_rejected", updatedAt: created },
+                attributes: ["refusal_reason", "selected_country"],
+                raw: true,
+            });
+            const refusalMap: Record<string, { key: string; label: string; count: number; countries: Record<string, number> }> = {};
+            for (const r of refusedRows) {
+                const key = r.refusal_reason && REFUSAL_REASONS[r.refusal_reason] ? r.refusal_reason : "not_given";
+                const e = (refusalMap[key] ||= { key, label: key === "not_given" ? "Reason not recorded" : REFUSAL_REASONS[key], count: 0, countries: {} });
+                e.count += 1;
+                const c = normCountry(r.selected_country);
+                e.countries[c] = (e.countries[c] || 0) + 1;
+            }
+            const refusal_reasons = Object.values(refusalMap)
+                .map((e) => ({ ...e, countries: Object.entries(e.countries).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count) }))
+                .sort((a, b) => b.count - a.count);
+            const timing: any[] = await AgencyLeads.findAll({
+                where: { agent_uuid: agencyUuid, ...bf, status: ["visa_completed", "visa_rejected"], visa_lodged_on: { [Op.ne]: null }, decision_on: { [Op.ne]: null }, updatedAt: created },
+                attributes: ["visa_lodged_on", "decision_on"],
+                raw: true,
+            });
+            const decisionDays = timing.map((t) => (new Date(t.decision_on).getTime() - new Date(t.visa_lodged_on).getTime()) / DAY).filter((d) => d >= 0 && d < 400);
+            const visa_timing = { decided: decisionDays.length, avg_days: decisionDays.length ? Math.round(decisionDays.reduce((a, b) => a + b, 0) / decisionDays.length) : null };
+
             // ---- why leads are lost
             const lostRows: any[] = await CrmLead.findAll({
                 where: { ...base, status: "lost" },
@@ -298,7 +324,7 @@ class ReportsCrmController {
                     cost_per_lead: totalSpend && total ? Math.round(totalSpend / total) : null,
                     unassigned_open: unassignedOpen,
                 },
-                funnel, sources, trend, counsellors, visa, lost_reasons,
+                funnel, sources, trend, counsellors, visa, lost_reasons, refusal_reasons, visa_timing,
             });
         } catch (error) {
             console.error("reports overview failed", error);

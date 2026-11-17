@@ -158,6 +158,8 @@ crmRoutes.route("/cases/:id/outcome").post(validateAgent, CaseController.setOutc
 crmRoutes.route("/cases/:id/assign").post(validateAgent, CaseController.assign)
 crmRoutes.route("/cases/:id/branch").post(validateAgent, CaseController.transfer)
 crmRoutes.route("/cases/:id/add_application").post(validateAgent, CaseController.addApplication)
+crmRoutes.route("/cases/:id/visa").post(validateAgent, CaseController.saveVisa)
+crmRoutes.route("/cases/:id/reapply").post(validateAgent, CaseController.reapply)
 // university applications inside a case (each with its own status and offer letters)
 crmRoutes.route("/cases/:id/universities").get(validateAgent, UniversityAppController.list).post(validateAgent, UniversityAppController.create)
 crmRoutes.route("/universities/:appId").post(validateAgent, UniversityAppController.update)

@@ -29,6 +29,22 @@ const STAGE_NAMES: Record<string, string> = { documents: "Documents", applicatio
 const OUTCOMES: Record<string, string> = { approved: "visa_completed", rejected: "visa_rejected", withdrawn: "withdrawn", reopen: "visa_progress" };
 const DONE_STATUSES = ["visa_completed", "visa_rejected", "withdrawn", "withdrawn_by_student"];
 
+/** Why a visa was refused (shown in Reports as refusal reasons by country). */
+export const REFUSAL_REASONS: Record<string, string> = {
+    funds: "Financial documents / funds",
+    genuine: "Genuine student / intent doubts",
+    ties: "Weak ties to home country",
+    academic: "Academic profile / course choice",
+    study_gap: "Study gap not explained",
+    english: "English test score",
+    documents: "Missing or doubtful documents",
+    interview: "Interview / credibility",
+    travel_history: "Travel or immigration history",
+    previous_refusal: "Previous refusal",
+    other: "Other",
+};
+const dateOnly = (v: any) => (v && /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) : null);
+
 const ctx = (req: RequestWithUser) => {
     const user: any = req.user?.user || {};
     return { agencyUuid: user.agent_uuid as string, agencyId: Number(user.agent_id), userId: Number(user.id), isOwner: user.role === "agent" };
@@ -45,6 +61,50 @@ const parseJson = (v: any) => {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** Open a new visa case for the same student as case `c` (another application, or a reapplication). */
+const openCase = async (req: RequestWithUser, c: any, b: any): Promise<{ id: number } | { error: string }> => {
+    const { agencyUuid, agencyId, userId, isOwner } = ctx(req);
+    const country = String(b.country || "").trim().slice(0, 255);
+    if (!country) return { error: "Please enter the country" };
+    const template = b.template_id ? await resolveTemplate(agencyUuid, String(b.template_id)) : null;
+    if (b.template_id && !template) return { error: "Template not found" };
+    let assignTo: number | null = isOwner || b.keepAssignee ? c.dataValues.assign_id : userId;
+    if (isOwner && b.assigned_to && (await isAgencyMember(agencyUuid, Number(b.assigned_to)))) assignTo = Number(b.assigned_to);
+
+    const intake = b.intake ? String(b.intake).trim().slice(0, 50) : "";
+    const year = intake.match(/(20\d{2})/)?.[1] || "";
+    const month = intake.replace(year, "").trim();
+    const course = b.course ? String(b.course).trim().slice(0, 255) : null;
+    const university = b.university ? String(b.university).trim().slice(0, 255) : null;
+    const studentId = c.dataValues.user_id;
+
+    const newId = await sequelize.transaction(async (t: any) => {
+        const application: any = await RaisedApplications.create({ country, fieldOfStudy: course, intake: intake || null, university, student_id: studentId, status: "accepted" }, { transaction: t });
+        const selection = { country, fieldOfStudy: course, intakeMonth: month, intakeYear: year, university };
+        const created: any = await AgencyLeads.create({
+            agent_uuid: agencyUuid, raised_aplication_id: application.dataValues.id, user_id: studentId, status: "visa_progress", lead_type: "offline",
+            suggestions: JSON.stringify([selection]), selected_suggestion: JSON.stringify(selection), selected_country: country, selected_intake_year: year || null,
+            assign_id: assignTo, branch_id: c.dataValues.branch_id || null, case_stage: "documents", stage_updated_at: new Date(), university,
+            last_follow_up_remark: b.remark || null, reapplied_from: b.reappliedFrom || null,
+        }, { transaction: t });
+        for (const [index, step] of (template?.steps || []).entries()) {
+            const s: any = await Step.create({
+                agent_id: agencyId, student_id: studentId, lead_id: created.dataValues.id, created_by_id: userId,
+                step_title: step.title, step_description: step.description || null, step_order: index + 1,
+                due_date: step.due_in_days !== null && step.due_in_days !== undefined ? new Date(Date.now() + Number(step.due_in_days) * 86400000).toISOString().slice(0, 10) : null,
+            }, { transaction: t });
+            if (step.questions?.length) {
+                await Question.bulkCreate(step.questions.map((q) => ({
+                    step_id: s.dataValues.id, student_id: String(studentId), agent_id: String(agencyId), created_by_agent_id: String(userId),
+                    question_text: q.text, question_type: q.type === "file_selector" ? "file_selector" : "text_input", status: "pending",
+                })), { transaction: t });
+            }
+        }
+        return created.dataValues.id;
+    });
+    return { id: newId };
+};
 
 class CaseController {
     // GET /crm/cases?search=&assigned_to=&country=&converted=1&from=&to=&source=
@@ -174,6 +234,7 @@ class CaseController {
                 order: [["createdAt", "ASC"]],
             });
             const assignee: any = x.assign_id ? await Agent.findByPk(x.assign_id, { attributes: ["id", "username"] }) : null;
+            const reapplied: any = await AgencyLeads.findOne({ where: { agent_uuid: ctx(req).agencyUuid, reapplied_from: x.id }, attributes: ["id", "status"], order: [["createdAt", "DESC"]] });
             const branch: any = x.branch_id ? await AgencyBranch.findByPk(x.branch_id, { attributes: ["id", "name"] }) : null;
             return returnHelper(res, 200, true, "Case", {
                 branch: branch ? { id: branch.dataValues.id, name: branch.dataValues.name } : null,
@@ -186,6 +247,17 @@ class CaseController {
                 course: sel.fieldOfStudy || null,
                 intake: [sel.intakeMonth, sel.intakeYear || x.selected_intake_year].filter(Boolean).join(" ") || null,
                 assignee: assignee ? { id: assignee.dataValues.id, name: assignee.dataValues.username } : null,
+                visa: {
+                    lodged_on: x.visa_lodged_on || null,
+                    biometrics_on: x.biometrics_on || null,
+                    decision_on: x.decision_on || null,
+                    refusal_reason: x.refusal_reason || null,
+                    refusal_label: x.refusal_reason ? REFUSAL_REASONS[x.refusal_reason] || x.refusal_reason : null,
+                    note: x.reason || null,
+                },
+                reapplied_from: x.reapplied_from || null,
+                reapplied_as: reapplied ? { id: reapplied.dataValues.id, status: reapplied.dataValues.status } : null,
+                refusal_reasons: Object.entries(REFUSAL_REASONS).map(([key, label]) => ({ key, label })),
                 other_applications: siblings.map((s) => ({ id: s.dataValues.id, status: s.dataValues.status, country: s.dataValues.selected_country, university: s.dataValues.university, stage: s.dataValues.case_stage })),
                 stages: CASE_STAGES,
             });
@@ -236,12 +308,20 @@ class CaseController {
             if (!c) return returnHelper(res, 200, false, "Case not found");
             if (c.dataValues.status === status) return returnHelper(res, 200, false, "The case already has this result");
             const note = req.body?.note ? String(req.body.note).slice(0, 2000) : null;
+            const refusal = outcome === "rejected" && req.body?.refusal_reason && REFUSAL_REASONS[String(req.body.refusal_reason)] ? String(req.body.refusal_reason) : null;
+            if (outcome === "rejected" && req.body?.refusal_reason && !refusal) return returnHelper(res, 200, false, "Please pick a refusal reason from the list");
+            const decided = outcome === "approved" || outcome === "rejected";
+            const decisionOn = dateOnly(req.body?.decision_on) || (decided ? today() : null);
             await AgencyLeads.update(
-                { status, ...(note && { reason: note }), ...(outcome === "reopen" && { stage_updated_at: new Date() }) },
+                {
+                    status, ...(note && { reason: note }), ...(outcome === "reopen" && { stage_updated_at: new Date(), refusal_reason: null, decision_on: null }),
+                    ...(decided && { decision_on: decisionOn, case_stage: "decision" }), ...(outcome === "rejected" && { refusal_reason: refusal }),
+                },
                 { where: { id: c.dataValues.id } },
             );
             const labels: Record<string, string> = { approved: "Visa approved", rejected: "Visa rejected", withdrawn: "Case withdrawn", reopen: "Case reopened" };
-            audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "outcome", summary: `${labels[outcome]}${note ? ` - ${note.slice(0, 200)}` : ""}`, meta: { from: c.dataValues.status, to: status } });
+            const why = [refusal && REFUSAL_REASONS[refusal], note && note.slice(0, 200)].filter(Boolean).join(" - ");
+            audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "outcome", summary: `${labels[outcome]}${why ? ` - ${why}` : ""}`, meta: { from: c.dataValues.status, to: status, refusal_reason: refusal } });
             return returnHelper(res, 200, true, labels[outcome]);
         } catch (error) {
             console.error("set outcome failed", error);
@@ -319,54 +399,81 @@ class CaseController {
         }
     }
 
-    // POST /crm/cases/:id/add_application { country, university?, course?, intake?, template_id?, assigned_to? }
-    async addApplication(req: RequestWithUser, res: Response) {
+    // POST /crm/cases/:id/visa { visa_lodged_on?, biometrics_on?, decision_on? }  - visa application dates
+    async saveVisa(req: RequestWithUser, res: Response) {
         try {
-            const { agencyUuid, agencyId, userId, isOwner } = ctx(req);
             const c: any = await findCase(req, req.params.id);
             if (!c) return returnHelper(res, 200, false, "Case not found");
             const b = req.body || {};
-            const country = String(b.country || "").trim().slice(0, 255);
-            if (!country) return returnHelper(res, 200, false, "Please enter the country");
-            const template = b.template_id ? await resolveTemplate(agencyUuid, String(b.template_id)) : null;
-            if (b.template_id && !template) return returnHelper(res, 200, false, "Template not found");
-            let assignTo: number | null = isOwner ? c.dataValues.assign_id : userId;
-            if (isOwner && b.assigned_to && (await isAgencyMember(agencyUuid, Number(b.assigned_to)))) assignTo = Number(b.assigned_to);
+            const fields: any = {};
+            const names: Record<string, string> = { visa_lodged_on: "Visa lodged", biometrics_on: "Biometrics", decision_on: "Decision" };
+            for (const k of Object.keys(names)) {
+                if (!(k in b)) continue;
+                if (b[k] && !dateOnly(b[k])) return returnHelper(res, 200, false, "Please pick a valid date");
+                fields[k] = dateOnly(b[k]);
+            }
+            if (!Object.keys(fields).length) return returnHelper(res, 200, false, "Nothing to save");
+            // a lodged visa / booked biometrics moves an open case forward (never back)
+            if (c.dataValues.status === "visa_progress") {
+                const order = CASE_STAGES as readonly string[];
+                const at = order.indexOf(c.dataValues.case_stage || "documents");
+                const target = fields.biometrics_on ? "biometrics" : fields.visa_lodged_on ? "visa_filed" : null;
+                if (target && order.indexOf(target) > at) { fields.case_stage = target; fields.stage_updated_at = new Date(); }
+            }
+            await AgencyLeads.update(fields, { where: { id: c.dataValues.id } });
+            const changed = Object.keys(names).filter((k) => k in fields && String(fields[k] || "") !== String(c.dataValues[k] || ""));
+            if (changed.length) {
+                audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "visa_dates", summary: changed.map((k) => `${names[k]}: ${fields[k] || "removed"}`).join(", ") });
+            }
+            return returnHelper(res, 200, true, fields.case_stage ? `Saved - case moved to ${STAGE_NAMES[fields.case_stage]}` : "Saved");
+        } catch (error) {
+            console.error("save visa dates failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
 
-            const intake = b.intake ? String(b.intake).trim().slice(0, 50) : "";
-            const year = intake.match(/(20\d{2})/)?.[1] || "";
-            const month = intake.replace(year, "").trim();
-            const course = b.course ? String(b.course).trim().slice(0, 255) : null;
-            const university = b.university ? String(b.university).trim().slice(0, 255) : null;
-            const studentId = c.dataValues.user_id;
-
-            const newId = await sequelize.transaction(async (t: any) => {
-                const application: any = await RaisedApplications.create({ country, fieldOfStudy: course, intake: intake || null, university, student_id: studentId, status: "accepted" }, { transaction: t });
-                const selection = { country, fieldOfStudy: course, intakeMonth: month, intakeYear: year, university };
-                const created: any = await AgencyLeads.create({
-                    agent_uuid: agencyUuid, raised_aplication_id: application.dataValues.id, user_id: studentId, status: "visa_progress", lead_type: "offline",
-                    suggestions: JSON.stringify([selection]), selected_suggestion: JSON.stringify(selection), selected_country: country, selected_intake_year: year || null,
-                    assign_id: assignTo, branch_id: c.dataValues.branch_id || null, case_stage: "documents", stage_updated_at: new Date(), university,
-                    last_follow_up_remark: `Additional application (from case #${c.dataValues.id})`,
-                }, { transaction: t });
-                for (const [index, step] of (template?.steps || []).entries()) {
-                    const s: any = await Step.create({
-                        agent_id: agencyId, student_id: studentId, lead_id: created.dataValues.id, created_by_id: userId,
-                        step_title: step.title, step_description: step.description || null, step_order: index + 1,
-                        due_date: step.due_in_days !== null && step.due_in_days !== undefined ? new Date(Date.now() + Number(step.due_in_days) * 86400000).toISOString().slice(0, 10) : null,
-                    }, { transaction: t });
-                    if (step.questions?.length) {
-                        await Question.bulkCreate(step.questions.map((q) => ({
-                            step_id: s.dataValues.id, student_id: String(studentId), agent_id: String(agencyId), created_by_agent_id: String(userId),
-                            question_text: q.text, question_type: q.type === "file_selector" ? "file_selector" : "text_input", status: "pending",
-                        })), { transaction: t });
-                    }
-                }
-                return created.dataValues.id;
-            });
-            return returnHelper(res, 200, true, "New application created", { id: newId });
+    // POST /crm/cases/:id/add_application { country, university?, course?, intake?, template_id?, assigned_to? }
+    async addApplication(req: RequestWithUser, res: Response) {
+        try {
+            const c: any = await findCase(req, req.params.id);
+            if (!c) return returnHelper(res, 200, false, "Case not found");
+            const b = req.body || {};
+            const result = await openCase(req, c, { ...b, remark: `Additional application (from case #${c.dataValues.id})` });
+            if ("error" in result) return returnHelper(res, 200, false, result.error);
+            return returnHelper(res, 200, true, "New application created", { id: result.id });
         } catch (error) {
             console.error("add application failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/cases/:id/reapply { template_id?, country?, university?, course?, intake?, note? }  - new case after a refusal
+    async reapply(req: RequestWithUser, res: Response) {
+        try {
+            const c: any = await findCase(req, req.params.id);
+            if (!c) return returnHelper(res, 200, false, "Case not found");
+            if (c.dataValues.status !== "visa_rejected") return returnHelper(res, 200, false, "Only a refused visa case can be reapplied");
+            const already: any = await AgencyLeads.findOne({ where: { agent_uuid: c.dataValues.agent_uuid, reapplied_from: c.dataValues.id }, attributes: ["id"] });
+            if (already) return returnHelper(res, 200, false, `This case was already reapplied as case #${already.dataValues.id}`);
+            const sel = parseJson(c.dataValues.selected_suggestion) || {};
+            const b = req.body || {};
+            const result = await openCase(req, c, {
+                country: b.country || c.dataValues.selected_country || sel.country,
+                university: b.university ?? (c.dataValues.university || sel.university),
+                course: b.course ?? sel.fieldOfStudy,
+                intake: b.intake ?? [sel.intakeMonth, sel.intakeYear || c.dataValues.selected_intake_year].filter(Boolean).join(" "),
+                template_id: b.template_id,
+                assigned_to: b.assigned_to,
+                keepAssignee: true,
+                reappliedFrom: c.dataValues.id,
+                remark: `Reapplication after refusal (case #${c.dataValues.id})${c.dataValues.refusal_reason ? ` - refused for: ${REFUSAL_REASONS[c.dataValues.refusal_reason] || c.dataValues.refusal_reason}` : ""}${b.note ? ` - ${String(b.note).slice(0, 500)}` : ""}`,
+            });
+            if ("error" in result) return returnHelper(res, 200, false, result.error);
+            audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "reapply", summary: `Reapplied as case #${result.id}` });
+            audit(req, { entity: "case", entityId: result.id, branchId: c.dataValues.branch_id, action: "reapply", summary: `Reapplication of refused case #${c.dataValues.id}` });
+            return returnHelper(res, 200, true, "Reapplication case created", { id: result.id });
+        } catch (error) {
+            console.error("reapply failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

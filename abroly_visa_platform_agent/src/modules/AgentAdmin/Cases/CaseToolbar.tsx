@@ -5,9 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, SelectSection, useDisclosure,
+    Button, Card, CardBody, Chip, Input, Textarea, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, SelectSection, useDisclosure,
 } from "@heroui/react";
-import { CalendarClock, CheckCircle2, IndianRupee, KanbanSquare, Plus, RotateCcw, XCircle, Ban } from "lucide-react";
+import { CalendarClock, CheckCircle2, IndianRupee, KanbanSquare, Plus, RotateCcw, XCircle, Ban, Repeat } from "lucide-react";
 import InvoiceFormModal from "@/modules/AgentAdmin/Fees/InvoiceFormModal";
 import CountrySelectWithFlag from "@/modules/AgentAdmin/Crm/CountrySelectWithFlag";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
@@ -33,6 +33,10 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
     const canBill = isOwner || teamRole === "accounts";
     const [templates, setTemplates] = useState<{ agency: any[]; library: any[] }>({ agency: [], library: [] });
     const [form, setForm] = useState({ country: "", university: "", course: "", intake: "", template_id: "" });
+    const refuseModal = useDisclosure();
+    const reapplyModal = useDisclosure();
+    const [refusal, setRefusal] = useState({ refusal_reason: "", decision_on: "", note: "" });
+    const [reapply, setReapply] = useState({ template_id: "", intake: "", note: "" });
 
     const load = useCallback(async () => {
         const { success, data } = await commonGetAPICalls(`/crm/cases/${caseId}`);
@@ -59,8 +63,7 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
 
     const openAdd = async () => {
         setForm({ country: "", university: "", course: info.course || "", intake: info.intake || "", template_id: "" });
-        const { success, data } = await commonGetAPICalls("/crm/visa_templates");
-        if (success) setTemplates({ agency: data?.agency || [], library: data?.library || [] });
+        await loadTemplates();
         addModal.onOpen();
     };
     const createApplication = async (close: () => void) => {
@@ -73,6 +76,39 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
             navigate(`/leads/progress/${data.id}`);
         }
     };
+
+    const loadTemplates = async () => {
+        const { success, data } = await commonGetAPICalls("/crm/visa_templates");
+        if (success) setTemplates({ agency: data?.agency || [], library: data?.library || [] });
+    };
+    const saveVisaDate = (key: string, value: string) => post(`crm/cases/${caseId}/visa`, { [key]: value || null });
+    const openRefuse = () => {
+        setRefusal({ refusal_reason: "", decision_on: new Date().toISOString().slice(0, 10), note: "" });
+        refuseModal.onOpen();
+    };
+    const submitRefusal = async (close: () => void) => {
+        if (!refusal.refusal_reason) return ErrorToast("Please pick the main refusal reason");
+        if (await post(`crm/cases/${caseId}/outcome`, { outcome: "rejected", ...refusal })) close();
+    };
+    const openReapply = async () => {
+        setReapply({ template_id: "", intake: info.intake || "", note: "" });
+        await loadTemplates();
+        reapplyModal.onOpen();
+    };
+    const submitReapply = async (close: () => void) => {
+        setBusy(true);
+        const { success, data } = await commonPostAPICall({ ...reapply, template_id: reapply.template_id || null }, `crm/cases/${caseId}/reapply`, true);
+        setBusy(false);
+        if (success) { close(); navigate(`/leads/progress/${data.id}`); }
+    };
+    const templateSelect = (value: string, onChange: (v: string) => void) => (
+        <Select aria-label="Template" placeholder="No template (add steps later)" selectedKeys={value ? [value] : []} onChange={(e) => onChange(e.target.value)}>
+            {[
+                ...(templates.agency.length ? [<SelectSection key="a" title="My templates">{templates.agency.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}</SelectSection>] : []),
+                <SelectSection key="l" title="Built-in templates">{templates.library.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}</SelectSection>,
+            ]}
+        </Select>
+    );
 
     const decided = info.status !== "visa_progress";
     const result = info.status === "visa_completed" ? { label: "Visa approved", color: "success" as const }
@@ -93,6 +129,12 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                         <p className="text-sm text-default-500 mt-0.5">
                             {[info.country, info.university, info.course, info.intake].filter(Boolean).join(" · ") || "No application details yet"}
                         </p>
+                        {(info.reapplied_from || info.reapplied_as) && (
+                            <div className="flex flex-wrap gap-2 mt-1 text-xs">
+                                {info.reapplied_from && <button type="button" className="text-primary hover:underline" onClick={() => navigate(`/leads/progress/${info.reapplied_from}`)}>Reapplication of refused case #{info.reapplied_from}</button>}
+                                {info.reapplied_as && <button type="button" className="text-primary hover:underline" onClick={() => navigate(`/leads/progress/${info.reapplied_as.id}`)}>Reapplied as case #{info.reapplied_as.id}</button>}
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                         <CaseHistoryButton caseId={caseId} />
@@ -164,7 +206,28 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                     <BranchMoveSelect label="Branch" value={info.branch?.id} isDisabled={busy} onMove={(branchId) => post(`crm/cases/${caseId}/branch`, { branch_id: branchId })} />
                 </div>
 
-                {/* 4. Outcomes & billing */}
+                {/* 4. Visa application dates (+ refusal details) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Field label="Visa lodged on">
+                        <Input aria-label="Visa lodged on" type="date" size="sm" isDisabled={busy} value={info.visa?.lodged_on || ""} onValueChange={(v) => saveVisaDate("visa_lodged_on", v)} />
+                    </Field>
+                    <Field label="Biometrics / appointment">
+                        <Input aria-label="Biometrics date" type="date" size="sm" isDisabled={busy} value={info.visa?.biometrics_on || ""} onValueChange={(v) => saveVisaDate("biometrics_on", v)} />
+                    </Field>
+                    <Field label="Decision on">
+                        <Input aria-label="Decision date" type="date" size="sm" isDisabled={busy} value={info.visa?.decision_on || ""} onValueChange={(v) => saveVisaDate("decision_on", v)} />
+                    </Field>
+                </div>
+                {info.status === "visa_rejected" && (
+                    <div className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700 flex flex-wrap items-center gap-2">
+                        <XCircle size={16} />
+                        <span className="font-medium">Refused{info.visa?.refusal_label ? `: ${info.visa.refusal_label}` : " (reason not recorded)"}</span>
+                        {info.visa?.note && <span className="text-danger-600">- {info.visa.note}</span>}
+                        {!info.reapplied_as && <Button size="sm" color="danger" variant="solid" className="ml-auto" startContent={<Repeat size={14} />} onPress={openReapply}>Reapply</Button>}
+                    </div>
+                )}
+
+                {/* 5. Outcomes & billing */}
                 <div className="flex flex-wrap gap-2 pt-1 border-t border-default-100">
                     {decided ? (
                         <Button size="sm" variant="flat" startContent={<RotateCcw size={14} />} isLoading={busy} onPress={() => post(`crm/cases/${caseId}/outcome`, { outcome: "reopen" })}>Reopen case</Button>
@@ -173,7 +236,7 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                             <Button size="sm" color="success" variant="flat" startContent={<CheckCircle2 size={14} />} isDisabled={busy}
                                 onPress={() => post(`crm/cases/${caseId}/outcome`, { outcome: "approved" })}>Visa approved</Button>
                             <Button size="sm" color="danger" variant="flat" startContent={<XCircle size={14} />} isDisabled={busy}
-                                onPress={() => { const note = window.prompt("Reason for rejection (optional)") ?? undefined; if (note !== undefined) post(`crm/cases/${caseId}/outcome`, { outcome: "rejected", note }); }}>Rejected</Button>
+                                onPress={openRefuse}>Rejected</Button>
                             <Button size="sm" variant="flat" startContent={<Ban size={14} />} isDisabled={busy}
                                 onPress={() => window.confirm("Mark this case as withdrawn?") && post(`crm/cases/${caseId}/outcome`, { outcome: "withdrawn" })}>Withdrawn</Button>
                         </>
@@ -218,12 +281,7 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                                     <Field label="Intake"><Input aria-label="Intake" placeholder="e.g. Sep 2027" value={form.intake} onValueChange={(v) => setForm({ ...form, intake: v })} /></Field>
                                     <div className="sm:col-span-2">
                                         <Field label="Visa process template">
-                                            <Select aria-label="Template" placeholder="No template (add steps later)" selectedKeys={form.template_id ? [form.template_id] : []} onChange={(e) => setForm({ ...form, template_id: e.target.value })}>
-                                                {[
-                                                    ...(templates.agency.length ? [<SelectSection key="a" title="My templates">{templates.agency.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}</SelectSection>] : []),
-                                                    <SelectSection key="l" title="Built-in templates">{templates.library.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}</SelectSection>,
-                                                ]}
-                                            </Select>
+                                            {templateSelect(form.template_id, (v) => setForm({ ...form, template_id: v }))}
                                         </Field>
                                     </div>
                                 </div>
@@ -231,6 +289,49 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                             <ModalFooter>
                                 <Button variant="light" onPress={onClose}>Cancel</Button>
                                 <Button color="primary" isLoading={busy} onPress={() => createApplication(onClose)}>Create application</Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
+            <Modal isOpen={refuseModal.isOpen} onOpenChange={refuseModal.onOpenChange} size="lg">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Visa refused</ModalHeader>
+                            <ModalBody>
+                                <p className="text-sm text-default-500">Recording the reason shows your refusal patterns by country in Reports.</p>
+                                <Field label="Main refusal reason *">
+                                    <Select aria-label="Refusal reason" placeholder="Pick a reason" selectedKeys={refusal.refusal_reason ? [refusal.refusal_reason] : []}
+                                        onChange={(e) => setRefusal({ ...refusal, refusal_reason: e.target.value })}>
+                                        {(info.refusal_reasons || []).map((r: any) => <SelectItem key={r.key}>{r.label}</SelectItem>)}
+                                    </Select>
+                                </Field>
+                                <Field label="Decision date"><Input aria-label="Decision date" type="date" value={refusal.decision_on} onValueChange={(v) => setRefusal({ ...refusal, decision_on: v })} /></Field>
+                                <Field label="Details from the refusal letter"><Textarea aria-label="Refusal details" minRows={2} value={refusal.note} onValueChange={(v) => setRefusal({ ...refusal, note: v })} /></Field>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button color="danger" isLoading={busy} onPress={() => submitRefusal(onClose)}>Mark visa refused</Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
+            <Modal isOpen={reapplyModal.isOpen} onOpenChange={reapplyModal.onOpenChange} size="lg" scrollBehavior="outside">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Reapply for {info.student?.username || "this student"}</ModalHeader>
+                            <ModalBody>
+                                <p className="text-sm text-default-500">Opens a new case for {[info.country, info.university].filter(Boolean).join(" · ") || "the same application"}, linked to this refused one. Use the steps to fix what caused the refusal{info.visa?.refusal_label ? ` (${info.visa.refusal_label.toLowerCase()})` : ""}.</p>
+                                <Field label="Intake"><Input aria-label="Intake" placeholder="e.g. Jan 2028" value={reapply.intake} onValueChange={(v) => setReapply({ ...reapply, intake: v })} /></Field>
+                                <Field label="Visa process template">{templateSelect(reapply.template_id, (v) => setReapply({ ...reapply, template_id: v }))}</Field>
+                                <Field label="What changes this time (optional)"><Textarea aria-label="Note" minRows={2} value={reapply.note} onValueChange={(v) => setReapply({ ...reapply, note: v })} /></Field>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button color="primary" isLoading={busy} onPress={() => submitReapply(onClose)}>Create reapplication</Button>
                             </ModalFooter>
                         </>
                     )}

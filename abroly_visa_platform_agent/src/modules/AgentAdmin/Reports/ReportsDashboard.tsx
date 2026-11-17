@@ -346,6 +346,23 @@ const ReportsDashboard = () => {
                                         ))}
                                     </tbody>
                                 </table>
+                                {data.visa_timing?.avg_days !== null && data.visa_timing?.avg_days !== undefined && (
+                                    <p className="text-xs text-default-500 mt-2">Visa decisions took {data.visa_timing.avg_days} days on average from lodging ({data.visa_timing.decided} decided case{data.visa_timing.decided === 1 ? "" : "s"} with both dates).</p>
+                                )}
+                                {data.refusal_reasons?.length > 0 && (
+                                    <div className="mt-4">
+                                        <div className="text-sm font-semibold mb-2">Why visas were refused</div>
+                                        {data.refusal_reasons.map((r: any) => (
+                                            <div key={r.key} className="flex items-start justify-between gap-2 text-sm py-1 border-t border-default-100">
+                                                <div className="min-w-0">
+                                                    <div className="truncate">{r.label}</div>
+                                                    <div className="text-xs text-default-500 truncate">{r.countries.map((c: any) => `${c.country} ${c.count}`).join(" · ")}</div>
+                                                </div>
+                                                <span className="font-medium">{r.count}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 {data.lost_reasons.length > 0 && (
                                     <div className="mt-4">
                                         <div className="text-sm font-semibold mb-2">Why leads were lost</div>
