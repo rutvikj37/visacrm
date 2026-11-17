@@ -17,6 +17,7 @@ import NotificationController from "../controller/NotificationController"
 import ReportsCrmController from "../controller/ReportsCrmController"
 import CaseController from "../controller/CaseController"
 import CommissionController from "../controller/CommissionController"
+import StudentTimelineController from "../controller/StudentTimelineController"
 import UniversityAppController, { offerUpload } from "../controller/UniversityAppController"
 import CalendarCrmController from "../controller/CalendarCrmController"
 import TeamController from "../controller/TeamController"
@@ -171,6 +172,8 @@ crmRoutes.route("/universities/:appId/delete").post(validateAgent, UniversityApp
 crmRoutes.route("/commissions").get(validateAgent, CommissionController.list).post(validateAgent, CommissionController.create)
 crmRoutes.route("/commissions/:id").post(validateAgent, CommissionController.update)
 crmRoutes.route("/commissions/:id/delete").post(validateAgent, CommissionController.remove)
+// one timeline per student: lead activity, case history, documents, payments, chat
+crmRoutes.route("/students/:id/timeline").get(validateAgent, StudentTimelineController.timeline)
 
 // one calendar: follow-ups, case due dates, fees, tasks, events
 crmRoutes.route("/calendar").get(validateAgent, CalendarCrmController.events)

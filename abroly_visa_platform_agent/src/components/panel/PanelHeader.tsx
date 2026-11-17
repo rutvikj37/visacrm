@@ -10,7 +10,7 @@ import ThemeModeButton from "./ThemeModeButton";
 const TITLES: [string, string][] = [
     ["/today", "Today"], ["/reports/generate", "Generated reports"], ["/reports", "Reports"],
     ["/crm/leads", "Lead Inbox"], ["/crm/chats", "Chats"], ["/crm/tasks", "Tasks"], ["/crm/calendar", "Calendar"], ["/crm/sources", "Lead sources"], ["/crm/templates", "Visa templates"],
-    ["/cases/board", "Case board"], ["/leads/progress", "Visa case"], ["/leads", "Visa cases"], ["/fees", "Client fees"], ["/commissions", "Commissions"], ["/services", "Services store"], ["/services/orders", "Service order"], ["/settings/payments", "Payments"],
+    ["/cases/board", "Case board"], ["/leads/progress", "Visa case"], ["/leads", "Visa cases"], ["/fees", "Client fees"], ["/commissions", "Commissions"], ["/students", "Student timeline"], ["/services", "Services store"], ["/services/orders", "Service order"], ["/settings/payments", "Payments"],
     ["/branches", "Branches"], ["/activity", "Activity log"], ["/team/roles", "Roles & branches"], ["/sub_agent", "Team"], ["/subscription", "Subscription"], ["/branding", "Branding"],
     ["/profile", "Profile"], ["/contact_us", "Contact us"],
 ];

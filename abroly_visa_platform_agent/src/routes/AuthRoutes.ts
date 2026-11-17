@@ -34,6 +34,7 @@ import RolesAndBranches from "@/modules/AgentAdmin/SubAgent/RolesAndBranches"
 import BrandingSettings from "@/modules/AgentAdmin/Branding/BrandingSettings"
 import FeesList from "@/modules/AgentAdmin/Fees/FeesList"
 import CommissionsPage from "@/modules/AgentAdmin/Commissions/CommissionsPage"
+import StudentTimeline from "@/modules/AgentAdmin/Cases/StudentTimeline"
 import ServicesStore from "@/modules/AgentAdmin/Services/ServicesStore"
 import ServiceOrderPage from "@/modules/AgentAdmin/Services/ServiceOrderPage"
 import PaymentSettings from "@/modules/AgentAdmin/Services/PaymentSettings"
@@ -151,6 +152,10 @@ export const AgentAdminRoutes = [
     {
         path: "/commissions",
         element: CommissionsPage
+    },
+    {
+        path: "/students/:id/timeline",
+        element: StudentTimeline
     },
     {
         path: "/crm/calendar",
@@ -453,6 +458,10 @@ export const SubAgentRoutes = [
     {
         path: "/commissions",
         element: CommissionsPage
+    },
+    {
+        path: "/students/:id/timeline",
+        element: StudentTimeline
     },
     {
         path: "/crm/calendar",

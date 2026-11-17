@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
     Button, Card, CardBody, Chip, Input, Textarea, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, SelectSection, useDisclosure,
 } from "@heroui/react";
-import { CalendarClock, CheckCircle2, IndianRupee, KanbanSquare, Plus, RotateCcw, XCircle, Ban, Repeat } from "lucide-react";
+import { CalendarClock, CheckCircle2, IndianRupee, KanbanSquare, Plus, RotateCcw, XCircle, Ban, Repeat, History } from "lucide-react";
 import InvoiceFormModal from "@/modules/AgentAdmin/Fees/InvoiceFormModal";
 import CountrySelectWithFlag from "@/modules/AgentAdmin/Crm/CountrySelectWithFlag";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
@@ -137,6 +137,11 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                         )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                        {info.student?.id && (
+                            <Button size="sm" variant="light" startContent={<History size={14} />} onPress={() => navigate(`/students/${info.student.id}/timeline`)}>
+                                Timeline
+                            </Button>
+                        )}
                         <CaseHistoryButton caseId={caseId} />
                         <Button size="sm" variant="light" startContent={<KanbanSquare size={14} />} onPress={() => navigate("/cases/board")}>
                             Case board
