@@ -330,16 +330,22 @@ class SideBannerController {
                 return returnHelper(res, 200, false, "Invalid Request")
             }
 
-            // Only banners whose schedule window includes now
+            // Only banners whose schedule window includes now.
+            // target_type "home" / "all" = every live campaign for the agency (student home hero).
             const now = new Date();
+            const forHome = ["home", "all"].includes(String(target_type).toLowerCase());
+            const where: any = {
+                agent_uuid,
+                status: "accept",
+                start_date: { [Op.lte]: now },
+                end_date: { [Op.gte]: now },
+            };
+            if (!forHome) {
+                where.target_type = target_type;
+            }
+
             const records = await SideBanner.findAll({
-                where: {
-                    target_type,
-                    agent_uuid,
-                    status: "accept",
-                    start_date: { [Op.lte]: now },
-                    end_date: { [Op.gte]: now },
-                },
+                where,
                 attributes: [
                     "uuid",
                     "image",
@@ -350,6 +356,7 @@ class SideBannerController {
                     "position",
                     "access_image",
                     "createdAt",
+                    "target_type",
                 ],
                 order: [["createdAt", "ASC"]],
             });

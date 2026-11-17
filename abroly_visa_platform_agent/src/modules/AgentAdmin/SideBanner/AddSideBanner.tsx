@@ -128,7 +128,7 @@ const AddSideBanner = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold">Create banner campaign</h1>
           <p className="text-sm text-default-500">
-            Upload one creative and set when it should show. Students see active banners in the page hero (slider if several).
+            Upload one creative and set when it should show. Live banners appear on student home and on the matching service page (slider if several).
           </p>
         </div>
       </div>

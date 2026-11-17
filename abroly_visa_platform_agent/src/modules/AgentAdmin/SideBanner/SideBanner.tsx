@@ -55,7 +55,7 @@ const SideBanner = () => {
                   </h1>
                   <p className="text-sm text-default-500">
                     {find_for == "current"
-                      ? "Live and upcoming banners — students only see them between start and end"
+                      ? "Live and upcoming banners — student home shows all live ones; service pages show matching targets only"
                       : "Past banner campaigns"}
                   </p>
                 </div>

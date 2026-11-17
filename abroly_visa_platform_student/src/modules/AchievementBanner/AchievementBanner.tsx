@@ -26,7 +26,9 @@ const AchievementBanner = ({ target_type }) => {
 
     const findBanners = useCallback(async () => {
         if (document.hidden) return;
-        const { data, success } = await commonGetAPICalls(`/side_banner/student/achievement/${target_type}/${getAgentUuid()}`)
+        const agencyUuid = getAgentUuid();
+        if (!agencyUuid || !target_type) return;
+        const { data, success } = await commonGetAPICalls(`/side_banner/student/achievement/${target_type}/${agencyUuid}`)
         if (success) {
             const now = Date.now();
             const live = (data || []).filter((b: any) => {

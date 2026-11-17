@@ -3,6 +3,7 @@ import { ArrowRight, Briefcase, MapPin, Shield, Wifi } from "lucide-react";
 import { Button } from "@nextui-org/react";
 import ProgressTracker from "./ProgressTracker";
 import InstallAppCard from "@/components/InstallAppCard";
+import AchievementBanner from "@/modules/AchievementBanner/AchievementBanner";
 
 const SERVICES = [
   {
@@ -84,9 +85,10 @@ const HomeServices = () => {
   );
 };
 
-/** Logged-in home: the student's visa progress first, then quiet service links. */
+/** Logged-in home: live campaign hero (if any), then progress + service links. */
 const HomeWithProgress = () => (
   <div className="flex flex-col gap-4">
+    <AchievementBanner target_type="home" />
     <InstallAppCard />
     <ProgressTracker compact />
     <HomeServices />
