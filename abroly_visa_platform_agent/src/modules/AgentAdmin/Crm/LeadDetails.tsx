@@ -519,24 +519,28 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                             )}
 
                             {!closed && (
-                                <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr_auto] gap-2 items-end">
-                                    <Input
-                                        type="datetime-local"
-                                        label={scheduleLabel}
-                                        labelPlacement="outside"
-                                        aria-label={scheduleLabel}
-                                        value={followUpAt}
-                                        onValueChange={setFollowUpAt}
-                                    />
-                                    <Input
-                                        label="What to do"
-                                        labelPlacement="outside"
-                                        aria-label="What to do"
-                                        placeholder="e.g. Send document checklist"
-                                        value={followUpNote}
-                                        onValueChange={setFollowUpNote}
-                                    />
-                                    <Button color="primary" variant="flat" isLoading={savingFollowUp} onPress={scheduleFollowUp}>{scheduleBtn}</Button>
+                                <div className="flex flex-col gap-3 pt-1 border-t border-default-100">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <FormField label={scheduleLabel}>
+                                            <Input
+                                                type="datetime-local"
+                                                aria-label={scheduleLabel}
+                                                value={followUpAt}
+                                                onValueChange={setFollowUpAt}
+                                            />
+                                        </FormField>
+                                        <FormField label="What to do">
+                                            <Input
+                                                aria-label="What to do"
+                                                placeholder="e.g. Send document checklist"
+                                                value={followUpNote}
+                                                onValueChange={setFollowUpNote}
+                                            />
+                                        </FormField>
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <Button color="primary" variant="flat" isLoading={savingFollowUp} onPress={scheduleFollowUp}>{scheduleBtn}</Button>
+                                    </div>
                                 </div>
                             )}
                         </section>
