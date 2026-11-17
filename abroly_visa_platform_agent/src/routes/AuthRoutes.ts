@@ -1,5 +1,5 @@
 import { lazy } from "react"
-import { RedirectToCrmCalendar, RedirectToLeadInbox } from "@/modules/AgentAdmin/Crm/Redirects"
+import { RedirectToApprovedCases, RedirectToCaseBoard, RedirectToCrmCalendar, RedirectToLeadInbox, RedirectToRejectedCases, RedirectToReports, RedirectToWithdrawnCases } from "@/modules/AgentAdmin/Crm/Redirects"
 
 // Authenticated CRM pages: eager imports so Suspense does not blank the shell on every nav click.
 import JobPost from "@/modules/AgentAdmin/JobPost/JobPost"
@@ -14,10 +14,6 @@ import AddSideBanner from "@/modules/AgentAdmin/SideBanner/AddSideBanner"
 import Responses from "@/modules/AgentAdmin/SideBanner/Responses"
 import LeadsStudents from "@/modules/AgentAdmin/Leads/students/LeadsStudents"
 import LeadsApplications from "@/modules/AgentAdmin/Leads/applications/LeadsApplications"
-import LeadsVisa from "@/modules/AgentAdmin/Leads/visa/LeadsVisa"
-import LeadVisaAccepted from "@/modules/AgentAdmin/Leads/visa/LeadVisaAccepted"
-import LeadVisaRejected from "@/modules/AgentAdmin/Leads/visa/LeadVisaRejected"
-import LeadsWithdrawn from "@/modules/AgentAdmin/Leads/withdrawn/LeadsWithdrawn"
 import LeadsProgress from "@/modules/AgentAdmin/Leads/progress/LeadsProgress"
 import StudentProfile from "@/modules/AgentAdmin/Leads/IncomingRequest/StudentProfile"
 import AgentEventBanners from "@/modules/AgentAdmin/event_banners/AgentEventBanners"
@@ -125,7 +121,7 @@ export const PublicRoutes = [
 export const AgentAdminRoutes = [
     {
         path: "/",
-        // home: what needs doing today (Reports moved to /dashboard)
+        // home: what needs doing today (Reports are at /reports)
         element: TodayPage
     },
     {
@@ -215,10 +211,15 @@ export const AgentAdminRoutes = [
     },
     {
         path: "/dashboard",
-        element: ReportsDashboard
+        element: RedirectToReports
     },
     {
         path: "/reports",
+        element: ReportsDashboard
+    },
+    {
+        // requested PDF / Excel reports
+        path: "/reports/generate",
         element: ReportsGenerate
     },
     {
@@ -314,19 +315,19 @@ export const AgentAdminRoutes = [
     },
     {
         path: "/leads/visa",
-        element: LeadsVisa
+        element: RedirectToCaseBoard
     },
     {
         path: "/leads/accepted",
-        element: LeadVisaAccepted
+        element: RedirectToApprovedCases
     },
     {
         path: "/leads/rejected",
-        element: LeadVisaRejected
+        element: RedirectToRejectedCases
     },
     {
         path: "/leads/withdrawn",
-        element: LeadsWithdrawn
+        element: RedirectToWithdrawnCases
     },
     {
         path: "/leads/calendar",
@@ -509,11 +510,11 @@ export const SubAgentRoutes = [
     },
     {
         path: "/leads/visa",
-        element: LeadsVisa
+        element: RedirectToCaseBoard
     },
     {
         path: "/leads/withdrawn",
-        element: LeadsWithdrawn
+        element: RedirectToWithdrawnCases
     },
     {
         path: "/leads/calendar",

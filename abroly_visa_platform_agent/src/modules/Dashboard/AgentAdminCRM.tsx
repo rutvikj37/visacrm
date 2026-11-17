@@ -97,7 +97,7 @@ const AgentCRM = () => {
         isActive: true,
         items: [
           { title: "Today", url: "/" },
-          { title: "Reports", url: "/dashboard" },
+          { title: "Reports", url: "/reports" },
         ],
       },
       {
@@ -122,10 +122,6 @@ const AgentCRM = () => {
         isActive: true,
         items: [
           { title: "Case board", url: "/cases/board" },
-          { title: "In progress", url: "/leads/visa" },
-          { title: "Approved", url: "/leads/accepted" },
-          { title: "Rejected", url: "/leads/rejected" },
-          { title: "Withdrawn", url: "/leads/withdrawn" },
           { title: "Client fees", url: "/fees" },
           { title: "Commissions", url: "/commissions" },
           { title: "Services store", url: "/services" },

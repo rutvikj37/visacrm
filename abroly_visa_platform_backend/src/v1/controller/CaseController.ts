@@ -118,7 +118,11 @@ class CaseController {
                 ...scope(req),
                 ...branchFilter(req),
             };
-            if (!convertedOnly) {
+            // ?result=approved|rejected|withdrawn → every case with that result (all time)
+            const RESULT_STATUSES: Record<string, string[]> = { approved: ["visa_completed"], rejected: ["visa_rejected"], withdrawn: ["withdrawn", "withdrawn_by_student"] };
+            const resultStatuses = RESULT_STATUSES[String(q.result || "")];
+            if (resultStatuses && !convertedOnly) where.status = resultStatuses;
+            else if (!convertedOnly) {
                 where[Op.or] = [
                     { status: "visa_progress" },
                     // decided in the last 60 days, so the board shows recent results

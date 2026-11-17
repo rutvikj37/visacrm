@@ -165,14 +165,6 @@ const SubAgentCRM = () => {
             title: "Applications",
             url: "/leads/applications",
           },
-          {
-            title: "Visa",
-            url: "/leads/visa",
-          },
-          {
-            title: "Withdrawn Applicants",
-            url: "/leads/withdrawn",
-          },
         ],
       },
       // {

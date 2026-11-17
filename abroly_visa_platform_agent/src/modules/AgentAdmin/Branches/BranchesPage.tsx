@@ -73,7 +73,7 @@ const BranchesPage = () => {
                     <p className="text-sm text-default-500">Each office gets its own leads, cases, team, invoices and reports.</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Button className="w-full sm:w-auto" variant="flat" startContent={<BarChart3 size={16} />} onPress={() => navigate("/dashboard?tab=branches")}>
+                    <Button className="w-full sm:w-auto" variant="flat" startContent={<BarChart3 size={16} />} onPress={() => navigate("/reports?tab=branches")}>
                         <span className="sm:hidden">Compare</span>
                         <span className="hidden sm:inline">Compare branches</span>
                     </Button>

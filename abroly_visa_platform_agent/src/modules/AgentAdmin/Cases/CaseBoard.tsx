@@ -34,7 +34,8 @@ const CaseBoard = () => {
     const [search, setSearch] = useState("");
     const [assignee, setAssignee] = useState("");
     const [country, setCountry] = useState("");
-    const [stageFilter, setStageFilter] = useState("");
+    // ?stage=approved|rejected|withdrawn|<stage> (old Approved / Rejected / Withdrawn lists link here)
+    const [stageFilter, setStageFilter] = useState(() => params.get("stage") || "");
     const [branch, setBranch] = useState(() => new URLSearchParams(window.location.search).get("branch") || "");
     const [focusCol, setFocusCol] = useState<string>("documents");
     const branches = useBranches();
@@ -59,6 +60,9 @@ const CaseBoard = () => {
         if (search.trim()) q.set("search", search.trim());
         if (assignee) q.set("assigned_to", assignee);
         if (branch) q.set("branch", branch);
+        // a result filter loads every case with that result, not only the last 60 days
+        const result = OUTCOMES.some((o) => o.key === stageFilter) ? stageFilter : "";
+        if (result) q.set("result", result);
         if (convertedFilter) {
             q.set("converted", "1");
             if (convertedFrom) q.set("from", convertedFrom);
@@ -68,7 +72,7 @@ const CaseBoard = () => {
         const { success, data } = await commonGetAPICalls(`/crm/cases?${q.toString()}`);
         if (success) setCases(data?.cases || []);
         setLoading(false);
-    }, [search, assignee, branch, convertedFilter, convertedFrom, convertedTo, convertedSource]);
+    }, [search, assignee, branch, stageFilter, convertedFilter, convertedFrom, convertedTo, convertedSource]);
 
     useEffect(() => {
         const t = setTimeout(load, 300);
