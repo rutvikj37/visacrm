@@ -6,9 +6,10 @@
  * Wipes the previous demo agency (found by its owner phone) and builds it again with data on every
  * agency-panel page and in the student portal: branches, team, leads from every source (with chats,
  * follow-ups and timelines), visa cases at every stage, fees and receipts, services and orders,
- * calendar, message templates, contact requests, notifications, marketing spend, job posts and
- * demo students. Nothing is emailed or messaged. Everyone logs in with a fixed 6-digit code that is
- * printed at the end (a new set on every run).
+ * calendar, message templates, contact requests, notifications, marketing spend, job posts,
+ * AgencyTask board items, PortalChat threads, and demo students. Nothing is emailed or messaged.
+ * Everyone logs in with a fixed 6-digit code that is printed at the end (a new set on every run).
+ * To add Tasks/Chats without wiping: npm run demo:seed:tasks-chats
  *
  * Portal address: DEMO_PORTAL_DOMAIN / DEMO_PORTAL_SUBDOMAIN (defaults match local dev, where
  * IS_LOCAL_USE=true makes the student portal open the agency at universe.in / techxuniverse).
@@ -221,6 +222,10 @@ const main = async () => {
         await ClientPayment.destroy({ where: { agency_uuid: ag.uuid }, ...f });
         await ClientInvoice.destroy({ where: { agency_uuid: ag.uuid }, ...f });
         await AgencyService.destroy({ where: { agency_uuid: ag.uuid }, ...f });
+        const AgencyTask = (await import("../model/AgencyTask")).default as any;
+        const PortalChatMessage = (await import("../model/PortalChatMessage")).default as any;
+        await AgencyTask.destroy({ where: { agency_uuid: ag.uuid }, ...f }).catch(() => AgencyTask.destroy({ where: { agency_uuid: ag.uuid } }));
+        await PortalChatMessage.destroy({ where: { agency_uuid: ag.uuid } });
         await CrmLeadActivity.destroy({ where: { agency_uuid: ag.uuid } });
         await CrmLead.destroy({ where: { agency_uuid: ag.uuid }, ...f });
         await LeadsCalendar.destroy({ where: { [Op.or]: [{ created_by: staffIds }, { assgin_to: staffIds }] }, ...f });
@@ -583,12 +588,17 @@ const main = async () => {
         });
     }
 
+    // ---------------------------------------------------------------- 11. tasks kanban + portal chats (additive helper; no login changes)
+    const { seedDemoTasksAndChats } = await import("./seedDemoTasksChats");
+    const taskChat = await seedDemoTasksAndChats({ agencyUuid, replace: false, closeDb: false });
+
     // ---------------------------------------------------------------- done
     const counts = {
         leads: LEADS.length, cases: Object.keys(caseOf).length, invoices: await ClientInvoice.count({ where: { agency_uuid: agencyUuid } }),
         payments: await ClientPayment.count({ where: { agency_uuid: agencyUuid } }), orders: await ServiceOrder.count({ where: { agency_uuid: agencyUuid } }),
+        tasks: taskChat.taskCounts.total, portalChats: taskChat.messageCount,
     };
-    console.log(`\nDemo agency "${BRAND.name}" is ready: ${counts.leads} leads, ${counts.cases} visa cases, ${counts.invoices} invoices, ${counts.payments} payments, ${counts.orders} service orders.`);
+    console.log(`\nDemo agency "${BRAND.name}" is ready: ${counts.leads} leads, ${counts.cases} visa cases, ${counts.invoices} invoices, ${counts.payments} payments, ${counts.orders} service orders, ${counts.tasks} tasks, ${counts.portalChats} portal chat messages.`);
     console.log(`Student portal: ${PORTAL_SUBDOMAIN}.${PORTAL_DOMAIN}  (local dev: the student portal app)`);
     console.log(`\nLogin codes (mobile number + 6-digit code; new codes on every run):`);
     for (const c of codes) console.log(`  ${c.who.padEnd(44)} +91 ${c.phone}   ${c.code}`);

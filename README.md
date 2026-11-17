@@ -34,6 +34,7 @@ CRM for visa and study-abroad agencies: a platform (super) admin, a white-label 
 |---|---|
 | `npm run db:sync` | Create / update tables from the models (run after pulling model changes) |
 | `npm run demo:seed` | Build the demo agency "Global Pathways Overseas" with data on every page and print login codes (safe to re-run; it resets the demo) |
+| `npm run demo:seed:tasks-chats` | Add Tasks Kanban + Portal Chats for the existing demo agency only (does not wipe or change login codes; safe to re-run) |
 | `npm run mail:test -- you@example.com` | Send a test email with the current mail settings |
 
 ## Logins
