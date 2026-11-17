@@ -38,11 +38,11 @@ const fmtDay = (k: string) => {
     return isNaN(d.getTime()) ? k : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 };
 
-const Tile = ({ label, value, hint }: { label: string; value: any; hint?: string }) => (
-    <Card shadow="sm">
+const Tile = ({ label, value, hint, onPress }: { label: string; value: any; hint?: string; onPress?: () => void }) => (
+    <Card shadow="sm" isPressable={Boolean(onPress)} onPress={onPress} className={onPress ? "hover:bg-default-50" : undefined}>
         <CardBody className="p-4">
             <div className="text-xs text-default-500">{label}</div>
-            <div className="text-2xl font-semibold mt-1">{value}</div>
+            <div className={`text-2xl font-semibold mt-1 ${onPress ? "text-primary" : ""}`}>{value}</div>
             {hint && <div className="text-xs text-default-500 mt-1">{hint}</div>}
         </CardBody>
     </Card>
@@ -138,6 +138,19 @@ const ReportsDashboard = () => {
     const s = data?.summary;
     const showSectionTabs = canViewFull;
 
+    /** Drill into visa cases created from converted CRM leads (same period / source / branch as the report). */
+    const openConvertedCases = (source?: string) => {
+        const q = new URLSearchParams({ converted: "1", from: periodFrom, to: periodTo });
+        if (source) q.set("source", source);
+        if (branch) q.set("branch", branch);
+        navigate(`/cases/board?${q.toString()}`);
+    };
+    const openSourceLeads = (source: string) => {
+        const q = new URLSearchParams({ source });
+        if (branch) q.set("branch", branch);
+        navigate(`/crm/leads?${q.toString()}`);
+    };
+
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
             {/* header + one row of filters */}
@@ -182,7 +195,12 @@ const ReportsDashboard = () => {
                     {/* headline numbers */}
                     <div className={`grid grid-cols-2 ${data.branch ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3`}>
                         <Tile label="New leads" value={s.leads} />
-                        <Tile label="Converted to visa case" value={s.converted} hint={`${s.conversion_rate}% of leads`} />
+                        <Tile
+                            label="Converted to visa case"
+                            value={s.converted}
+                            hint={`${s.conversion_rate}% of leads · open visa cases`}
+                            onPress={() => openConvertedCases()}
+                        />
                         <Tile label="Visa approved" value={s.visa_approved} hint="from these leads" />
                         {data.branch && (
                             <Tile label="Open leads not assigned" value={s.unassigned_open} hint="waiting for someone in this branch" />
@@ -247,8 +265,25 @@ const ReportsDashboard = () => {
                                     {data.sources.map((r: any) => (
                                         <tr key={r.source} className="border-t border-default-100">
                                             <td className="py-2">{sourceLabel(r.source)}</td>
-                                            <td><div className="flex items-center gap-2"><span className="w-8 text-right">{r.leads}</span><Bar value={r.leads} max={sourceMax} color={colors.leads} /></div></td>
-                                            <td className="text-right">{r.converted}</td>
+                                            <td>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="w-8 text-right hover:text-primary hover:underline disabled:no-underline disabled:opacity-60"
+                                                        disabled={!r.leads}
+                                                        onClick={() => openSourceLeads(r.source)}
+                                                    >{r.leads}</button>
+                                                    <Bar value={r.leads} max={sourceMax} color={colors.leads} />
+                                                </div>
+                                            </td>
+                                            <td className="text-right">
+                                                <button
+                                                    type="button"
+                                                    className="font-medium text-primary hover:underline disabled:text-default-500 disabled:no-underline disabled:font-normal"
+                                                    disabled={!r.converted}
+                                                    onClick={() => openConvertedCases(r.source)}
+                                                >{r.converted}</button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

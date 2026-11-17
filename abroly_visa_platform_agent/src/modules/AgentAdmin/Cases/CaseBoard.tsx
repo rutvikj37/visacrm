@@ -9,15 +9,21 @@ import {
     Button, Card, CardBody, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Input, Select, SelectItem,
     Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, Tab,
 } from "@heroui/react";
-import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, List, MoreVertical, Search, User } from "lucide-react";
+import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, List, MoreVertical, Search, User, X } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
+import { sourceLabel } from "@/modules/AgentAdmin/Crm/crmShared";
 import { CASE_STAGES, OUTCOMES, fmtShortDate, stageLabel } from "./caseShared";
 
-/** Visa cases: list by default, board (kanban) optional via ?view=board. */
+/** Visa cases: list by default, board (kanban) optional via ?view=board.
+ * Reports drill-down: ?converted=1&from=&to=&source=&branch= shows cases from converted leads in that period. */
 const CaseBoard = () => {
     const navigate = useNavigate();
     const [params, setParams] = useSearchParams();
     const view = params.get("view") === "board" ? "board" : "list";
+    const convertedFilter = params.get("converted") === "1" || params.get("converted") === "true";
+    const convertedFrom = params.get("from") || "";
+    const convertedTo = params.get("to") || "";
+    const convertedSource = params.get("source") || "";
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
     const isOwner = useSelector((state: any) => state.login.role_type) === "agent";
     const teamRole = useSelector((state: any) => state.login.team_role);
@@ -42,15 +48,27 @@ const CaseBoard = () => {
         setParams(n, { replace: true });
     };
 
+    const clearConvertedFilter = () => {
+        const n = new URLSearchParams(params);
+        ["converted", "from", "to", "source"].forEach((k) => n.delete(k));
+        setParams(n, { replace: true });
+    };
+
     const load = useCallback(async () => {
         const q = new URLSearchParams();
         if (search.trim()) q.set("search", search.trim());
         if (assignee) q.set("assigned_to", assignee);
         if (branch) q.set("branch", branch);
+        if (convertedFilter) {
+            q.set("converted", "1");
+            if (convertedFrom) q.set("from", convertedFrom);
+            if (convertedTo) q.set("to", convertedTo);
+            if (convertedSource) q.set("source", convertedSource);
+        }
         const { success, data } = await commonGetAPICalls(`/crm/cases?${q.toString()}`);
         if (success) setCases(data?.cases || []);
         setLoading(false);
-    }, [search, assignee, branch]);
+    }, [search, assignee, branch, convertedFilter, convertedFrom, convertedTo, convertedSource]);
 
     useEffect(() => {
         const t = setTimeout(load, 300);
@@ -266,11 +284,31 @@ const CaseBoard = () => {
                 </div>
             </div>
 
+            {convertedFilter && (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm rounded-lg bg-success-50 text-success-800 px-3 py-2">
+                    <span>
+                        Showing converted cases
+                        {convertedFrom && convertedTo ? ` from leads created ${convertedFrom} → ${convertedTo}` : ""}
+                        {convertedSource ? ` · ${sourceLabel(convertedSource)}` : ""}
+                        {branch ? ` · ${branchName(branches, branch) || "branch"}` : ""}
+                    </span>
+                    <Button size="sm" variant="light" startContent={<X size={14} />} onPress={clearConvertedFilter}>Clear</Button>
+                </div>
+            )}
+
             {filters}
 
             {loading ? (view === "list" ? <Card shadow="sm"><CardBody className="p-3"><ListSkeleton rows={6} /></CardBody></Card> : <BoardSkeleton />) : !cases.length ? (
-                <EmptyState icon={KanbanSquare} title="No visa cases yet" text="When you convert a lead to a visa case, it appears here and moves across the stages."
-                    actions={<Button size="sm" color="primary" onPress={() => navigate("/crm/leads?status=interested")}>Open interested leads</Button>} />
+                <EmptyState
+                    icon={KanbanSquare}
+                    title={convertedFilter ? "No converted cases match" : "No visa cases yet"}
+                    text={convertedFilter
+                        ? "No visa cases from converted leads in this report filter. Clear the filter or pick another period in Reports."
+                        : "When you convert a lead to a visa case, it appears here and moves across the stages."}
+                    actions={convertedFilter
+                        ? <Button size="sm" color="primary" onPress={clearConvertedFilter}>Clear converted filter</Button>
+                        : <Button size="sm" color="primary" onPress={() => navigate("/crm/leads?status=interested")}>Open interested leads</Button>}
+                />
             ) : view === "list" ? (
                 <>
                     {/* Mobile cards */}

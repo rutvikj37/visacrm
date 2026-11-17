@@ -8,6 +8,7 @@ import sequelize from "../../config/dbconfig";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import AgencyLeads from "../../model/AgencyLeads";
+import CrmLead, { CRM_LEAD_SOURCES } from "../../model/CrmLead";
 import RaisedApplications from "../../model/RaisedApplications";
 import Step from "../../model/Step";
 import Question from "../../model/Question";
@@ -46,22 +47,54 @@ const parseJson = (v: any) => {
 const today = () => new Date().toISOString().slice(0, 10);
 
 class CaseController {
-    // GET /crm/cases?search=&assigned_to=&country=
+    // GET /crm/cases?search=&assigned_to=&country=&converted=1&from=&to=&source=
+    // converted=1 → only cases linked from CRM leads converted in Reports (leads created in from..to)
     async board(req: RequestWithUser, res: Response) {
         try {
-            const { isOwner, userId } = ctx(req);
+            const { isOwner, userId, agencyUuid } = ctx(req);
+            const q = req.query as Record<string, string>;
+            const convertedOnly = q.converted === "1" || q.converted === "true";
             const where: any = {
                 ...scope(req),
                 ...branchFilter(req),
-                [Op.or]: [
+            };
+            if (!convertedOnly) {
+                where[Op.or] = [
                     { status: "visa_progress" },
                     // decided in the last 60 days, so the board shows recent results
                     { status: DONE_STATUSES, updatedAt: { [Op.gte]: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) } },
-                ],
-            };
-            const { assigned_to, country } = req.query as Record<string, string>;
+                ];
+            }
+            const { assigned_to, country } = q;
             if (accessOf(req).isManager && assigned_to) where.assign_id = assigned_to === "unassigned" ? null : assigned_to === "me" ? userId : Number(assigned_to);
             if (country) where.selected_country = country;
+
+            if (convertedOnly) {
+                const leadWhere: any = {
+                    agency_uuid: agencyUuid,
+                    status: "converted",
+                    converted_case_id: { [Op.ne]: null },
+                };
+                const from = q.from ? new Date(String(q.from)) : null;
+                const to = q.to ? new Date(String(q.to)) : null;
+                if (from && to && !isNaN(from.getTime()) && !isNaN(to.getTime()) && from <= to) {
+                    from.setHours(0, 0, 0, 0);
+                    to.setHours(23, 59, 59, 999);
+                    // match Reports Overview: leads created in the period that are now converted
+                    leadWhere.createdAt = { [Op.between]: [from, to] };
+                }
+                const source = String(q.source || "").trim();
+                if (source && (CRM_LEAD_SOURCES as readonly string[]).includes(source)) leadWhere.source = source;
+                const branchRaw = String(q.branch || "").trim();
+                if (branchRaw === "none") leadWhere.branch_id = null;
+                else if (branchRaw) {
+                    const bid = Number(branchRaw);
+                    if (Number.isInteger(bid) && bid > 0) leadWhere.branch_id = bid;
+                }
+                const leads: any[] = await CrmLead.findAll({ where: leadWhere, attributes: ["converted_case_id"], raw: true });
+                const ids = [...new Set(leads.map((l) => Number(l.converted_case_id)).filter((id) => id > 0))];
+                where.id = ids.length ? ids : [-1];
+            }
 
             const search = String(req.query.search || "").trim().slice(0, 100);
             const cases: any[] = await AgencyLeads.findAll({
