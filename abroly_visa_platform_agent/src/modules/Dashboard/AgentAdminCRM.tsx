@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsUpDown, Inbox, LogOut, SquareTerminal, Users, Home, KanbanSquare, Settings } from "lucide-react"
+import { ChevronsUpDown, Inbox, LogOut, SquareTerminal, Users, Home, KanbanSquare, Settings } from "lucide-react"
 
 
 import {
@@ -8,11 +8,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,15 +27,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Avatar, Spinner, useDisclosure } from "@heroui/react"
-import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom"
+import { Route, Routes, useNavigate } from "react-router-dom"
 import CommonConfirmation from "@/components/CommonConfirmation"
 import { handleLogout } from "@/utils/LogoutUtils"
 import { AgentAdminRoutes } from "@/routes/AuthRoutes"
@@ -48,16 +40,14 @@ import { useSelector } from "react-redux"
 import { useEffect, useMemo, useState } from "react"
 import { commonGetAPICalls } from "@/utils/ApiCallUtils"
 import { RiAdvertisementFill } from "react-icons/ri"
-import { PRIMARY_COLOR, PRIMARY_COLOR_FOREGROUND } from '@/lib/theme'
+import SidebarNavGroup from "@/components/panel/SidebarNavGroup"
 import SubscriptionBanner from "@/modules/AgentAdmin/Subscription/SubscriptionBanner"
 import AnnouncementBanner from "@/modules/AgentAdmin/Notifications/AnnouncementBanner"
 import SidebarBrand from "@/components/panel/SidebarBrand"
 import PanelHeader from "@/components/panel/PanelHeader"
 import PanelBottomNav from "@/components/panel/PanelBottomNav"
-import UnreadChatsBadge from "@/modules/AgentAdmin/Chats/UnreadChatsBadge"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import NotificationBell from "@/modules/AgentAdmin/Notifications/NotificationBell"
-import { isNavItemActive } from "@/utils/navActive"
 
 const AgentCRM = () => {
   // for logout
@@ -78,7 +68,6 @@ const AgentCRM = () => {
   }
 
   const navigate = useNavigate()
-  const { pathname, search } = useLocation()
   // Stable route elements — avoid recreating element trees that remount pages on shell re-render
   const routeNodes = useMemo(
     () => AgentAdminRoutes.map((item: any) => (
@@ -217,56 +206,7 @@ const AgentCRM = () => {
               <SidebarGroupLabel>Menu</SidebarGroupLabel>
               <SidebarMenu>
                 {data.navMain.filter((item: any) => !item.addon || !planAddons || planAddons.includes(item.addon)).map((item) => (
-                  <Collapsible
-                    key={item.title}
-                    asChild
-                    defaultOpen={item.isActive}
-                    className="group/collapsible"
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton tooltip={item.title}>
-                          {item.icon && <item.icon />}
-                          <span>{item.title}</span>
-                          <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {item?.items?.map((subItem) => {
-                            const isActive = isNavItemActive(subItem.url, pathname, search);
-                            return (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild>
-                                  <Link
-                                    to={subItem.url}
-                                    className={`
-                                      w-full h-9 px-3 rounded-md transition-colors duration-150
-                                      flex items-center font-medium text-sm no-underline
-                                      ${isActive 
-                                        ? 'text-white font-semibold shadow-md' 
-                                        : 'text-gray-700 hover:bg-gray-100'
-                                      }
-                                    `}
-                                    style={isActive ? {
-                                      background: PRIMARY_COLOR,
-                                      color: PRIMARY_COLOR_FOREGROUND,
-                                      textDecoration: 'none'
-                                    } : {
-                                      textDecoration: 'none'
-                                    }}
-                                  >
-                                    {subItem.title}
-                                    {subItem.url === "/crm/chats" && <UnreadChatsBadge />}
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
+                  <SidebarNavGroup key={item.title} item={item} styledLinks />
                 ))}
               </SidebarMenu>
             </SidebarGroup>

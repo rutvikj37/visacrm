@@ -1,42 +1,20 @@
 
-import UnreadChatsBadge from "@/modules/AgentAdmin/Chats/UnreadChatsBadge"
 import {
-
-  Calendar,
-  ChevronRight,
   ChevronsUpDown,
-  Folder,
-  Forward,
   Inbox,
   LogOut,
-  MoreHorizontal,
-  Trash2,
-  Users, Home } from "lucide-react"
+  Users,
+  Home,
+  BarChart3,
+} from "lucide-react"
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
 import {
   Sidebar,
   SidebarContent,
@@ -46,40 +24,31 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
-  SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { Avatar, Spinner, useDisclosure } from "@heroui/react"
-import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom"
+import { Avatar, useDisclosure } from "@heroui/react"
+import { Route, Routes, useNavigate } from "react-router-dom"
 import CommonConfirmation from "@/components/CommonConfirmation"
 import { handleLogout } from "@/utils/LogoutUtils"
 import { SubAgentRoutes } from "@/routes/AuthRoutes"
 import { useSelector } from "react-redux"
-import { BarChart3 } from "lucide-react"
 import { useMemo } from "react"
-import aborlyIcon from "../../assets/logo.png"
 import SubscriptionBanner from "@/modules/AgentAdmin/Subscription/SubscriptionBanner"
 import AnnouncementBanner from "@/modules/AgentAdmin/Notifications/AnnouncementBanner"
 import SidebarBrand from "@/components/panel/SidebarBrand"
+import SidebarNavGroup from "@/components/panel/SidebarNavGroup"
 import PanelHeader from "@/components/panel/PanelHeader"
 import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
-import NotificationBell from "@/modules/AgentAdmin/Notifications/NotificationBell"
-import { isNavItemActive } from "@/utils/navActive"
 
 const SubAgentCRM = () => {
   // for logout
   const { isOpen, onOpenChange } = useDisclosure();
 
   const navigate = useNavigate()
-  const { pathname, search } = useLocation()
   const routeNodes = useMemo(
     () => SubAgentRoutes.map((item: any) => (
       <Route key={item.path} path={item.path} element={<item.element />} />
@@ -295,36 +264,7 @@ const SubAgentCRM = () => {
             <SidebarGroupLabel>Menu</SidebarGroupLabel>
             <SidebarMenu>
               {data.navMain.map((item) => (
-                <Collapsible
-                  key={item.title}
-                  asChild
-                  defaultOpen={item.isActive}
-                  className="group/collapsible"
-                >
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip={item.title}>
-                        {item.icon && <item.icon />}
-                        <span>{item.title}</span>
-                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton asChild>
-                              <Link
-                                className={isNavItemActive(subItem.url, pathname, search) ? "!bg-primary !text-primary-foreground font-semibold hover:!bg-primary hover:!text-primary-foreground" : ""}
-                                to={subItem.url}
-                              ><span className="flex items-center w-full">{subItem.title}{subItem.url === "/crm/chats" && <UnreadChatsBadge />}</span></Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
+                <SidebarNavGroup key={item.title} item={item} />
               ))}
             </SidebarMenu>
           </SidebarGroup>
