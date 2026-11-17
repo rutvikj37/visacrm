@@ -2,7 +2,7 @@ import { useT } from "@/utils/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { commonGetAPICalls } from "@/utils/ApiCallUtils";
-import { AlertCircle, CheckCircle2, ChevronRight, Clock, FileUp, PencilLine } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, Clock, FileText, FileUp, GraduationCap, IndianRupee, PencilLine, Star } from "lucide-react";
 import { PRIMARY_COLOR } from "@/lib/theme";
 
 const fmt = (v?: string | null) => {
@@ -18,6 +18,85 @@ const stageIndex = (stage?: string | null) => {
     if (stage === "biometrics") return 4; // shown together with "Visa filed"
     const i = STAGES.findIndex((s) => s.key === stage);
     return i >= 0 ? i : 0;
+};
+
+const money = (amount?: number | null, currency?: string | null) => {
+    if (amount === null || amount === undefined) return "";
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "INR", maximumFractionDigits: 0 }).format(amount); }
+    catch { return `${currency || ""} ${amount}`.trim(); }
+};
+const UNI_TONE: Record<string, string> = {
+    offer: "bg-blue-100 text-blue-800", conditional: "bg-amber-100 text-amber-800", unconditional: "bg-green-100 text-green-800",
+    cas: "bg-green-100 text-green-800", deposit_paid: "bg-green-100 text-green-800", rejected: "bg-red-100 text-red-700",
+};
+
+/** The universities the agency applied to, with offer letters to download. */
+const Universities = ({ list }: { list: any[] }) => {
+    const { t } = useT();
+    if (!list?.length) return null;
+    return (
+        <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+            <div className="text-sm font-semibold mb-2 flex items-center gap-2"><GraduationCap size={16} /> {t("my_universities")}</div>
+            <ul className="flex flex-col gap-2">
+                {list.map((u) => (
+                    <li key={u.id} className="rounded-xl bg-gray-50 dark:bg-gray-800 px-3 py-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium break-words">{u.university}</span>
+                            {u.is_final && <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-100 rounded-full px-2 py-0.5"><Star size={12} /> {t("your_choice")}</span>}
+                            <span className={`ml-auto text-xs font-medium rounded-full px-2 py-0.5 ${UNI_TONE[u.status] || "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200"}`}>{t(`uni_${u.status}`)}</span>
+                        </div>
+                        {(u.course || u.intake) && <div className="text-xs text-gray-500 break-words">{[u.course, u.intake].filter(Boolean).join(" · ")}</div>}
+                        {u.deposit_amount !== null && u.deposit_amount !== undefined && (
+                            <div className="text-xs text-gray-500">{t("deposit_amount", { amount: money(u.deposit_amount, u.currency) })}{u.deposit_paid_on ? ` · ${t("uni_deposit_paid")} ${fmt(u.deposit_paid_on)}` : ""}</div>
+                        )}
+                        {u.offer_files?.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-1.5">
+                                {u.offer_files.map((f: any, i: number) => (
+                                    <a key={i} href={f.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium rounded-full border border-gray-300 dark:border-gray-600 px-2.5 py-1" style={{ color: PRIMARY_COLOR }}>
+                                        <FileText size={12} /> {t("offer_letter")}{u.offer_files.length > 1 ? ` ${i + 1}` : ""}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+/** Visa lodged / biometrics / decision dates the agency recorded. */
+const VisaDates = ({ visa }: { visa?: any }) => {
+    const { t } = useT();
+    const parts = [
+        visa?.lodged_on && t("visa_filed_on", { date: fmt(visa.lodged_on) }),
+        visa?.biometrics_on && t("biometrics_on", { date: fmt(visa.biometrics_on) }),
+        visa?.decision_on && t("decision_on", { date: fmt(visa.decision_on) }),
+    ].filter(Boolean);
+    if (!parts.length) return null;
+    return <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><CalendarDays size={14} className="shrink-0" /> {parts.join(" · ")}</div>;
+};
+
+/** "You have ₹X to pay" - links to the fees page. */
+const FeesDue = () => {
+    const { t } = useT();
+    const navigate = useNavigate();
+    const { data } = useQuery({
+        queryKey: ["student_fees_due"],
+        queryFn: async () => {
+            const { data, success } = await commonGetAPICalls("/student/fees");
+            return success ? Number(data?.total_due || 0) : 0;
+        },
+    });
+    if (!data || data <= 0) return null;
+    return (
+        <button type="button" onClick={() => navigate("/my_fees")} className="w-full text-left rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 p-4 flex items-center gap-3">
+            <IndianRupee size={22} className="shrink-0 text-amber-700" />
+            <span className="flex-1 text-sm font-semibold text-amber-900 dark:text-amber-200">{t("fees_due_banner", { amount: `₹${data.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` })}</span>
+            <span className="text-sm font-medium shrink-0" style={{ color: PRIMARY_COLOR }}>{t("view_and_pay")}</span>
+            <ChevronRight size={18} className="shrink-0 text-gray-400" />
+        </button>
+    );
 };
 
 const Ring = ({ pct }: { pct: number }) => {
@@ -86,6 +165,7 @@ const ProgressTracker = ({ compact = false }: { compact?: boolean }) => {
     return (
         <div className="w-full max-w-2xl mx-auto flex flex-col gap-4 p-3 sm:p-4">
             {!compact && <h1 className="text-xl font-bold">{t("my_progress")}</h1>}
+            <FeesDue />
             {cases.map((c) => {
                 const pct = c.steps_total ? Math.round((c.steps_done / c.steps_total) * 100) : 0;
                 const approved = c.status === "visa_completed";
@@ -97,6 +177,7 @@ const ProgressTracker = ({ compact = false }: { compact?: boolean }) => {
                             {!approved && !rejected && c.steps_total > 0 && <Ring pct={pct} />}
                             <div className="flex-1 min-w-0">
                                 <div className="font-semibold truncate">{[c.country, c.university].filter(Boolean).join(" · ") || t("visa_application")}</div>
+                                {c.reapplication && <span className="inline-block mt-1 text-xs font-medium rounded-full px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">{t("reapplication")}</span>}
                                 {c.course && <div className="text-xs text-gray-500 truncate">{c.course}</div>}
                                 {approved ? (
                                     <div className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-green-700 bg-green-100 rounded-full px-3 py-1"><CheckCircle2 size={16} /> {t("visa_approved")}</div>
@@ -118,9 +199,12 @@ const ProgressTracker = ({ compact = false }: { compact?: boolean }) => {
                                     <div className="mt-2 text-sm text-gray-500">{t("preparing_steps")}</div>
                                 )}
                                 {!rejected && <StagePath stage={c.stage} done={approved} />}
+                                <VisaDates visa={c.visa} />
                             </div>
                             <ChevronRight className="text-gray-400 shrink-0 mt-1" size={20} />
                         </button>
+
+                        {!compact && <Universities list={c.universities} />}
 
                         {!approved && !rejected && (
                             <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3">

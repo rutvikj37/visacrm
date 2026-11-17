@@ -1,3 +1,5 @@
+import { signedFileUrl } from "../../helpers/privateFiles";
+import UniversityApplication from "../../model/UniversityApplication";
 import { Response } from "express";
 import { audit } from "../../services/audit";
 import { leadRecipients, notifyLater } from "../../services/notifications";
@@ -245,9 +247,15 @@ class LeadProgressController {
             const studentId = req?.id
             const cases: any[] = await AgencyLeads.findAll({
                 where: { user_id: studentId, status: ["visa_progress", "visa_completed", "visa_rejected"] },
-                attributes: ["id", "status", "case_stage", "selected_country", "university", "selected_suggestion", "createdAt"],
+                attributes: ["id", "status", "case_stage", "selected_country", "university", "selected_suggestion", "visa_lodged_on", "biometrics_on", "decision_on", "reapplied_from", "createdAt"],
                 order: [["createdAt", "DESC"]],
             })
+            // the universities the agency applied to for the student (no internal notes / money they earn)
+            const uniRows: any[] = cases.length ? await UniversityApplication.findAll({
+                where: { case_id: cases.map((c) => c.dataValues.id), student_id: studentId },
+                attributes: ["id", "case_id", "university", "course", "intake", "status", "is_final", "offer_on", "deposit_amount", "deposit_paid_on", "currency", "offer_files"],
+                order: [["is_final", "DESC"], ["createdAt", "ASC"]],
+            }) : []
             const result = []
             for (const c of cases) {
                 const x = c.dataValues
@@ -295,6 +303,17 @@ class LeadProgressController {
                     steps: steps.map((s) => ({ id: s.dataValues.id, title: s.dataValues.step_title, done: Number(s.dataValues.step_status) === 1, due_date: s.dataValues.due_date })),
                     needed,
                     waiting_review: questions.filter((q) => q.dataValues.status === "provided").length,
+                    visa: { lodged_on: x.visa_lodged_on || null, biometrics_on: x.biometrics_on || null, decision_on: x.decision_on || null },
+                    reapplication: Boolean(x.reapplied_from),
+                    universities: uniRows.filter((u) => u.dataValues.case_id === x.id).map((u) => {
+                        const d = u.dataValues
+                        const files = Array.isArray(u.get("offer_files")) ? u.get("offer_files") : []
+                        return {
+                            id: d.id, university: d.university, course: d.course, intake: d.intake, status: d.status, is_final: Boolean(d.is_final), offer_on: d.offer_on,
+                            currency: d.currency, deposit_amount: d.deposit_amount !== null ? Number(d.deposit_amount) / 100 : null, deposit_paid_on: d.deposit_paid_on,
+                            offer_files: files.map((f: any) => ({ name: f.original, url: signedFileUrl("student_docs", f.name) })),
+                        }
+                    }),
                 })
             }
             return returnHelper(res, 200, true, "Overview", result)
