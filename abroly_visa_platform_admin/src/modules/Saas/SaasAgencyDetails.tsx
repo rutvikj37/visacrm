@@ -1,31 +1,57 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
     Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader,
-    Radio, RadioGroup, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, useDisclosure,
+    Radio, RadioGroup, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Textarea, useDisclosure,
 } from "@nextui-org/react";
-import { ArrowLeft, CalendarPlus, Gift, Globe, KeyRound, Repeat, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Gift, Globe, KeyRound, Pencil, Repeat, Trash2, XCircle } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
-import { ErrorToast } from "@/utils/Toaster";
+import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import { FormField, KIND_LABEL, METHOD_LABEL, STATUS_META, fmtDate, rupees } from "./saasShared";
 import { HEALTH_META, Trend, idleLabel } from "./SaasUsage";
 import LoginCodeDialog, { LoginCodeInfo } from "./LoginCodeDialog";
+import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 
 const PLATFORM_PORTAL_DOMAIN = (import.meta as any).env?.VITE_PLATFORM_PORTAL_DOMAIN || "techxsolutions.io";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+const emptyEdit = {
+    name: "", owner_name: "", country_code: "+91", phone_number: "", email: "",
+    support_number: "", support_email: "", agency_address: "", meta_description: "",
+    primary_color: "", primary_foreground_color: "", dark_primary_color: "",
+};
+
+const portalUrlOf = (portal?: string | null) => (portal ? `https://${portal}` : "");
+
+const copyPortal = async (portal?: string | null) => {
+    const url = portalUrlOf(portal);
+    if (!url) return;
+    try {
+        await navigator.clipboard.writeText(url);
+        SuccessToast("Copied");
+    } catch {
+        ErrorToast("Couldn't copy");
+    }
+};
 
 const SaasAgencyDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
     const [data, setData] = useState<any>(null);
     const [plans, setPlans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
+    const [editForm, setEditForm] = useState({ ...emptyEdit });
+    const openedEditFromQuery = useRef(false);
 
     const trialModal = useDisclosure();
     const extendModal = useDisclosure();
     const planModal = useDisclosure();
     const portalModal = useDisclosure();
+    const editModal = useDisclosure();
     const [trial, setTrial] = useState({ days: "14", plan_id: "" });
     const [ext, setExt] = useState({ kind: "paid", plan_id: "", months: "12", amount: "", method: "upi", reference: "", note: "" });
     const [portal, setPortal] = useState({ mode: "subdomain", sudomain: "", domain: "" });
@@ -47,6 +73,30 @@ const SaasAgencyDetails = () => {
         })();
     }, [load]);
 
+    useEffect(() => {
+        if (!data?.agency || openedEditFromQuery.current || searchParams.get("edit") !== "1") return;
+        openedEditFromQuery.current = true;
+        const a = data.agency;
+        setEditForm({
+            name: a.app_name || a.name || "",
+            owner_name: a.username || "",
+            country_code: a.country_code || "+91",
+            phone_number: a.phone_number || "",
+            email: a.email || "",
+            support_number: a.support_number || "",
+            support_email: a.support_email || "",
+            agency_address: a.agency_address || "",
+            meta_description: a.meta_description || "",
+            primary_color: a.primary_color || "",
+            primary_foreground_color: a.primary_foreground_color || "",
+            dark_primary_color: a.dark_primary_color || "",
+        });
+        editModal.onOpen();
+        const next = new URLSearchParams(searchParams);
+        next.delete("edit");
+        setSearchParams(next, { replace: true });
+    }, [data, searchParams, setSearchParams, editModal]);
+
     const currentPlanId = data?.access?.plan?.id || "";
     const planMeta = (planId: string) => {
         const p = plans.find((x) => x.id === planId);
@@ -66,6 +116,7 @@ const SaasAgencyDetails = () => {
             close?.();
             load();
         }
+        return success;
     };
 
     // new 6-digit login code by email; old agencies without an email get asked for one first
@@ -84,11 +135,76 @@ const SaasAgencyDetails = () => {
         }
     };
 
+    const openEdit = () => {
+        const a = data?.agency;
+        if (!a) return;
+        setEditForm({
+            name: a.app_name || a.name || "",
+            owner_name: a.username || "",
+            country_code: a.country_code || "+91",
+            phone_number: a.phone_number || "",
+            email: a.email || "",
+            support_number: a.support_number || "",
+            support_email: a.support_email || "",
+            agency_address: a.agency_address || "",
+            meta_description: a.meta_description || "",
+            primary_color: a.primary_color || "",
+            primary_foreground_color: a.primary_foreground_color || "",
+            dark_primary_color: a.dark_primary_color || "",
+        });
+        editModal.onOpen();
+    };
+
+    const setEdit = (k: keyof typeof emptyEdit) => (v: string) => setEditForm((f) => ({ ...f, [k]: v }));
+
+    const saveEdit = async (close: () => void) => {
+        if (!editForm.owner_name.trim() || !editForm.phone_number.trim() || !editForm.email.trim()) {
+            return ErrorToast("Owner name, phone number and email are required");
+        }
+        if (!EMAIL_RE.test(editForm.email.trim())) return ErrorToast("Please enter a valid email address");
+        if (editForm.support_email.trim() && !EMAIL_RE.test(editForm.support_email.trim())) {
+            return ErrorToast("Please enter a valid support email");
+        }
+        for (const [label, value] of [
+            ["Main colour", editForm.primary_color],
+            ["Text on main colour", editForm.primary_foreground_color],
+            ["Dark colour", editForm.dark_primary_color],
+        ] as const) {
+            if (value.trim() && !HEX_RE.test(value.trim())) return ErrorToast(`${label} must be hex like #0f5bd8`);
+        }
+        const ok = await run(`saas_admin/agencies/${id}/update`, {
+            name: editForm.name.trim(),
+            owner_name: editForm.owner_name.trim(),
+            country_code: editForm.country_code.trim(),
+            phone_number: editForm.phone_number.trim(),
+            email: editForm.email.trim(),
+            support_number: editForm.support_number.trim(),
+            support_email: editForm.support_email.trim(),
+            agency_address: editForm.agency_address.trim(),
+            meta_description: editForm.meta_description.trim(),
+            primary_color: editForm.primary_color.trim(),
+            primary_foreground_color: editForm.primary_foreground_color.trim(),
+            dark_primary_color: editForm.dark_primary_color.trim(),
+        }, close);
+        return ok;
+    };
+
+    const deleteAgency = async () => {
+        const name = data?.agency?.name || "this agency";
+        if (!window.confirm(`Delete ${name}? This removes the agency and its team from the admin list. Related leads and history stay for records. This cannot be undone from the panel.`)) return;
+        if (!window.confirm(`Really delete ${name}? Type confirmation: press OK only if you are sure.`)) return;
+        setBusy(true);
+        const { success } = await commonPostAPICall({}, `saas_admin/agencies/${id}/delete`, true);
+        setBusy(false);
+        if (success) navigate("/saas/agencies");
+    };
+
     if (loading) return <div className="flex justify-center py-10"><Spinner /></div>;
     if (!data) return <div>Agency not found. <Button size="sm" onPress={() => navigate("/saas/agencies")}>Back</Button></div>;
 
     const { agency, access } = data;
     const meta = STATUS_META[agency.status_label] || { label: agency.status_label, color: "default" };
+    const portalHost = agency.portal || (agency.domain ? `${agency.sudomain ? `${agency.sudomain}.` : ""}${agency.domain}` : null);
 
     return (
         <div className="flex flex-col gap-4 max-w-5xl">
@@ -96,9 +212,21 @@ const SaasAgencyDetails = () => {
                 <Button isIconOnly variant="light" onPress={() => navigate("/saas/agencies")} aria-label="Back"><ArrowLeft size={20} /></Button>
                 <div className="flex-1 min-w-0">
                     <h1 className="text-2xl font-semibold break-words">{agency.name}</h1>
-                    <div className="text-sm text-default-500">
-                        {agency.username} · {agency.country_code} {agency.phone_number}{agency.email ? ` · ${agency.email}` : ""}
-                        {agency.domain ? ` · ${agency.sudomain ? `${agency.sudomain}.` : ""}${agency.domain}` : ""}
+                    <div className="text-sm text-default-500 flex flex-wrap items-center gap-x-1">
+                        <span>{agency.username} · {agency.country_code} {agency.phone_number}{agency.email ? ` · ${agency.email}` : ""}</span>
+                        {portalHost ? (
+                            <>
+                                <span>·</span>
+                                <button
+                                    type="button"
+                                    className="text-primary hover:underline"
+                                    title="Copy portal URL"
+                                    onClick={() => copyPortal(portalHost)}
+                                >
+                                    {portalHost}
+                                </button>
+                            </>
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -112,6 +240,7 @@ const SaasAgencyDetails = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
+                <Button variant="flat" startContent={<Pencil size={16} />} onPress={openEdit}>Edit details</Button>
                 <Button color="primary" startContent={<CalendarPlus size={16} />} onPress={() => {
                     const planId = currentPlanId || activePlans[0]?.id || "";
                     const meta = planMeta(planId);
@@ -136,6 +265,9 @@ const SaasAgencyDetails = () => {
                         End access now
                     </Button>
                 )}
+                <Button variant="flat" color="danger" startContent={<Trash2 size={16} />} isLoading={busy} onPress={deleteAgency}>
+                    Delete agency
+                </Button>
             </div>
 
             {data.usage && (
@@ -346,6 +478,40 @@ const SaasAgencyDetails = () => {
                                         domain: portal.mode === "subdomain" ? PLATFORM_PORTAL_DOMAIN : portal.domain.trim().toLowerCase(),
                                     }, onClose);
                                 }}>Save portal</Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
+
+            <Modal isOpen={editModal.isOpen} onOpenChange={editModal.onOpenChange} size="2xl" scrollBehavior="inside">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Edit agency details</ModalHeader>
+                            <ModalBody>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <FormField label="Agency / brand name"><Input aria-label="Agency name" value={editForm.name} onValueChange={setEdit("name")} /></FormField>
+                                    <FormField label="Owner name *"><Input aria-label="Owner name" value={editForm.owner_name} onValueChange={setEdit("owner_name")} /></FormField>
+                                    <FormField label="Owner phone *">
+                                        <div className="flex gap-2">
+                                            <Input aria-label="Country code" value={editForm.country_code} onValueChange={setEdit("country_code")} className="w-20 shrink-0" />
+                                            <Input aria-label="Phone" value={editForm.phone_number} {...phoneInputProps} onValueChange={(v) => setEdit("phone_number")(toPhoneDigits(v))} />
+                                        </div>
+                                    </FormField>
+                                    <FormField label="Owner email *"><Input aria-label="Email" type="email" value={editForm.email} onValueChange={setEdit("email")} /></FormField>
+                                    <FormField label="Support phone"><Input aria-label="Support phone" value={editForm.support_number} {...phoneInputProps} onValueChange={(v) => setEdit("support_number")(toPhoneDigits(v))} /></FormField>
+                                    <FormField label="Support email"><Input aria-label="Support email" type="email" value={editForm.support_email} onValueChange={setEdit("support_email")} /></FormField>
+                                    <FormField label="Agency address" className="sm:col-span-2"><Textarea aria-label="Address" minRows={2} value={editForm.agency_address} onValueChange={setEdit("agency_address")} /></FormField>
+                                    <FormField label="Meta description" className="sm:col-span-2"><Textarea aria-label="Meta description" minRows={2} value={editForm.meta_description} onValueChange={setEdit("meta_description")} /></FormField>
+                                    <FormField label="Main colour"><Input aria-label="Primary colour" placeholder="#0f5bd8" value={editForm.primary_color} onValueChange={setEdit("primary_color")} /></FormField>
+                                    <FormField label="Text on main colour"><Input aria-label="Primary foreground" placeholder="#ffffff" value={editForm.primary_foreground_color} onValueChange={setEdit("primary_foreground_color")} /></FormField>
+                                    <FormField label="Dark colour"><Input aria-label="Dark primary" placeholder="#050a30" value={editForm.dark_primary_color} onValueChange={setEdit("dark_primary_color")} /></FormField>
+                                </div>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose}>Cancel</Button>
+                                <Button color="primary" isLoading={busy} onPress={() => saveEdit(onClose)}>Save details</Button>
                             </ModalFooter>
                         </>
                     )}
