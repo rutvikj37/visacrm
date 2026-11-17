@@ -37,7 +37,6 @@ import {
   Settings2,
   Share,
   Sparkles,
-  SquareChartGantt,
   SquareTerminal,
   Trash2,
   UserCogIcon,
@@ -113,41 +112,6 @@ const data = {
         //   title: "Events",
         //   url: "/event_banners",
         // },
-      ],
-    },
-    {
-      title: "Services",
-      addon: "service_requests",
-      url: "#",
-      icon: SquareChartGantt,
-      isActive: true,
-      items: [
-        // {
-        //   title: "Health Insurenace",
-        //   url: "/services/health_ins",
-        // },
-        // {
-        //   title: "Sim Cards",
-        //   url: "/services/sim_card",
-        // },
-        // {
-        //   title: "Visa & Course Consultation",
-        //   url: "/services/visa_consultation",
-        // },
-        // {
-        //   title: "Accommodation",
-        //   url: "/services/accommodation",
-        // },
-        {
-          title: "Health Insurance",
-          url: "/services_request/health",
-        },
-        {
-          title: "International SIM Card",
-          url: "/services_request/data",
-        },
-
-
       ],
     },
     {

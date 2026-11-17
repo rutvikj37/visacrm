@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Avatar, Button, Chip, Input, Spinner, Tab, Tabs, Textarea } from "@heroui/react";
 import { ArrowLeft, MessagesSquare, Search, Send, User } from "lucide-react";
@@ -20,19 +20,33 @@ const dayLabel = (v: string) => {
 const ChatThread = ({ studentId, onBack, onSent }: { studentId: string; onBack: () => void; onSent: () => void }) => {
     const navigate = useNavigate();
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
+    const apiGet = useRef(commonGetAPICalls);
+    const apiPost = useRef(commonPostAPICall);
+    apiGet.current = commonGetAPICalls;
+    apiPost.current = commonPostAPICall;
+
     const [data, setData] = useState<any>(null);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
-    const endRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
     const count = useRef(0);
+    const onSentRef = useRef(onSent);
+    onSentRef.current = onSent;
+
+    const scrollToBottom = useCallback(() => {
+        const el = listRef.current;
+        if (!el) return;
+        el.scrollTop = el.scrollHeight;
+    }, []);
 
     const load = useCallback(async () => {
-        const { success, data } = await commonGetAPICalls(`/crm/portal_chats/${studentId}`);
+        const { success, data } = await apiGet.current(`/crm/portal_chats/${studentId}`);
         if (!success) return;
         setData(data);
         window.dispatchEvent(new Event("chats-changed"));
     }, [studentId]);
 
+    // Reset only when switching students — never wipe the thread on poll/send refresh.
     useEffect(() => {
         setData(null); setText(""); count.current = 0;
         load();
@@ -43,20 +57,22 @@ const ChatThread = ({ studentId, onBack, onSent }: { studentId: string; onBack: 
     useEffect(() => {
         if (data && data.messages.length !== count.current) {
             count.current = data.messages.length;
-            endRef.current?.scrollIntoView({ block: "end" });
+            // Keep scroll inside the message pane — scrollIntoView was jumping the whole page.
+            requestAnimationFrame(scrollToBottom);
         }
-    }, [data]);
+    }, [data, scrollToBottom]);
 
     if (!data) return <div className="flex-1 grid place-items-center"><Spinner /></div>;
     const { student, messages, assignee } = data;
 
-    const send = async () => {
+    const send = async (e?: FormEvent) => {
+        e?.preventDefault();
         const message = text.trim();
-        if (!message) return;
+        if (!message || sending) return;
         setSending(true);
-        const { success } = await commonPostAPICall({ message }, `crm/portal_chats/${studentId}/send`, false);
+        const { success } = await apiPost.current({ message }, `crm/portal_chats/${studentId}/send`, false);
         setSending(false);
-        if (success) { setText(""); await load(); onSent(); }
+        if (success) { setText(""); await load(); onSentRef.current(); }
     };
 
     let lastDay = "";
@@ -74,7 +90,7 @@ const ChatThread = ({ studentId, onBack, onSent }: { studentId: string; onBack: 
                 <Button size="sm" variant="flat" startContent={<User size={14} />} onPress={() => navigate(`/leads/students`)}>Students</Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1.5 bg-default-50">
+            <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1.5 bg-default-50">
                 {!messages.length && (
                     <div className="m-auto text-center text-sm text-default-500 px-6">
                         No messages yet. Send a note — the student will see it in their portal.
@@ -96,10 +112,9 @@ const ChatThread = ({ studentId, onBack, onSent }: { studentId: string; onBack: 
                         </div>
                     );
                 })}
-                <div ref={endRef} />
             </div>
 
-            <div className="border-t border-default-100 p-2 flex flex-col gap-2 bg-content1">
+            <form className="border-t border-default-100 p-2 flex flex-col gap-2 bg-content1" onSubmit={send}>
                 <div className="flex items-end gap-2">
                     <Textarea
                         aria-label="Reply"
@@ -108,12 +123,18 @@ const ChatThread = ({ studentId, onBack, onSent }: { studentId: string; onBack: 
                         placeholder="Message the student…"
                         value={text}
                         onValueChange={setText}
-                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey && !(e as any).isComposing && e.keyCode !== 229) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                (e.currentTarget.closest("form") as HTMLFormElement | null)?.requestSubmit();
+                            }
+                        }}
                     />
-                    <Button isIconOnly color="primary" aria-label="Send" isLoading={sending} isDisabled={!text.trim()} onPress={send}><Send size={16} /></Button>
+                    <Button type="submit" isIconOnly color="primary" aria-label="Send" isLoading={sending} isDisabled={!text.trim()}><Send size={16} /></Button>
                 </div>
                 <div className="text-[11px] text-default-400 px-1">Enter to send · Shift+Enter for a new line</div>
-            </div>
+            </form>
         </div>
     );
 };
@@ -121,6 +142,8 @@ const ChatThread = ({ studentId, onBack, onSent }: { studentId: string; onBack: 
 /** Student ↔ assigned counsellor portal chat (WhatsApp / Instagram removed for now). */
 const ChatInbox = () => {
     const { commonGetAPICalls } = useApiCallUtils();
+    const apiGet = useRef(commonGetAPICalls);
+    apiGet.current = commonGetAPICalls;
     const [params, setParams] = useSearchParams();
     const open = params.get("chat") || "";
     const [list, setList] = useState<any[] | null>(null);
@@ -130,7 +153,7 @@ const ChatInbox = () => {
     const [branch, setBranch] = useState("");
 
     const load = useCallback(async () => {
-        const { success, data } = await commonGetAPICalls(`/crm/portal_chats?filter=${filter}&q=${encodeURIComponent(q)}${branchQuery(branch).replace("?", "&")}`);
+        const { success, data } = await apiGet.current(`/crm/portal_chats?filter=${filter}&q=${encodeURIComponent(q)}${branchQuery(branch).replace("?", "&")}`);
         if (success) { setList(data.conversations); setUnread(data.unread_chats); }
     }, [filter, q, branch]);
 
@@ -141,7 +164,7 @@ const ChatInbox = () => {
     }, [load]);
 
     const select = (id: string) => {
-        setParams(id ? { chat: id } : {}, { replace: false });
+        setParams(id ? { chat: id } : {}, { replace: true });
         setList((l) => l?.map((c) => (String(c.student_id) === id || c.uuid === id ? { ...c, unread: 0 } : c)) || l);
     };
 
@@ -151,12 +174,11 @@ const ChatInbox = () => {
         const fit = () => {
             const el = boxRef.current; if (!el) return;
             const bottomNav = window.innerWidth < 768 ? 76 : 0;
-            setHeight(Math.max(420, window.innerHeight - el.getBoundingClientRect().top - window.scrollY - bottomNav - 12));
+            setHeight(Math.max(420, window.innerHeight - el.getBoundingClientRect().top - bottomNav - 12));
         };
         fit();
-        const ro = new ResizeObserver(fit); ro.observe(document.body);
         window.addEventListener("resize", fit);
-        return () => { ro.disconnect(); window.removeEventListener("resize", fit); };
+        return () => { window.removeEventListener("resize", fit); };
     }, [open]);
 
     return (

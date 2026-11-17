@@ -37,7 +37,6 @@ const HomeWithProgress = lazy(() => import("@/modules/VisaConsultation/HomeWithP
 const AgnetProfile = lazy(()=> import("@/modules/VisaConsultation/AgnetProfile"))
 // const CoinHistory = lazy(()=> import("@/modules/Coins/CoinHistory"))
 const OfflinePrep =  lazy(()=> import("@/modules/LanguagePrep/OfflinePrep"))
-const ServicesRequest = lazy(()=> import("@/modules/ServiceRequests/ServicesRequest"))
 const StudentChat = lazy(()=> import("@/modules/Chat/StudentChat"))
 
 export const PublicRoutes = [
@@ -75,10 +74,6 @@ export const PublicRoutes = [
         element: ServiceInfo
     },
 
-    {
-        path: "/services_request/:service",
-        element: ServicesRequest
-    },
     // public certificate validation
     {
         path: "/certificate/:id",
@@ -108,14 +103,6 @@ export const StudentRoutes = [
     {
         path: "/contact_us",
         element: ContactUs
-    },
-    {
-        path: "/sim_cards",
-        element: SimCardListing
-    },
-    {
-        path: "/health_insurance",
-        element: HealthInsurance
     },
     {
         path: "/language_preparation",
@@ -251,10 +238,6 @@ export const StudentRoutes = [
     {
         path: "/event_banners",
         element: PublicEventBanners
-    },
-    {
-        path: "/services_request/:service",
-        element: ServicesRequest
     },
 
     // // event banners

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Briefcase, MapPin, Shield, Wifi } from "lucide-react";
+import { ArrowRight, Briefcase, MapPin } from "lucide-react";
 import { Button } from "@nextui-org/react";
 import ProgressTracker from "./ProgressTracker";
 import InstallAppCard from "@/components/InstallAppCard";
@@ -13,22 +13,10 @@ const SERVICES = [
     navigateTo: "/services/visa_consultation",
   },
   {
-    title: "Health Insurance",
-    description: "Student-friendly international health coverage.",
-    icon: Shield,
-    navigateTo: "/services_request/health",
-  },
-  {
     title: "Job Placement Support",
     description: "Career guidance and exclusive job opportunities.",
     icon: Briefcase,
     navigateTo: "/career/1",
-  },
-  {
-    title: "E-SIM Cards",
-    description: "Instant connectivity for your study abroad journey.",
-    icon: Wifi,
-    navigateTo: "/services_request/data",
   },
 ];
 
