@@ -1,4 +1,6 @@
 import CaseToolbar, { StepDueDate } from "@/modules/AgentAdmin/Cases/CaseToolbar"
+import UniversityApplications from "@/modules/AgentAdmin/Cases/UniversityApplications"
+import CaseCommissions from "@/modules/AgentAdmin/Commissions/CaseCommissions"
 import { fmtShortDate, isOverdue } from "@/modules/AgentAdmin/Cases/caseShared"
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
@@ -9,6 +11,7 @@ import { ArrowDownToLine, CheckCircle2, Clock, FileText, Plus, XCircle } from 'l
 import moment from "moment";
 import React, { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 
 const STATUS_COLOR: Record<string, "warning" | "success" | "danger" | "primary" | "default"> = {
     pending: "warning",
@@ -335,6 +338,12 @@ const LeadsProgress = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryStep = parseInt(searchParams.get("step") || "0", 10) || 0;
     const [step, setStep] = useState(queryStep);
+    // university results can move the case stage: reload the header after a change
+    const [caseReload, setCaseReload] = useState(0);
+    const isOwner = useSelector((state: any) => state.login.role_type) === "agent";
+    const teamRole = useSelector((state: any) => state.login.team_role);
+    const canBill = isOwner || teamRole === "accounts";
+    const [commissionFor, setCommissionFor] = useState<{ app: any; n: number } | null>(null);
 
     useEffect(() => {
         setStep(queryStep);
@@ -408,7 +417,12 @@ const LeadsProgress = () => {
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
             {/* 1. Case header (student, stage, assignment, outcomes) */}
-            <CaseToolbar caseId={id!} />
+            <CaseToolbar caseId={id!} reloadKey={caseReload} />
+
+            {/* 2. Universities the student applied to (+ commission for owner / accounts / managers) */}
+            <UniversityApplications caseId={id!} onChanged={() => setCaseReload((n) => n + 1)}
+                onAddCommission={canBill ? (app) => setCommissionFor({ app, n: Date.now() }) : undefined} />
+            <CaseCommissions caseId={id!} addRequest={commissionFor} onChanged={() => setCaseReload((n) => n + 1)} />
 
             {/* 2. Application steps */}
             <section className="space-y-3">

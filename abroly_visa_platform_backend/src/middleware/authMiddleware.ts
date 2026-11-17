@@ -239,7 +239,7 @@ const agentValidate = async (req: RequestWithUser, res: Response, next: NextFunc
                     // accounts can look but not change leads and cases
                     if (teamRole === "accounts" && req.method !== "GET") {
                         const url = (req.originalUrl || "").split("?")[0]
-                        if (/^\/api\/v1\/(crm\/(leads|cases)|leads|sub_agent)(\/|$)/.test(url)) {
+                        if (/^\/api\/v1\/(crm\/(leads|cases|universities)|leads|sub_agent)(\/|$)/.test(url)) {
                             return returnHelper(res, 200, false, "Your role (Accounts) can view leads and cases but not change them")
                         }
                     }

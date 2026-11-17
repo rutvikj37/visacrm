@@ -37,6 +37,7 @@ import UnifiedCalendar from "@/modules/AgentAdmin/CalendarAll/UnifiedCalendar"
 import RolesAndBranches from "@/modules/AgentAdmin/SubAgent/RolesAndBranches"
 import BrandingSettings from "@/modules/AgentAdmin/Branding/BrandingSettings"
 import FeesList from "@/modules/AgentAdmin/Fees/FeesList"
+import CommissionsPage from "@/modules/AgentAdmin/Commissions/CommissionsPage"
 import ServicesStore from "@/modules/AgentAdmin/Services/ServicesStore"
 import ServiceOrderPage from "@/modules/AgentAdmin/Services/ServiceOrderPage"
 import PaymentSettings from "@/modules/AgentAdmin/Services/PaymentSettings"
@@ -150,6 +151,10 @@ export const AgentAdminRoutes = [
     {
         path: "/fees/:id",
         element: InvoiceDetails
+    },
+    {
+        path: "/commissions",
+        element: CommissionsPage
     },
     {
         path: "/crm/calendar",
@@ -443,6 +448,10 @@ export const SubAgentRoutes = [
     {
         path: "/fees/:id",
         element: InvoiceDetails
+    },
+    {
+        path: "/commissions",
+        element: CommissionsPage
     },
     {
         path: "/crm/calendar",

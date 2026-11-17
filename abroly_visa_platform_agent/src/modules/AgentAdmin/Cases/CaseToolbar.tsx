@@ -19,7 +19,7 @@ const Field = ({ label, children }: any) => (
 );
 
 /** Case header for the visa progress page: who, where in the journey, assignment, outcomes. */
-const CaseToolbar = ({ caseId }: { caseId: string | number }) => {
+const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey?: number }) => {
     const navigate = useNavigate();
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
     const isOwner = useSelector((state: any) => state.login.role_type) === "agent";
@@ -38,7 +38,7 @@ const CaseToolbar = ({ caseId }: { caseId: string | number }) => {
         const { success, data } = await commonGetAPICalls(`/crm/cases/${caseId}`);
         if (success) setInfo(data);
     }, [caseId]);
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => { load(); }, [load, reloadKey]);
     useEffect(() => {
         if (!isManager) return;
         (async () => {

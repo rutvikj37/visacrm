@@ -108,7 +108,7 @@ const adminLoginSuccess = async (res: Response, user: any) => {
 const tryAdminLoginCode = async (res: Response, user: any, otp: unknown) => {
     const pin = await checkAdminLoginCode(user.dataValues.id, otp);
     if (!pin.applies) return null;
-    if (!pin.ok) return returnHelper(res, 200, false, pin.message);
+    if (!pin.ok) return returnHelper(res, 200, false, (pin as any).message);
     return adminLoginSuccess(res, user);
 };
 

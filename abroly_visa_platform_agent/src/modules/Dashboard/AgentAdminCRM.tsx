@@ -127,6 +127,7 @@ const AgentCRM = () => {
           { title: "Rejected", url: "/leads/rejected" },
           { title: "Withdrawn", url: "/leads/withdrawn" },
           { title: "Client fees", url: "/fees" },
+          { title: "Commissions", url: "/commissions" },
           { title: "Services store", url: "/services" },
         ],
       },

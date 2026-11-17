@@ -16,6 +16,8 @@ import SubscriptionSaasController from "../controller/SubscriptionSaasController
 import NotificationController from "../controller/NotificationController"
 import ReportsCrmController from "../controller/ReportsCrmController"
 import CaseController from "../controller/CaseController"
+import CommissionController from "../controller/CommissionController"
+import UniversityAppController, { offerUpload } from "../controller/UniversityAppController"
 import CalendarCrmController from "../controller/CalendarCrmController"
 import TeamController from "../controller/TeamController"
 import BrandingController from "../controller/BrandingController"
@@ -156,6 +158,17 @@ crmRoutes.route("/cases/:id/outcome").post(validateAgent, CaseController.setOutc
 crmRoutes.route("/cases/:id/assign").post(validateAgent, CaseController.assign)
 crmRoutes.route("/cases/:id/branch").post(validateAgent, CaseController.transfer)
 crmRoutes.route("/cases/:id/add_application").post(validateAgent, CaseController.addApplication)
+// university applications inside a case (each with its own status and offer letters)
+crmRoutes.route("/cases/:id/universities").get(validateAgent, UniversityAppController.list).post(validateAgent, UniversityAppController.create)
+crmRoutes.route("/universities/:appId").post(validateAgent, UniversityAppController.update)
+crmRoutes.route("/universities/:appId/final").post(validateAgent, UniversityAppController.markFinal)
+crmRoutes.route("/universities/:appId/files").post(validateAgent, offerUpload, UniversityAppController.addFiles)
+crmRoutes.route("/universities/:appId/files/remove").post(validateAgent, UniversityAppController.removeFile)
+crmRoutes.route("/universities/:appId/delete").post(validateAgent, UniversityAppController.remove)
+// commission from universities / partners (owner + Accounts manage, branch managers view)
+crmRoutes.route("/commissions").get(validateAgent, CommissionController.list).post(validateAgent, CommissionController.create)
+crmRoutes.route("/commissions/:id").post(validateAgent, CommissionController.update)
+crmRoutes.route("/commissions/:id/delete").post(validateAgent, CommissionController.remove)
 
 // one calendar: follow-ups, case due dates, fees, tasks, events
 crmRoutes.route("/calendar").get(validateAgent, CalendarCrmController.events)

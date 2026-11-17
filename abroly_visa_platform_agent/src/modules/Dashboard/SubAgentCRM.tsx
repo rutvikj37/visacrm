@@ -148,6 +148,11 @@ const SubAgentCRM = () => {
             title: "Client Fees",
             url: "/fees",
           },
+          // money from universities: Accounts and branch managers only
+          ...(teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager" ? [{
+            title: "Commissions",
+            url: "/commissions",
+          }] : []),
           // {
           //   title: "Leads",
           //   url: "/leads",
