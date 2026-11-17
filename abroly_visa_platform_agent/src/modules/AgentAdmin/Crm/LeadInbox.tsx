@@ -19,9 +19,10 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import CommonConfirmation from "@/components/CommonConfirmation";
 import LeadFormModal from "./LeadFormModal";
 import ImportLeadsModal from "./ImportLeadsModal";
+import ConvertLeadModal from "./ConvertLeadModal";
 import LeadBoard from "./LeadBoard";
 import {
-    LEAD_SOURCES, LEAD_STATUSES, SELECTABLE_STATUSES, followUpState, formatDateTime, formatPhone,
+    LEAD_SOURCES, LEAD_STATUSES, SELECTABLE_STATUSES, STATUS_MENU_STATUSES, followUpState, formatDateTime, formatPhone,
     sourceLabel, statusMeta, temperatureMeta, timeAgo, whatsappLink,
 } from "./crmShared";
 import {
@@ -105,12 +106,19 @@ const LeadInbox = () => {
     const addModal = useDisclosure();
     const editModal = useDisclosure();
     const [editLead, setEditLead] = useState<any>(null);
+    const convertModal = useDisclosure();
+    const [convertLead, setConvertLead] = useState<any>(null);
     const importModal = useDisclosure();
     const deleteConfirm = useDisclosure();
 
     const openEdit = (lead: any) => {
         setEditLead(lead);
         editModal.onOpen();
+    };
+
+    const openConvert = (lead: any) => {
+        setConvertLead(lead);
+        convertModal.onOpen();
     };
 
     // "+" button on phones links here with ?add=1
@@ -123,6 +131,7 @@ const LeadInbox = () => {
     // inline edits in the table (no need to open the lead)
     const quickStatus = async (lead: any, status: string) => {
         if (status === lead.status) return;
+        if (status === "converted") { openConvert(lead); return; } // same convert → visa case flow
         if (status === "lost") { setPanelUuid(lead.uuid); return; } // needs a reason - open the lead
         setLeads((list) => list.map((l) => (l.uuid === lead.uuid ? { ...l, status } : l)));
         const { success } = await commonPostAPICall({ status }, `crm/leads/${lead.uuid}/status`, true);
@@ -517,7 +526,11 @@ const LeadInbox = () => {
                                                             <button type="button" aria-label="Change status"><Chip size="sm" color={meta.color} variant="flat" className="cursor-pointer" endContent={<ChevronDown size={12} />}>{meta.label}</Chip></button>
                                                         </DropdownTrigger>
                                                         <DropdownMenu aria-label="Status" onAction={(k) => quickStatus(lead, String(k))} selectedKeys={[lead.status]} selectionMode="single">
-                                                            {SELECTABLE_STATUSES.map((st) => <DropdownItem key={st.key}>{st.label}{st.key === "lost" ? "..." : ""}</DropdownItem>)}
+                                                            {STATUS_MENU_STATUSES.map((st) => (
+                                                                <DropdownItem key={st.key}>
+                                                                    {st.label}{st.key === "lost" || st.key === "converted" ? "..." : ""}
+                                                                </DropdownItem>
+                                                            ))}
                                                         </DropdownMenu>
                                                     </Dropdown>
                                                 </div>
@@ -629,6 +642,17 @@ const LeadInbox = () => {
                 team={team}
                 canAssign={isManager}
                 onSaved={() => { setEditLead(null); refresh(); }}
+            />
+            <ConvertLeadModal
+                isOpen={convertModal.isOpen}
+                onOpenChange={(open) => {
+                    if (open) convertModal.onOpen();
+                    else { convertModal.onClose(); setConvertLead(null); }
+                }}
+                lead={convertLead}
+                team={team}
+                canAssign={isManager}
+                onConverted={() => { setConvertLead(null); refresh(); }}
             />
             <ImportLeadsModal isOpen={importModal.isOpen} onOpenChange={importModal.onOpenChange} team={team} canAssign={isManager} onImported={refresh} />
             <CommonConfirmation

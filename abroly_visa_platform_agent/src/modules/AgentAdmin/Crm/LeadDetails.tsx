@@ -18,7 +18,7 @@ import PortalInvitePanel from "./PortalInvitePanel";
 import FormField from "./FormField";
 import MentionComposer, { MentionText } from "./MentionComposer";
 import {
-    activityLabel, SELECTABLE_STATUSES, asArray, asObject, buildFollowUpSteps, followUpState, formatDateTime, formatPhone,
+    activityLabel, STATUS_MENU_STATUSES, asArray, asObject, buildFollowUpSteps, followUpState, formatDateTime, formatPhone,
     sourceLabel, statusMeta, timeAgo, toLocalInputValue, whatsappLink,
 } from "./crmShared";
 
@@ -140,6 +140,10 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
 
     const changeStatus = async (status: string, extra: Record<string, any> = {}) => {
         if (!status || status === lead?.status) return;
+        if (status === "converted") {
+            convertModal.onOpen();
+            return;
+        }
         if (status === "lost" && !extra.lost_reason) {
             setLostReason("");
             lostModal.onOpen();
@@ -379,7 +383,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                             isDisabled={lead.status === "converted"}
                             onChange={(e) => changeStatus(e.target.value)}
                         >
-                            {(lead.status === "converted" ? [statusMeta("converted")] : SELECTABLE_STATUSES).map((s: any) => (
+                            {(lead.status === "converted" ? [statusMeta("converted")] : STATUS_MENU_STATUSES).map((s: any) => (
                                 <SelectItem key={s.key}>{s.label}</SelectItem>
                             ))}
                         </Select></FormField>

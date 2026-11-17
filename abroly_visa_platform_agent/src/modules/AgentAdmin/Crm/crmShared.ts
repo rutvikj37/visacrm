@@ -18,8 +18,11 @@ export const LEAD_STATUSES: { key: LeadStatus; label: string; color: "default" |
     { key: "junk", label: "Junk", color: "default" },
 ];
 
-/** Statuses a person can pick by hand ("converted" comes from the convert flow). */
+/** Statuses set via the status API (Converted uses the convert-to-case modal). */
 export const SELECTABLE_STATUSES = LEAD_STATUSES.filter((s) => s.key !== "converted");
+
+/** Status menu items including Converted (opens convert → visa case flow). */
+export const STATUS_MENU_STATUSES = LEAD_STATUSES;
 
 export const LEAD_SOURCES: { key: LeadSource; label: string }[] = [
     { key: "manual", label: "Manual" },
