@@ -2,13 +2,18 @@ import { useEffect, useState } from "react";
 
 /**
  * Light / dark / system mode for the panel, saved per browser ("panel_theme").
- * index.html applies it before the first paint so the page does not flash.
+ * Default is light when nothing is stored; index.html applies it before first paint.
  */
 export type ThemeMode = "light" | "dark" | "system";
 const KEY = "panel_theme";
 
 export const getThemeMode = (): ThemeMode => {
-    try { const v = localStorage.getItem(KEY); return v === "dark" || v === "light" ? v : "system"; } catch { return "system"; }
+    try {
+        const v = localStorage.getItem(KEY);
+        return v === "dark" || v === "light" || v === "system" ? v : "light";
+    } catch {
+        return "light";
+    }
 };
 const prefersDark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches;
 export const applyThemeMode = (mode: ThemeMode = getThemeMode()) => {

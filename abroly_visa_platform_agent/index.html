@@ -4,7 +4,7 @@
 <head>
   <script>
     // panel light / dark mode before first paint (see src/lib/themeMode.ts)
-    try { var m = localStorage.getItem("panel_theme"); var d = m === "dark" || (m !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); document.documentElement.classList.add(d ? "dark" : "light"); document.documentElement.style.colorScheme = d ? "dark" : "light"; } catch (e) {}
+    try { var m = localStorage.getItem("panel_theme"); var d = m === "dark" || (m === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches); document.documentElement.classList.add(d ? "dark" : "light"); document.documentElement.style.colorScheme = d ? "dark" : "light"; } catch (e) {}
   </script>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="/logo.png" />
