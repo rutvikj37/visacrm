@@ -731,8 +731,10 @@ class JobPostController {
         try {
 
             const { status } = req.params
+            const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+            const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || "25"), 10) || 25));
 
-            const whereCondition = {
+            const whereCondition: any = {
                 agent_uuid: req.user?.user?.uuid,
             }
 
@@ -748,6 +750,7 @@ class JobPostController {
                 }
             }
 
+            const totalItems = await JobPost.count({ where: whereCondition });
             const agentJobPosts = await JobPost.findAll({
                 where: whereCondition,
                 attributes: {
@@ -768,12 +771,18 @@ class JobPostController {
                 // Group by primary key — MySQL ONLY_FULL_GROUP_BY rejects GROUP BY uuid alone
                 group: ['JobPost.id'],
                 subQuery: false,
-                order: [["createdAt", "DESC"]]
+                order: [["createdAt", "DESC"]],
+                limit,
+                offset: (page - 1) * limit,
             });
 
+            const totalPages = Math.max(1, Math.ceil(totalItems / limit));
             return res.status(200).json({
                 success: true,
-                data: agentJobPosts,
+                data: {
+                    jobs: agentJobPosts,
+                    pagination: { currentPage: page, totalPages, totalItems, itemsPerPage: limit },
+                },
             });
 
         } catch (error) {

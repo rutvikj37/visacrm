@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Avatar, Button, Chip, Input, Skeleton, Tab, Tabs, Textarea } from "@heroui/react";
+import { Avatar, Button, Chip, Input, Pagination, Skeleton, Tab, Tabs, Textarea } from "@heroui/react";
 import { ArrowLeft, MessagesSquare, RefreshCw, Search, Send, User } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { BranchPicker, branchQuery } from "@/modules/AgentAdmin/Branches/branchShared";
@@ -245,17 +245,31 @@ const ChatInbox = () => {
     const { commonGetAPICalls } = useApiCallUtils();
     const apiGet = useRef(commonGetAPICalls);
     apiGet.current = commonGetAPICalls;
+    const PAGE_SIZE = 25;
     const [params, setParams] = useSearchParams();
     const open = params.get("chat") || "";
+    const page = Math.max(1, Number(params.get("page") || 1) || 1);
     const [list, setList] = useState<any[] | null>(null);
     const [unread, setUnread] = useState(0);
     const [filter, setFilter] = useState("all");
     const [q, setQ] = useState("");
     const [branch, setBranch] = useState("");
     const [listError, setListError] = useState("");
+    const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 });
+
+    const setPage = useCallback((p: number) => {
+        setParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (p <= 1) next.delete("page");
+            else next.set("page", String(p));
+            return next;
+        }, { replace: true });
+    }, [setParams]);
 
     const load = useCallback(async () => {
-        const { success, data, message } = await apiGet.current(`/crm/portal_chats?filter=${filter}&q=${encodeURIComponent(q)}${branchQuery(branch).replace("?", "&")}`);
+        const { success, data, message } = await apiGet.current(
+            `/crm/portal_chats?filter=${filter}&q=${encodeURIComponent(q)}&page=${page}&limit=${PAGE_SIZE}${branchQuery(branch).replace("?", "&")}`,
+        );
         if (!success) {
             setListError(message || "Could not load chats");
             setList((prev) => prev ?? []);
@@ -264,7 +278,8 @@ const ChatInbox = () => {
         setListError("");
         setList(data.conversations);
         setUnread(data.unread_chats);
-    }, [filter, q, branch]);
+        setPagination(data.pagination || { totalPages: 1, totalItems: data.conversations?.length || 0 });
+    }, [filter, q, branch, page]);
 
     useEffect(() => {
         const t0 = setTimeout(load, q ? 300 : 0);
@@ -272,8 +287,19 @@ const ChatInbox = () => {
         return () => { clearTimeout(t0); clearInterval(t); };
     }, [load, q]);
 
+    useEffect(() => {
+        if (page !== 1) setPage(1);
+        // reset to first page when filters change; page itself is intentionally omitted
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filter, q, branch]);
+
     const select = (id: string) => {
-        setParams(id ? { chat: id } : {}, { replace: true });
+        setParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (id) next.set("chat", id);
+            else next.delete("chat");
+            return next;
+        }, { replace: true });
         setList((l) => l?.map((c) => (String(c.student_id) === id || c.uuid === id ? { ...c, unread: 0 } : c)) || l);
     };
 
@@ -300,33 +326,35 @@ const ChatInbox = () => {
             <div ref={boxRef} style={{ height }} className="min-h-0 flex rounded-xl border border-default-200 bg-content1 overflow-hidden shadow-sm">
                 <div className={`w-full md:w-[340px] md:border-r border-default-200 flex flex-col min-h-0 bg-content1 ${open ? "max-md:hidden" : ""}`}>
                     <div className="p-2.5 flex flex-col gap-2 border-b border-default-200">
-                        <div className="flex items-center gap-2">
-                            <div className="font-semibold flex items-center gap-1.5 text-[15px]"><MessagesSquare size={18} className="text-primary" /> Chats</div>
-                            {unread > 0 && <Chip size="sm" color="primary" variant="flat">{unread} unread</Chip>}
-                            <div className="ml-auto"><BranchPicker value={branch} onChange={setBranch} /></div>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div className="font-semibold flex items-center gap-1.5 text-[15px] shrink-0"><MessagesSquare size={18} className="text-primary" /> Chats</div>
+                            {unread > 0 && <Chip size="sm" color="primary" variant="flat" className="shrink-0">{unread} unread</Chip>}
                         </div>
-                        <Input
-                            size="sm"
-                            aria-label="Search chats"
-                            placeholder="Search student name or phone"
-                            startContent={<Search size={14} className="text-default-400" />}
-                            value={q}
-                            onValueChange={setQ}
-                            isClearable
-                            onClear={() => setQ("")}
-                            classNames={{ inputWrapper: "bg-default-50 border border-default-200 shadow-none" }}
-                        />
+                        <div className="flex flex-col gap-2">
+                            <BranchPicker value={branch} onChange={setBranch} className="w-full" />
+                            <Input
+                                size="sm"
+                                aria-label="Search chats"
+                                placeholder="Search student name or phone"
+                                startContent={<Search size={14} className="text-default-400" />}
+                                value={q}
+                                onValueChange={setQ}
+                                isClearable
+                                onClear={() => setQ("")}
+                                classNames={{ inputWrapper: "bg-default-50 border border-default-200 shadow-none" }}
+                            />
+                        </div>
                         <Tabs
                             size="sm"
                             aria-label="Show"
                             selectedKey={filter}
-                            onSelectionChange={(k) => { setList(null); setFilter(String(k)); }}
+                            onSelectionChange={(k) => { setList(null); setFilter(String(k)); setPage(1); }}
                             classNames={{ tabList: "bg-default-100/80 w-full", cursor: "bg-content1 shadow-sm", tab: "flex-1" }}
                         >
                             <Tab key="all" title="All" /><Tab key="unread" title="Unread" /><Tab key="mine" title="Mine" />
                         </Tabs>
                     </div>
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
                         {list === null ? <ChatListSkeleton />
                             : listError && !list.length ? (
                                 <div className="p-6 flex flex-col items-center gap-3 text-center">
@@ -354,6 +382,7 @@ const ChatInbox = () => {
                                             <button type="button" className="underline shrink-0" onClick={() => load()}>Retry</button>
                                         </div>
                                     )}
+                                    <div className="flex-1">
                                     {list.map((c) => {
                                         const id = String(c.student_id || c.uuid);
                                         const active = id === open;
@@ -404,6 +433,12 @@ const ChatInbox = () => {
                                             </button>
                                         );
                                     })}
+                                    </div>
+                                    {pagination.totalPages > 1 && (
+                                        <div className="shrink-0 border-t border-default-200 p-2 flex justify-center bg-content1">
+                                            <Pagination size="sm" total={pagination.totalPages} page={page} onChange={setPage} showControls />
+                                        </div>
+                                    )}
                                 </>
                             )}
                     </div>

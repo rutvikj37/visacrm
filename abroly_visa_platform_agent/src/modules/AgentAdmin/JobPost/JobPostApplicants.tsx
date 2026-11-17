@@ -1,25 +1,34 @@
 import BackButton from '@/components/BackButton'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
-import { Avatar, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@heroui/react"
+import { Avatar, Pagination, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@heroui/react"
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
+const PAGE_SIZE = 25
+
 const JobPostApplicants = () => {
     const { commonPostAPICall } = useApiCallUtils()
-    // applicants
     const { id } = useParams()
     const [loading, setIsLoading] = useState(false)
     const [applicants, setApplicantsData] = useState([])
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
 
     useEffect(() => {
         findJobPostApplicants()
-    }, [])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, page])
 
     const findJobPostApplicants = async () => {
         setIsLoading(true)
-        const { success, data } = await commonPostAPICall({ uuid: id }, "/job_post/applicants")
+        const { success, data, total } = await commonPostAPICall({
+            uuid: id,
+            offset: (page - 1) * PAGE_SIZE,
+            limit: PAGE_SIZE,
+        }, "/job_post/applicants")
         if (success && success == true) {
-            setApplicantsData(data)
+            setApplicantsData(data || [])
+            setTotalPages(Math.max(1, Math.ceil((Number(total) || 0) / PAGE_SIZE)))
         }
         setIsLoading(false)
     }
@@ -32,7 +41,7 @@ const JobPostApplicants = () => {
     }
 
     return (
-        <div className='container mx-auto'>
+        <div className='container mx-auto flex flex-col gap-4 p-1 sm:p-2'>
             <Table
                 aria-label="Job Post Listing"
                 style={{
@@ -74,14 +83,12 @@ const JobPostApplicants = () => {
                             <TableCell>{applicant?.createdAt}</TableCell>
                             <TableCell>{applicant?.status}</TableCell>
                             <TableCell className="min-w-8" >
-                                {/* {applicant?.status} */}
                                 <Select
                                     placeholder="Status"
                                     size='sm'
                                     value={applicant?.status}
                                     defaultSelectedKeys={[applicant?.status]}
                                     onChange={(e) => {
-                                        // console.log(e.target.value);
                                         changeStatus(applicant?.item_uuid, e.target.value)
                                     }}
                                 >
@@ -92,6 +99,11 @@ const JobPostApplicants = () => {
                     ))}
                 </TableBody>
             </Table>
+            {totalPages > 1 && (
+                <div className="flex justify-center">
+                    <Pagination total={totalPages} page={page} onChange={setPage} showControls />
+                </div>
+            )}
         </div>
     )
 }

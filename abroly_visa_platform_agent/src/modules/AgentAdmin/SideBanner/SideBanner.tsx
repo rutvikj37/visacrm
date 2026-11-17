@@ -1,10 +1,12 @@
 import useApiCallUtils from '@/hooks/useApiCallUtils'
-import { Button, Card, CardBody, Tab, Tabs, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, getKeyValue, Spinner, Chip } from "@heroui/react"
+import { Button, Card, CardBody, Pagination, Tab, Tabs, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, getKeyValue, Spinner, Chip } from "@heroui/react"
 import { Calendar, Target, TrendingUp, Plus, Eye } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { RiAdvertisementLine } from 'react-icons/ri'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PRIMARY_COLOR, BRAND_TEXT, PRIMARY_COLOR_LIGHT, PRIMARY_COLOR_DARK, getPrimaryGradient } from '@/lib/theme'
+
+const PAGE_SIZE = 25
 
 const SideBanner = () => {
 
@@ -14,22 +16,35 @@ const SideBanner = () => {
   const navigate = useNavigate()
 
   const [sideBannerData, setSideBannerData] = useState([])
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 })
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (!["current", "past"].includes(find_for)) {
       navigate("/side_banner/current", { replace: true })
     } else {
-      findRecords()
+      setPage(1)
     }
   }, [find_for])
+
+  useEffect(() => {
+    if (!["current", "past"].includes(find_for)) return
+    findRecords()
+  }, [find_for, page])
 
   const findRecords = async () => {
     const soft = sideBannerData.length > 0
     if (!soft) setIsLoading(true)
-    const { success, data } = await commonGetAPICalls(`/side_banner/list/${find_for}`)
+    const { success, data } = await commonGetAPICalls(`/side_banner/list/${find_for}?page=${page}&limit=${PAGE_SIZE}`)
     if (success && success == true) {
-      setSideBannerData(data)
+      if (Array.isArray(data)) {
+        setSideBannerData(data)
+        setPagination({ totalPages: 1, totalItems: data.length })
+      } else {
+        setSideBannerData(data?.items || [])
+        setPagination(data?.pagination || { totalPages: 1, totalItems: data?.items?.length || 0 })
+      }
     }
     setIsLoading(false)
   }
@@ -274,6 +289,11 @@ const SideBanner = () => {
                     }}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+            {pagination.totalPages > 1 && (
+              <div className="flex justify-center pt-3">
+                <Pagination total={pagination.totalPages} page={page} onChange={setPage} showControls />
               </div>
             )}
           </div>

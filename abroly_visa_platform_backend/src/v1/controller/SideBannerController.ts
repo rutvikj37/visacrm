@@ -129,9 +129,13 @@ class SideBannerController {
                 agent_uuid: req?.uuid
             }
 
-            const findAll = await SideBanner.findAll({
+            const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+            const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || "25"), 10) || 25));
+            const { count, rows: findAll }: any = await SideBanner.findAndCountAll({
                 where: whereCondition,
                 order: [["start_date", "ASC"]],
+                limit,
+                offset: (page - 1) * limit,
             })
 
             const rows = findAll.map((row: any) => {
@@ -145,7 +149,15 @@ class SideBannerController {
                 return { ...d, schedule_status };
             });
 
-            return returnHelper(res, 200, true, "Records Found", rows)
+            return returnHelper(res, 200, true, "Records Found", {
+                items: rows,
+                pagination: {
+                    currentPage: page,
+                    totalPages: Math.max(1, Math.ceil(count / limit)),
+                    totalItems: count,
+                    itemsPerPage: limit,
+                },
+            })
 
         } catch (error) {
             console.error("Error in listCamp:", error);

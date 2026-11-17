@@ -1,12 +1,13 @@
-import { Button, Spinner, Tab, Tabs, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, useDisclosure, Chip } from "@heroui/react"
+import { Button, Pagination, Spinner, Tab, Tabs, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, useDisclosure, Chip } from "@heroui/react"
 import React, { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import CommonConfirmation from '@/components/CommonConfirmation'
-import { Pencil, Trash2, Briefcase, Plus, Globe, DollarSign, Clock, Calendar, Users, Eye, CheckCircle2, XCircle } from 'lucide-react'
-import { AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2, Briefcase, Plus, Globe, DollarSign, Clock, Calendar, Users, Eye } from 'lucide-react'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { countries } from "country-data"
-import { PRIMARY_COLOR, BRAND_TEXT, PRIMARY_COLOR_LIGHT, PRIMARY_COLOR_DARK, getPrimaryGradient } from '@/lib/theme'
+import { PRIMARY_COLOR, BRAND_TEXT, PRIMARY_COLOR_LIGHT } from '@/lib/theme'
+
+const PAGE_SIZE = 25
 
 const JobPost = () => {
 
@@ -14,15 +15,21 @@ const JobPost = () => {
 
     const [jobPosts, setJobPosts] = useState([])
     const [isLoading, setIsLoading] = useState<boolean>(true)
-
+    const [totalPages, setTotalPages] = useState(1)
 
     const { status } = useParams()
     const navigate = useNavigate()
-
-    const [canPost, setCanPost] = useState(false)
-    const [canPostLoading, setCanPostLoading] = useState(true)
+    const [params, setParams] = useSearchParams()
+    const page = Math.max(1, Number(params.get("page") || 1) || 1)
 
     const statusMustBe = ["active", "inactive"]
+
+    const setPage = (p: number) => {
+        const next = new URLSearchParams(params)
+        if (p <= 1) next.delete("page")
+        else next.set("page", String(p))
+        setParams(next, { replace: true })
+    }
 
     useEffect(() => {
         if (!statusMustBe.includes(status)) {
@@ -30,14 +37,16 @@ const JobPost = () => {
         }
         findJobPost()
 
-    }, [status, navigate])
+    }, [status, page, navigate])
 
     const findJobPost = async () => {
         const soft = jobPosts.length > 0
         if (!soft) setIsLoading(true)
-        const { data, success } = await commonGetAPICalls(`/job_post/created_list/${status}`)
+        const { data, success } = await commonGetAPICalls(`/job_post/created_list/${status}?page=${page}&limit=${PAGE_SIZE}`)
         if (success && success == true) {
-            setJobPosts(data)
+            const rows = Array.isArray(data) ? data : (data?.jobs || [])
+            setJobPosts(rows)
+            setTotalPages(data?.pagination?.totalPages || Math.max(1, Math.ceil((data?.pagination?.totalItems || rows.length) / PAGE_SIZE)))
         }
         setIsLoading(false)
     }
@@ -122,7 +131,7 @@ const JobPost = () => {
                                         isLoading={isLoading}
                                         loadingContent={<Spinner size="sm" />}
                                     >
-                                        {jobPosts.map((post, index) => (
+                                        {jobPosts.map((post) => (
                                             <TableRow 
                                                 key={post?.id}
                                                 className="group hover:bg-gray-50/80 transition-colors duration-200"
@@ -256,6 +265,12 @@ const JobPost = () => {
                         )}
                     </div>
                 </div>
+
+                {totalPages > 1 && (
+                    <div className="flex justify-center">
+                        <Pagination total={totalPages} page={page} onChange={setPage} showControls />
+                    </div>
+                )}
 
             <CommonConfirmation
                 isOpen={isDeleteCnfOpen}

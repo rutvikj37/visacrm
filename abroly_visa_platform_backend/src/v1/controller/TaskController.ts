@@ -152,17 +152,24 @@ class TaskController {
                 ];
             }
 
-            const rows: any[] = await AgencyTask.findAll({
+            const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+            const paginate = String(req.query.paginate || "") === "1" || String(req.query.layout || "") === "list";
+            const limit = paginate
+                ? Math.min(100, Math.max(1, parseInt(String(req.query.limit || "25"), 10) || 25))
+                : Math.min(300, Math.max(1, parseInt(String(req.query.limit || "300"), 10) || 300));
+
+            const { count, rows }: any = await AgencyTask.findAndCountAll({
                 where,
                 order: [
                     ["status", "ASC"],
                     ["due_at", "ASC"],
                     ["id", "DESC"],
                 ],
-                limit: 300,
+                limit,
+                offset: paginate ? (page - 1) * limit : 0,
             });
 
-            const names = await loadNames(rows.flatMap((r) => [r.dataValues.assignee_id, r.dataValues.created_by]));
+            const names = await loadNames(rows.flatMap((r: any) => [r.dataValues.assignee_id, r.dataValues.created_by]));
             const tasks = [];
             for (const r of rows) {
                 const item = serialize(r, names);
@@ -178,8 +185,15 @@ class TaskController {
 
             const open = tasks.filter((t) => t.status !== "done").length;
             const overdue = tasks.filter((t) => t.overdue).length;
+            const totalItems = paginate ? count : tasks.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
-            return returnHelper(res, 200, true, "Tasks", { tasks, columns, counts: { open, overdue, total: tasks.length } });
+            return returnHelper(res, 200, true, "Tasks", {
+                tasks,
+                columns,
+                counts: { open, overdue, total: totalItems },
+                pagination: { currentPage: page, totalPages, totalItems, itemsPerPage: limit },
+            });
         } catch (error: any) {
             console.error("tasks list failed", error);
             return returnHelper(res, 500, false, error.message || "Failed");

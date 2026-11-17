@@ -92,33 +92,54 @@ class CommissionController {
             const search = String(q.q || "").trim().slice(0, 100);
             if (search) where.partner = { [Op.like]: `%${search}%` };
 
-            const rows: any[] = await Commission.findAll({ where, order: [["due_on", "ASC"], ["createdAt", "DESC"]], limit: 1000 });
-            const studentIds = [...new Set(rows.map((r) => r.dataValues.student_id).filter(Boolean))];
-            const appIds = [...new Set(rows.map((r) => r.dataValues.university_app_id).filter(Boolean))];
+            const page = Math.max(1, parseInt(String(q.page || "1"), 10) || 1);
+            const limit = Math.min(100, Math.max(1, parseInt(String(q.limit || "25"), 10) || 25));
+
+            // totals from every matching row (not just the page); amounts are stored in minor units
+            const forTotals: any[] = await Commission.findAll({
+                where,
+                attributes: ["status", "currency", "amount_expected", "amount_received", "due_on"],
+                raw: true,
+            });
+            const totals: Record<string, { currency: string; expected: number; invoiced: number; received: number; outstanding: number; overdue: number }> = {};
+            const todayStr = today();
+            for (const r of forTotals) {
+                if (r.status === "cancelled") continue;
+                const expected = fromMinor(r.amount_expected) || 0;
+                const received = fromMinor(r.amount_received) || 0;
+                const balance = Math.max(0, Math.round((expected - received) * 100) / 100);
+                const overdue = r.status !== "received" && Boolean(r.due_on) && String(r.due_on) < todayStr;
+                const t = (totals[r.currency] ||= { currency: r.currency, expected: 0, invoiced: 0, received: 0, outstanding: 0, overdue: 0 });
+                t.expected += expected;
+                if (r.status === "invoiced") t.invoiced += expected - received;
+                t.received += received;
+                t.outstanding += balance;
+                if (overdue) t.overdue += balance;
+            }
+
+            const { count, rows }: any = await Commission.findAndCountAll({
+                where,
+                order: [["due_on", "ASC"], ["createdAt", "DESC"]],
+                limit,
+                offset: (page - 1) * limit,
+            });
+            const studentIds = [...new Set(rows.map((r: any) => r.dataValues.student_id).filter(Boolean))];
+            const appIds = [...new Set(rows.map((r: any) => r.dataValues.university_app_id).filter(Boolean))];
             const [students, apps]: any[] = await Promise.all([
                 studentIds.length ? User.findAll({ where: { id: studentIds }, attributes: ["id", "username"], raw: true }) : [],
                 appIds.length ? UniversityApplication.findAll({ where: { id: appIds }, attributes: ["id", "university", "course", "intake", "status"], raw: true }) : [],
             ]);
             const sMap = Object.fromEntries(students.map((s: any) => [s.id, { id: s.id, name: s.username }]));
             const aMap = Object.fromEntries(apps.map((x: any) => [x.id, x]));
-            const items = rows.map((r) => present(r, { student: sMap[r.dataValues.student_id], university: aMap[r.dataValues.university_app_id] }));
+            const items = rows.map((r: any) => present(r, { student: sMap[r.dataValues.student_id], university: aMap[r.dataValues.university_app_id] }));
 
-            // totals per currency (cancelled left out)
-            const totals: Record<string, { currency: string; expected: number; invoiced: number; received: number; outstanding: number; overdue: number }> = {};
-            for (const i of items) {
-                if (i.status === "cancelled") continue;
-                const t = (totals[i.currency] ||= { currency: i.currency, expected: 0, invoiced: 0, received: 0, outstanding: 0, overdue: 0 });
-                t.expected += i.amount_expected;
-                if (i.status === "invoiced") t.invoiced += i.amount_expected - i.amount_received;
-                t.received += i.amount_received;
-                t.outstanding += i.balance;
-                if (i.overdue) t.overdue += i.balance;
-            }
             const round = (n: number) => Math.round(n * 100) / 100;
+            const totalPages = Math.max(1, Math.ceil(count / limit));
             return returnHelper(res, 200, true, "Commissions", {
                 commissions: items,
                 totals: Object.values(totals).map((t) => ({ ...t, expected: round(t.expected), invoiced: round(t.invoiced), received: round(t.received), outstanding: round(t.outstanding), overdue: round(t.overdue) })),
                 can_manage: canManage(req),
+                pagination: { currentPage: page, totalPages, totalItems: count, itemsPerPage: limit },
             });
         } catch (error) {
             console.error("commission list failed", error);

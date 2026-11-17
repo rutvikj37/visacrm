@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
     Button, Card, CardBody, Checkbox, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Input, Modal, ModalBody, ModalContent,
-    ModalFooter, ModalHeader, Select, SelectItem, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, Tab, Textarea, useDisclosure,
+    ModalFooter, ModalHeader, Pagination, Select, SelectItem, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, Tab, Textarea, useDisclosure,
 } from "@heroui/react";
 import type { Selection } from "@heroui/react";
 import { AlertCircle, CalendarClock, FileCheck2, GripVertical, KanbanSquare, List, MessageCircle, MoreVertical, Search, User, UserPlus, X } from "lucide-react";
@@ -29,7 +29,10 @@ const CaseBoard = () => {
     const isOwner = useSelector((state: any) => state.login.role_type) === "agent";
     const teamRole = useSelector((state: any) => state.login.team_role);
     const isManager = isOwner || teamRole === "branch_manager";
+    const PAGE_SIZE = 25;
+    const page = Math.max(1, Number(params.get("page") || 1) || 1);
     const [cases, setCases] = useState<any[]>([]);
+    const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 });
     const [team, setTeam] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -48,10 +51,18 @@ const CaseBoard = () => {
     const [dragId, setDragId] = useState<number | null>(null);
     const [overCol, setOverCol] = useState<string | null>(null);
 
+    const setPage = (p: number) => {
+        const n = new URLSearchParams(params);
+        if (p <= 1) n.delete("page");
+        else n.set("page", String(p));
+        setParams(n, { replace: true });
+    };
+
     const setView = (next: "list" | "board") => {
         const n = new URLSearchParams(params);
         if (next === "board") n.set("view", "board");
         else n.delete("view");
+        n.delete("page");
         setParams(n, { replace: true });
     };
 
@@ -66,19 +77,28 @@ const CaseBoard = () => {
         if (search.trim()) q.set("search", search.trim());
         if (assignee) q.set("assigned_to", assignee);
         if (branch) q.set("branch", branch);
+        if (country) q.set("country", country);
         // a result filter loads every case with that result, not only the last 60 days
         const result = OUTCOMES.some((o) => o.key === stageFilter) || stageFilter === "not_started" ? stageFilter : "";
         if (result) q.set("result", result);
+        else if (stageFilter && CASE_STAGES.some((s) => s.key === stageFilter)) q.set("stage", stageFilter);
         if (convertedFilter) {
             q.set("converted", "1");
             if (convertedFrom) q.set("from", convertedFrom);
             if (convertedTo) q.set("to", convertedTo);
             if (convertedSource) q.set("source", convertedSource);
         }
+        if (view === "list") {
+            q.set("page", String(page));
+            q.set("limit", String(PAGE_SIZE));
+        }
         const { success, data } = await commonGetAPICalls(`/crm/cases?${q.toString()}`);
-        if (success) setCases(data?.cases || []);
+        if (success) {
+            setCases(data?.cases || []);
+            setPagination(data?.pagination || { totalPages: 1, totalItems: data?.cases?.length || 0 });
+        }
         setLoading(false);
-    }, [search, assignee, branch, stageFilter, convertedFilter, convertedFrom, convertedTo, convertedSource]);
+    }, [search, assignee, branch, country, stageFilter, convertedFilter, convertedFrom, convertedTo, convertedSource, view, page]);
 
     useEffect(() => {
         const t = setTimeout(load, 300);
@@ -91,9 +111,14 @@ const CaseBoard = () => {
             if (success) setTeam(data || []);
         })();
     }, [isManager]);
+    useEffect(() => {
+        if (page !== 1) setPage(1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [search, assignee, branch, country, stageFilter, convertedFilter, view]);
 
     const countries = useMemo(() => [...new Set(cases.map((c) => c.country).filter(Boolean))].sort(), [cases]);
-    const visible = cases.filter((c) => {
+    // server already applies country/stage/result when paginating list; keep a light pass for board
+    const visible = view === "list" ? cases : cases.filter((c) => {
         if (country && c.country !== country) return false;
         if (stageFilter) {
             if (stageFilter === "not_started") return Boolean(c.not_started);
@@ -469,6 +494,11 @@ const CaseBoard = () => {
                             </Table>
                         </CardBody>
                     </Card>
+                    {pagination.totalPages > 1 && (
+                        <div className="flex justify-center">
+                            <Pagination total={pagination.totalPages} page={page} onChange={setPage} showControls />
+                        </div>
+                    )}
                 </>
             ) : (
                 <>

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input, Spinner, Tab, Tabs, useDisclosure } from "@heroui/react";
+import { Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input, Pagination, Spinner, Tab, Tabs, useDisclosure } from "@heroui/react";
 import { BadgeDollarSign, MoreVertical, Search } from "lucide-react";
 import EmptyState from "@/components/ui-kit/EmptyState";
 import FirstTip from "@/components/help/FirstTip";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { CommissionFormModal, commissionStatus, fmtDate, money } from "./commissionShared";
+
+const PAGE_SIZE = 25;
 
 const Tile = ({ label, value, tone }: { label: string; value: string; tone?: "danger" | "success" }) => (
     <div className="rounded-xl border border-default-200 bg-content1 p-2.5 sm:p-4 min-w-0">
@@ -20,22 +22,34 @@ const CommissionsPage = () => {
     const [params, setParams] = useSearchParams();
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
     const status = params.get("status") || "open";
+    const page = Math.max(1, Number(params.get("page") || 1) || 1);
     const [search, setSearch] = useState("");
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState<any>(null);
     const edit = useDisclosure();
 
+    const setParam = (k: string, v: string) => {
+        const next = new URLSearchParams(params);
+        if (v) next.set(k, v); else next.delete(k);
+        if (k !== "page") next.delete("page");
+        setParams(next, { replace: true });
+    };
+
     const load = useCallback(async () => {
         setLoading(true);
-        const qs = new URLSearchParams();
+        const qs = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
         if (status === "overdue") qs.set("due", "overdue"); else if (status !== "all") qs.set("status", status);
         if (search.trim()) qs.set("q", search.trim());
         const { success, data, message } = await commonGetAPICalls(`/crm/commissions?${qs.toString()}`);
-        setData(success ? data : { error: message, commissions: [], totals: [] });
+        setData(success ? data : { error: message, commissions: [], totals: [], pagination: { totalPages: 1 } });
         setLoading(false);
-    }, [status, search]);
+    }, [status, search, page]);
     useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
+    useEffect(() => {
+        if (page !== 1) setParam("page", "");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [status, search]);
 
     const setStatus = async (c: any, next: string) => {
         const { success } = await commonPostAPICall({ status: next }, `crm/commissions/${c.id}`, true);
@@ -73,7 +87,7 @@ const CommissionsPage = () => {
 
                     <div className="flex flex-col lg:flex-row gap-2 lg:items-center">
                         <div className="overflow-x-auto">
-                            <Tabs selectedKey={status} onSelectionChange={(k) => { const p = new URLSearchParams(params); p.set("status", String(k)); setParams(p); }} variant="underlined" aria-label="Commission status">
+                            <Tabs selectedKey={status} onSelectionChange={(k) => setParam("status", String(k))} variant="underlined" aria-label="Commission status">
                                 <Tab key="open" title="Open" /><Tab key="overdue" title="Overdue" /><Tab key="expected" title="Expected" /><Tab key="invoiced" title="Invoiced" /><Tab key="received" title="Received" /><Tab key="cancelled" title="Cancelled" /><Tab key="all" title="All" />
                             </Tabs>
                         </div>
@@ -129,6 +143,11 @@ const CommissionsPage = () => {
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+                    {data?.pagination?.totalPages > 1 && (
+                        <div className="flex justify-center">
+                            <Pagination total={data.pagination.totalPages} page={page} onChange={(p) => setParam("page", String(p))} showControls />
                         </div>
                     )}
                 </>

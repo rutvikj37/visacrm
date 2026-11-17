@@ -149,7 +149,17 @@ class PortalChatController {
             });
 
             const unread_chats = list.filter((c) => c.unread > 0).length;
-            return returnHelper(res, 200, true, "Chats", { conversations: list.slice(0, 200), unread_chats });
+            const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+            const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || "25"), 10) || 25));
+            const totalItems = list.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+            const safePage = Math.min(page, totalPages);
+            const start = (safePage - 1) * limit;
+            return returnHelper(res, 200, true, "Chats", {
+                conversations: list.slice(start, start + limit),
+                unread_chats,
+                pagination: { currentPage: safePage, totalPages, totalItems, itemsPerPage: limit },
+            });
         } catch (error: any) {
             console.error("portal chat list failed", error);
             return returnHelper(res, 500, false, error.message || "Failed");

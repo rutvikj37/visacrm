@@ -382,9 +382,9 @@ const LeadInbox = () => {
                     </div>
                 );
             })()}
-            <div className={`${showFilters ? "flex" : "max-sm:hidden"} flex-col gap-2`}>
-            <BranchPicker value={branch} onChange={(v) => updateParam("branch", v)} className="w-full sm:w-56" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            <div className={`flex flex-col gap-2 ${showFilters ? "" : "max-sm:hidden"}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 items-stretch">
+                <BranchPicker value={branch} onChange={(v) => updateParam("branch", v)} className="w-full" />
                 <Input
                     className="max-sm:hidden"
                     placeholder="Search name, phone, email, country..."
@@ -405,7 +405,7 @@ const LeadInbox = () => {
                             ...team.map((m) => <SelectItem key={String(m.id)}>{m.username || `#${m.id}`}</SelectItem>),
                         ]}
                     </Select>
-                ) : <div className="hidden lg:block" />}
+                ) : <div className="hidden xl:block" />}
                 <Select aria-label="Lead score" placeholder="Any score" selectedKeys={temperature ? [temperature] : []} onChange={(e) => updateParam("temperature", e.target.value)}>
                     <SelectItem key="hot">Hot</SelectItem>
                     <SelectItem key="warm">Warm</SelectItem>

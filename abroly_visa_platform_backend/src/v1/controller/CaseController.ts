@@ -163,8 +163,23 @@ class CaseController {
                 where.id = ids.length ? ids : [-1];
             }
 
+            // list view sends page/limit; board keeps a larger unpaged window
+            const page = Math.max(1, parseInt(String(q.page || "1"), 10) || 1);
+            const paginate = q.page != null && String(q.page) !== "";
+            const limit = paginate
+                ? Math.min(100, Math.max(1, parseInt(String(q.limit || "25"), 10) || 25))
+                : Math.min(500, Math.max(1, parseInt(String(q.limit || "500"), 10) || 500));
+
+            // stage filter for the list (?stage=documents) — outcomes use ?result=
+            const stage = String(q.stage || "");
+            if (!resultStatuses && !convertedOnly && (CASE_STAGES as readonly string[]).includes(stage)) {
+                delete where[Op.or];
+                where.status = "visa_progress";
+                where.case_stage = stage;
+            }
+
             const search = String(req.query.search || "").trim().slice(0, 100);
-            const cases: any[] = await AgencyLeads.findAll({
+            const { count, rows: cases }: any = await AgencyLeads.findAndCountAll({
                 where,
                 include: [{
                     model: User, as: "user_of", attributes: ["id", "username", "phone_number", "country_code", "email"], required: true,
@@ -172,9 +187,12 @@ class CaseController {
                 }],
                 attributes: ["id", "status", "case_stage", "stage_updated_at", "selected_country", "selected_intake_year", "selected_suggestion", "university", "assign_id", "branch_id", "createdAt", "updatedAt"],
                 order: [["updatedAt", "DESC"]],
-                limit: 500,
+                limit,
+                offset: paginate ? (page - 1) * limit : 0,
+                distinct: true,
+                col: "AgencyLeads.id",
             });
-            const ids = cases.map((c) => c.dataValues.id);
+            const ids = cases.map((c: any) => c.dataValues.id);
 
             const [stepRows, dueRows, reviewRows, people]: any[] = await Promise.all([
                 ids.length ? Step.findAll({ where: { lead_id: ids }, attributes: ["lead_id", "step_status", [fn("COUNT", col("id")), "n"]], group: ["lead_id", "step_status"], raw: true }) : [],
@@ -219,7 +237,13 @@ class CaseController {
                     updatedAt: x.updatedAt,
                 };
             });
-            return returnHelper(res, 200, true, "Cases", { cases: result, stages: CASE_STAGES });
+            const totalItems = paginate ? count : result.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+            return returnHelper(res, 200, true, "Cases", {
+                cases: result,
+                stages: CASE_STAGES,
+                pagination: { currentPage: page, totalPages, totalItems, itemsPerPage: limit },
+            });
         } catch (error) {
             console.error("case board failed", error);
             return returnHelper(res, 500, false, "Something went wrong");

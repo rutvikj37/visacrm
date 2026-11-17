@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
     Avatar, Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger,
-    Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem,
+    Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination, Select, SelectItem,
     Spinner, Tab, Tabs, Textarea, useDisclosure,
 } from "@heroui/react";
 import {
@@ -105,13 +105,16 @@ const TaskBoard = () => {
     const openId = params.get("task") || "";
     const myName = useSelector((state: any) => state.login?.user_name || "");
 
+    const PAGE_SIZE = 25;
     const [view, setView] = useState("mine");
     const [status, setStatus] = useState("open");
     const [layout, setLayout] = useState<"kanban" | "list">("kanban");
+    const [page, setPage] = useState(1);
     const [q, setQ] = useState("");
     const [branch, setBranch] = useState("");
     const [columns, setColumns] = useState<Record<string, Task[]>>({ todo: [], in_progress: [], done: [] });
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 });
     const [counts, setCounts] = useState({ open: 0, overdue: 0, total: 0 });
     const [loading, setLoading] = useState(true);
     const [team, setTeam] = useState<any[]>([]);
@@ -128,16 +131,18 @@ const TaskBoard = () => {
     }, []);
 
     const load = useCallback(async () => {
+        const layoutQ = layout === "list" ? `&layout=list&page=${page}&limit=${PAGE_SIZE}` : "";
         const { success, data } = await commonGetAPICalls(
-            `/crm/tasks?view=${view}&status=${status}&q=${encodeURIComponent(q)}${branchQuery(branch)}`,
+            `/crm/tasks?view=${view}&status=${status}&q=${encodeURIComponent(q)}${branchQuery(branch)}${layoutQ}`,
         );
         if (success) {
             setColumns(data.columns || { todo: [], in_progress: [], done: [] });
             setTasks(data.tasks || []);
             setCounts(data.counts || { open: 0, overdue: 0, total: 0 });
+            setPagination(data.pagination || { totalPages: 1, totalItems: data.tasks?.length || 0 });
         }
         setLoading(false);
-    }, [view, status, q, branch]);
+    }, [view, status, q, branch, layout, page]);
 
     useEffect(() => { loadTeam(); }, [loadTeam]);
     useEffect(() => {
@@ -145,6 +150,7 @@ const TaskBoard = () => {
         const t = setTimeout(load, q ? 250 : 0);
         return () => clearTimeout(t);
     }, [load]);
+    useEffect(() => { setPage(1); }, [view, status, q, branch, layout]);
 
     useEffect(() => {
         if (!openId || !tasks.length) return;
@@ -371,6 +377,11 @@ const TaskBoard = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+                    {pagination.totalPages > 1 && (
+                        <div className="flex justify-center border-t border-default-200 p-3">
+                            <Pagination total={pagination.totalPages} page={page} onChange={setPage} showControls />
                         </div>
                     )}
                 </div>
