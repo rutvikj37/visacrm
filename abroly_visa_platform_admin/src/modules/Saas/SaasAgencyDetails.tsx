@@ -95,7 +95,8 @@ const SaasAgencyDetails = () => {
         const next = new URLSearchParams(searchParams);
         next.delete("edit");
         setSearchParams(next, { replace: true });
-    }, [data, searchParams, setSearchParams, editModal]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- open once when details load with ?edit=1
+    }, [data, searchParams, setSearchParams]);
 
     const currentPlanId = data?.access?.plan?.id || "";
     const planMeta = (planId: string) => {

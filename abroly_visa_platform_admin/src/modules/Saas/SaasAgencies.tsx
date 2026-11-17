@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     Button, Checkbox, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination,
     Radio, RadioGroup, Select, SelectItem, Spinner, Tab, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, useDisclosure,
 } from "@nextui-org/react";
 import {
-    AlarmClock, Ban, Building2, CalendarPlus, Copy, Download, ExternalLink, Eye, Gift, KeyRound, Plus, Repeat, Search, ShieldCheck, Sparkles, XCircle,
+    AlarmClock, Ban, Building2, CalendarPlus, Copy, Download, ExternalLink, Eye, Gift, KeyRound, Pencil, Plus, Repeat, Search, ShieldCheck, Sparkles, Trash2, XCircle,
 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
@@ -16,6 +16,7 @@ import LoginCodeDialog, { LoginCodeInfo } from "./LoginCodeDialog";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PLATFORM_PORTAL_DOMAIN = (import.meta as any).env?.VITE_PLATFORM_PORTAL_DOMAIN || "techxsolutions.io";
+const portalUrlOf = (portal?: string | null) => (portal ? `https://${portal}` : "");
 
 const emptyForm = {
     name: "", owner_name: "", country_code: "+91", phone_number: "", email: "",
@@ -64,6 +65,34 @@ const Stat = ({ icon: Icon, label, value, onPress }: any) => (
 
 const copy = async (text: string, what: string) => {
     try { await navigator.clipboard.writeText(text); SuccessToast(`${what} copied`); } catch { ErrorToast("Couldn't copy"); }
+};
+
+const copyPortal = async (portal?: string | null, e?: MouseEvent | KeyboardEvent) => {
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
+    const url = portalUrlOf(portal);
+    if (!url) return;
+    try {
+        await navigator.clipboard.writeText(url);
+        SuccessToast("Copied");
+    } catch {
+        ErrorToast("Couldn't copy");
+    }
+};
+
+const PortalLink = ({ portal }: { portal?: string | null }) => {
+    if (!portal) return <span className="text-default-400">—</span>;
+    return (
+        <button
+            type="button"
+            className="text-left text-sm text-primary hover:underline max-w-[220px] truncate"
+            title="Copy portal URL"
+            onClick={(e) => copyPortal(portal, e)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") copyPortal(portal, e); }}
+        >
+            {portal}
+        </button>
+    );
 };
 
 const SaasAgencies = () => {
@@ -199,11 +228,21 @@ const SaasAgencies = () => {
         if (success && data?.login_code) setLoginInfo({ phone: data.phone, code: data.login_code });
     };
 
+    const deleteAgency = async (a: any) => {
+        if (!window.confirm(`Delete ${a.name}? This removes the agency and its team from the admin list. Related leads and history stay for records.`)) return;
+        if (!window.confirm(`Really delete ${a.name}? Press OK only if you are sure.`)) return;
+        setBusy(`delete:${a.id}`);
+        const { success } = await commonPostAPICall({}, `saas_admin/agencies/${a.id}/delete`, true);
+        setBusy(null);
+        if (success) load();
+    };
+
     const rowActions = (a: any): RowAction[] => {
         const one = [a.id];
         const label = a.name;
         return [
             { key: "open", label: "Open details", icon: <Eye size={16} />, onPress: () => navigate(`/saas/agencies/${a.id}`) },
+            { key: "edit", label: "Edit details", icon: <Pencil size={16} />, onPress: () => navigate(`/saas/agencies/${a.id}?edit=1`) },
             { key: "extend", label: "Record payment / extend", icon: <CalendarPlus size={16} />, onPress: () => navigate(`/saas/agencies/${a.id}`) },
             { key: "trial", label: "Give free trial", icon: <Gift size={16} />, onPress: () => openAction("trial", one, label, a.plan?.id || "") },
             { key: "free_days", label: "Add free days", icon: <Sparkles size={16} />, onPress: () => openAction("free_days", one, label, "") },
@@ -211,10 +250,12 @@ const SaasAgencies = () => {
             { key: "send_login", label: "Send new login code", icon: <KeyRound size={16} />, onPress: () => sendLogin(a), hidden: !a.email },
             { key: "copy_phone", label: "Copy phone", icon: <Copy size={16} />, onPress: () => copy(a.phone, "Phone"), hidden: !a.phone },
             { key: "copy_email", label: "Copy email", icon: <Copy size={16} />, onPress: () => copy(a.email, "Email"), hidden: !a.email },
-            { key: "portal", label: "Open student portal", icon: <ExternalLink size={16} />, onPress: () => window.open(`https://${a.portal}`, "_blank", "noopener"), hidden: !a.portal },
+            { key: "copy_portal", label: "Copy portal link", icon: <Copy size={16} />, onPress: () => copyPortal(a.portal), hidden: !a.portal },
+            { key: "portal", label: "Open student portal", icon: <ExternalLink size={16} />, onPress: () => window.open(portalUrlOf(a.portal), "_blank", "noopener"), hidden: !a.portal },
             { key: "reactivate", label: "Reactivate", icon: <ShieldCheck size={16} />, onPress: () => confirmRun("reactivate", one, label), hidden: a.status !== "suspended" },
             { key: "suspend", label: "Suspend", icon: <Ban size={16} />, danger: true, onPress: () => confirmRun("suspend", one, label), hidden: a.status === "suspended" },
             { key: "end_access", label: "End access now", icon: <XCircle size={16} />, danger: true, onPress: () => confirmRun("end_access", one, label), hidden: a.status === "expired" || a.status === "suspended" },
+            { key: "delete", label: "Delete agency", icon: <Trash2 size={16} />, danger: true, onPress: () => deleteAgency(a) },
         ];
     };
 
@@ -345,11 +386,21 @@ const SaasAgencies = () => {
                                 </div>
                                 <Chip size="sm" variant="flat" color={STATUS_META[a.status]?.color} className="shrink-0">{STATUS_META[a.status]?.label || a.status}</Chip>
                             </div>
-                            <div className="text-xs text-default-600 flex flex-wrap gap-x-3">
+                            <div className="text-xs text-default-600 flex flex-wrap gap-x-3 items-center">
                                 <span>{a.plan?.name || "No plan"}</span>
                                 <span className={a.days_left <= 7 && a.status !== "expired" ? "text-danger" : ""}>until {fmtDate(a.ends_at)}{a.status !== "expired" && a.status !== "suspended" ? ` (${a.days_left}d)` : ""}</span>
                                 <span>Team {a.team_members}</span>
                                 <span>Leads {a.leads}</span>
+                                {a.portal ? (
+                                    <button
+                                        type="button"
+                                        className="text-primary hover:underline"
+                                        title="Copy portal URL"
+                                        onClick={(e) => { e.stopPropagation(); copyPortal(a.portal, e); }}
+                                    >
+                                        {a.portal}
+                                    </button>
+                                ) : null}
                             </div>
                         </button>
                         <div className="self-start"><RowActions actions={rowActions(a)} label={`Actions for ${a.name}`} /></div>
@@ -369,6 +420,7 @@ const SaasAgencies = () => {
                 >
                     <TableHeader>
                         <TableColumn>AGENCY</TableColumn>
+                        <TableColumn>PORTAL</TableColumn>
                         <TableColumn>PLAN</TableColumn>
                         <TableColumn>STATUS</TableColumn>
                         <TableColumn>ACCESS UNTIL</TableColumn>
@@ -383,6 +435,7 @@ const SaasAgencies = () => {
                                     <div className="font-medium">{a.name}</div>
                                     <div className="text-xs text-default-500">{a.owner_name !== a.name ? `${a.owner_name} · ` : ""}{a.phone}</div>
                                 </TableCell>
+                                <TableCell><PortalLink portal={a.portal} /></TableCell>
                                 <TableCell>{a.plan?.name || <span className="text-default-400">No plan</span>}</TableCell>
                                 <TableCell><Chip size="sm" variant="flat" color={STATUS_META[a.status]?.color}>{STATUS_META[a.status]?.label || a.status}</Chip></TableCell>
                                 <TableCell>

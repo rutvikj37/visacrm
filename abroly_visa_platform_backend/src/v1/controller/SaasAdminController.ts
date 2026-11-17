@@ -260,7 +260,12 @@ class SaasAdminController {
         try {
             const agency: any = await Agent.findOne({
                 where: { uuid: req.params.uuid, role: "agent" },
-                attributes: ["id", "uuid", "username", "app_name", "email", "phone_number", "country_code", "status", "expires_at", "saas_kind", "sudomain", "domain", "createdAt"],
+                attributes: [
+                    "id", "uuid", "username", "app_name", "email", "phone_number", "country_code", "status",
+                    "expires_at", "saas_kind", "sudomain", "domain", "createdAt",
+                    "primary_color", "primary_foreground_color", "dark_primary_color",
+                    "support_number", "support_email", "agency_address", "meta_description",
+                ],
             });
             if (!agency) return returnHelper(res, 200, false, "Agency not found");
             const [access, history, payments, leads] = await Promise.all([
@@ -279,9 +284,10 @@ class SaasAdminController {
             ]);
             const a = agency.toJSON();
             const [usage] = await agencyUsage(agency.dataValues.uuid);
+            const portal = a.domain ? `${a.sudomain ? `${a.sudomain}.` : ""}${a.domain}` : null;
             return returnHelper(res, 200, true, "Agency", {
                 usage: usage || null,
-                agency: { ...a, name: a.app_name || a.username, status_label: statusOf(a) },
+                agency: { ...a, name: a.app_name || a.username, status_label: statusOf(a), portal },
                 access,
                 leads,
                 history: history.map((h: any) => {
@@ -295,6 +301,97 @@ class SaasAdminController {
             });
         } catch (error) {
             return fail(res, error, "agencyDetails");
+        }
+    }
+
+    // POST /saas_admin/agencies/:uuid/update
+    // { name, owner_name, phone_number, country_code, email, support_number?, support_email?,
+    //   agency_address?, primary_color?, primary_foreground_color?, dark_primary_color?, meta_description? }
+    async updateAgency(req: RequestWithUser, res: Response) {
+        try {
+            const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" } });
+            if (!agency) return returnHelper(res, 200, false, "Agency not found");
+            const b = req.body || {};
+            const ownerName = String(b.owner_name ?? agency.dataValues.username ?? "").trim().slice(0, 255);
+            const brandName = String(b.name ?? agency.dataValues.app_name ?? ownerName).trim().slice(0, 255);
+            const phone = String(b.phone_number ?? agency.dataValues.phone_number ?? "").replace(/\D/g, "");
+            const countryCode = normalizeCountryCode(b.country_code ?? agency.dataValues.country_code);
+            const email = String(b.email ?? agency.dataValues.email ?? "").trim().toLowerCase().slice(0, 255);
+
+            if (!ownerName) return returnHelper(res, 200, false, "Please enter the owner's name");
+            if (!brandName) return returnHelper(res, 200, false, "Please enter the agency name");
+            if (phone.length < 8 || phone.length > 14) return returnHelper(res, 200, false, "Please enter a valid phone number");
+            if (!email) return returnHelper(res, 200, false, "Please enter the owner's email");
+            if (!EMAIL_RE.test(email)) return returnHelper(res, 200, false, "Please enter a valid email address");
+
+            if (phone !== agency.dataValues.phone_number) {
+                const clash: any = await Agent.findOne({ where: { phone_number: phone, id: { [Op.ne]: agency.dataValues.id } }, attributes: ["id"] });
+                if (clash) return returnHelper(res, 200, false, "This phone number is already used by another account");
+            }
+
+            const colorOrNull = (v: any) => {
+                if (v === undefined) return undefined;
+                const s = String(v || "").trim();
+                if (!s) return null;
+                if (!/^#[0-9a-fA-F]{6}$/.test(s)) throw new SaasError("Colours must be hex like #0f5bd8");
+                return s;
+            };
+            const strOrNull = (v: any, max: number) => {
+                if (v === undefined) return undefined;
+                const s = String(v || "").trim();
+                return s ? s.slice(0, max) : null;
+            };
+
+            const patch: any = {
+                username: ownerName,
+                app_name: brandName,
+                phone_number: phone,
+                country_code: countryCode,
+                email,
+            };
+            const supportNumber = strOrNull(b.support_number, 40);
+            if (supportNumber !== undefined) patch.support_number = supportNumber;
+            const supportEmail = strOrNull(b.support_email, 255);
+            if (supportEmail !== undefined) {
+                if (supportEmail && !EMAIL_RE.test(supportEmail)) return returnHelper(res, 200, false, "Please enter a valid support email");
+                patch.support_email = supportEmail;
+            }
+            const address = strOrNull(b.agency_address, 2000);
+            if (address !== undefined) patch.agency_address = address;
+            const meta = strOrNull(b.meta_description, 2000);
+            if (meta !== undefined) patch.meta_description = meta;
+            const primary = colorOrNull(b.primary_color);
+            if (primary !== undefined) patch.primary_color = primary;
+            const primaryFg = colorOrNull(b.primary_foreground_color);
+            if (primaryFg !== undefined) patch.primary_foreground_color = primaryFg;
+            const darkPrimary = colorOrNull(b.dark_primary_color);
+            if (darkPrimary !== undefined) patch.dark_primary_color = darkPrimary;
+
+            await Agent.update(patch, { where: { id: agency.dataValues.id } });
+            return returnHelper(res, 200, true, "Agency details saved");
+        } catch (error) {
+            return fail(res, error, "updateAgency");
+        }
+    }
+
+    // POST /saas_admin/agencies/:uuid/delete  - soft-delete agency + team (Agent is paranoid)
+    async deleteAgency(req: RequestWithUser, res: Response) {
+        try {
+            const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" } });
+            if (!agency) return returnHelper(res, 200, false, "Agency not found");
+            const a = agency.dataValues;
+            await sequelize.transaction(async (t: any) => {
+                // free the portal address for reuse (paranoid rows still unique-check elsewhere without paranoid:false)
+                await Agent.update(
+                    { sudomain: null, domain: null, status: "inactive" },
+                    { where: { id: a.id }, transaction: t },
+                );
+                await Agent.destroy({ where: { parent_id: a.id }, transaction: t });
+                await Agent.destroy({ where: { id: a.id }, transaction: t });
+            });
+            return returnHelper(res, 200, true, `${a.app_name || a.username} deleted. Team members were removed too.`);
+        } catch (error) {
+            return fail(res, error, "deleteAgency");
         }
     }
 
