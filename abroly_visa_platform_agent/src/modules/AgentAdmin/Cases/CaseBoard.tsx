@@ -290,7 +290,7 @@ const CaseBoard = () => {
                         Showing converted cases
                         {convertedFrom && convertedTo ? ` from leads created ${convertedFrom} → ${convertedTo}` : ""}
                         {convertedSource ? ` · ${sourceLabel(convertedSource)}` : ""}
-                        {branch ? ` · ${branchName(branches, branch) || "branch"}` : ""}
+                        {branch ? ` · ${branchName(branches, Number(branch)) || "branch"}` : ""}
                     </span>
                     <Button size="sm" variant="light" startContent={<X size={14} />} onPress={clearConvertedFilter}>Clear</Button>
                 </div>
