@@ -13,6 +13,7 @@ import SaasCoupon from "../../model/SaasCoupon";
 import { sendFailureReminderNow } from "../../services/saasFollowups";
 import { agencyUsage } from "../../services/saasUsage";
 import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin";
+import { normalizeCountryCode } from "../../services/phoneMatch";
 import { panelBaseOf } from "../../services/panelUrl";
 import { GST_STATES, couponUses, describeCoupon, getPlatformBilling, issueInvoice, loadInvoice, normalizeCode, savePlatformBilling } from "../../services/saasBilling";
 import { presentMetaSettings, saveMetaSettings as persistMetaSettings } from "../../services/metaSettings";
@@ -305,7 +306,7 @@ class SaasAdminController {
             const b = req.body || {};
             const ownerName = String(b.owner_name || b.name || "").trim().slice(0, 255);
             const phone = String(b.phone_number || "").replace(/\D/g, "");
-            const countryCode = String(b.country_code || "+91").trim();
+            const countryCode = normalizeCountryCode(b.country_code);
             const trialDays = Math.round(Number(b.trial_days || 0));
             const email = String(b.email || "").trim().toLowerCase().slice(0, 255);
             const activate = ["paid", "trial", "none"].includes(String(b.activate || ""))

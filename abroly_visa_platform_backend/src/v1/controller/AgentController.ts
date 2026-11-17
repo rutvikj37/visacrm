@@ -13,6 +13,7 @@ import {
     verifySetupToken,
 } from "../../services/agencyLogin";
 import { agencyByPortalHost, sharedPanel } from "../../services/panelUrl";
+import { agentPhoneWhere } from "../../services/phoneMatch";
 import { isLocalDev } from "../../middleware/localOnly";
 import Agent from "../../model/Agent";
 import { returnHelper } from "../../helpers/returnHelper";
@@ -108,7 +109,10 @@ const tryLoginCode = async (res: Response, user: any, otp: unknown) => {
 };
 
 const findActiveAgentByPhone = async (phone_number: string, country_code: string) =>
-    Agent.findOne({ where: { phone_number, country_code, status: "active" } });
+    Agent.findOne({ where: agentPhoneWhere(phone_number, country_code, { status: "active" }) });
+
+const findAgentByPhone = async (phone_number: string, country_code: string, extra: Record<string, unknown> = {}) =>
+    Agent.findOne({ where: agentPhoneWhere(phone_number, country_code, extra) });
 
 class AgentController {
     async validateOTP(req: Request, res: Response) {
@@ -124,12 +128,7 @@ class AgentController {
                 verificationId
             } = req.body
 
-            const user = await Agent.findOne({
-                where: {
-                    phone_number,
-                    country_code,
-                }
-            })
+            const user = await findAgentByPhone(phone_number, country_code)
 
             if (user) {
                 const wrongAgency = await wrongAgencyMessage(user, req.body?.agency_host)
@@ -342,12 +341,7 @@ class AgentController {
                 device_model
             } = req.body
 
-            const user = await Agent.findOne({
-                where: {
-                    phone_number,
-                    country_code,
-                }
-            })
+            const user = await findAgentByPhone(phone_number, country_code)
 
             if (user) {
                 const wrongAgency = await wrongAgencyMessage(user, req.body?.agency_host)
@@ -426,13 +420,7 @@ class AgentController {
 
             const { phone: phone_number, country_code } = req.body
 
-            const findUser = await Agent.findOne({
-                where: {
-                    phone_number,
-                    country_code,
-                    status:'active'
-                }
-            })
+            const findUser = await findActiveAgentByPhone(phone_number, country_code)
 
             if (findUser) {
                 const wrongAgency = await wrongAgencyMessage(findUser, req.body?.agency_host)
@@ -510,20 +498,14 @@ class AgentController {
             }
             else {
 
-                const isInActiveAgent = await Agent.findOne({
-                    where: {
-                        phone_number,
-                        country_code,
-                        status:'inactive'
-                    }
-                })
+                const isInActiveAgent = await findAgentByPhone(phone_number, country_code, { status: "inactive" })
 
                 if(isInActiveAgent){
                     return returnHelper(res,200,false,"You're Profile deactivated from admin, please contact admin")
                 }else{
                     return res.status(200).json({
                         success: false,
-                        message: "Phone number not registred YET!"
+                        message: "Phone number not registered YET!"
                     })
                 }
 
@@ -540,13 +522,7 @@ class AgentController {
 
             const { phone: phone_number, country_code } = req.body
 
-            const findUser = await Agent.findOne({
-                where: {
-                    phone_number,
-                    country_code,
-                    status:'active'
-                }
-            })
+            const findUser = await findActiveAgentByPhone(phone_number, country_code)
 
 
             if (findUser) {
@@ -611,20 +587,14 @@ class AgentController {
             else {
 
                 // find if status is inactive
-                const isInActiveAgent = await Agent.findOne({
-                    where: {
-                        phone_number,
-                        country_code,
-                        status:'inactive'
-                    }
-                })
+                const isInActiveAgent = await findAgentByPhone(phone_number, country_code, { status: "inactive" })
 
                 if(isInActiveAgent){
                     return returnHelper(res,200,false,"You're Profile deactivated from admin, please contact admin")
                 }else{
                     return res.status(200).json({
                         success: false,
-                        message: "Phone number not registred YET!"
+                        message: "Phone number not registered YET!"
                     })
                 }
 

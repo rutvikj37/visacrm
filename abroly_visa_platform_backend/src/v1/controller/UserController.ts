@@ -394,7 +394,7 @@ class UserController {
             else {
                 return res.status(200).json({
                     success: false,
-                    message: "Phone number not registred YET!"
+                    message: "Phone number not registered YET!"
                 })
 
             }
@@ -509,7 +509,7 @@ class UserController {
             else {
                 return res.status(200).json({
                     success: false,
-                    message: "Phone number not registred YET!"
+                    message: "Phone number not registered YET!"
                 })
 
             }
@@ -1324,7 +1324,7 @@ class UserController {
             if (!findUser) {
                 return res.status(200).json({
                     success: false,
-                    message: "Phone number not registred YET!"
+                    message: "Phone number not registered YET!"
                 })
             }
             // Fixed admin OTP 111111 — same as production (no SMS)
@@ -1440,7 +1440,7 @@ class UserController {
             else {
                 return res.status(200).json({
                     success: false,
-                    message: "Phone number not registred YET!"
+                    message: "Phone number not registered YET!"
                 })
 
             }
@@ -1526,7 +1526,7 @@ class UserController {
             else {
                 return res.status(200).json({
                     success: false,
-                    message: "Phone number not registred YET!"
+                    message: "Phone number not registered YET!"
                 })
 
             }
@@ -1603,7 +1603,7 @@ class UserController {
             else {
                 return res.status(200).json({
                     success: false,
-                    message: "Phone number not registred YET!"
+                    message: "Phone number not registered YET!"
                 })
 
             }

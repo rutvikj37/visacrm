@@ -6,6 +6,7 @@ import { returnHelper } from "../../helpers/returnHelper"
 import { Op } from "sequelize"
 import Subscription from "../../model/Subscription"
 import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin"
+import { normalizeCountryCode } from "../../services/phoneMatch"
 import { panelBaseOf } from "../../services/panelUrl"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
@@ -42,7 +43,7 @@ class SubAgentController {
             const b = req.body || {};
             const username = String(b.user_name || "").trim().slice(0, 255);
             const phone = String(b.phone_number || "").replace(/\D/g, "");
-            const countryCode = String(b.country_code || "+91").trim();
+            const countryCode = normalizeCountryCode(b.country_code);
             const email = String(b.email || "").trim().toLowerCase().slice(0, 255);
             const designation = b.designation ? String(b.designation).trim().slice(0, 255) : null;
 
