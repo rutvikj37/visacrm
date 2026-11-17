@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { DollarSign, Clock, GraduationCap, Briefcase, CheckCircle, XCircle, Info, Calendar, FileText, Banknote, AlertTriangle, Globe, MapPin, Shield, Utensils, Heart, Building2 } from 'lucide-react';
-
+import { IndianRupee, Clock, GraduationCap, Briefcase, CheckCircle, XCircle, Info, Calendar, FileText, Banknote, AlertTriangle, Globe, MapPin, Shield, Utensils, Heart, Building2 } from 'lucide-react';
 import { Button, Card, CardBody, Spinner } from '@heroui/react';
 import BackButton from '@/components/BackButton';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
 import { countries } from 'country-data';
 import { PRIMARY_COLOR, BRAND_TEXT, PRIMARY_COLOR_LIGHT, PRIMARY_COLOR_DARK, getPrimaryGradient } from '@/lib/theme';
 
+const inr = (n?: number | string | null) =>
+    `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 const JobDetails = () => {
     const { commonPostAPICall } = useApiCallUtils()
@@ -132,7 +133,7 @@ const JobDetails = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500">Salary Range</p>
-                                                    <p className="text-sm font-semibold text-gray-700">{details?.salaryMin} - {details?.salaryMax} /Month</p>
+                                                    <p className="text-sm font-semibold text-gray-700">{inr(details?.salaryMin)} - {inr(details?.salaryMax)} /Month</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center p-3 bg-gray-50/50 rounded-lg border border-gray-200/50">
@@ -236,7 +237,7 @@ const JobDetails = () => {
                                                 </div>
                                                 <div className="p-3 bg-gray-50/50 rounded-lg border border-gray-200/50">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <DollarSign className="h-4 w-4 text-gray-400" />
+                                                        <IndianRupee className="h-4 w-4 text-gray-400" />
                                                         <p className="text-xs text-gray-500">Agent Charges</p>
                                                     </div>
                                                     <p className="text-sm font-semibold text-gray-700">{details?.agentCharges}</p>

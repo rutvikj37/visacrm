@@ -2,12 +2,14 @@ import { Button, Pagination, Spinner, Tab, Tabs, Table, TableBody, TableCell, Ta
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import CommonConfirmation from '@/components/CommonConfirmation'
-import { Pencil, Trash2, Briefcase, Plus, Globe, DollarSign, Clock, Calendar, Users, Eye } from 'lucide-react'
+import { Pencil, Trash2, Briefcase, Plus, Globe, IndianRupee, Clock, Calendar, Users, Eye } from 'lucide-react'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { countries } from "country-data"
 import { PRIMARY_COLOR, BRAND_TEXT, PRIMARY_COLOR_LIGHT } from '@/lib/theme'
 
 const PAGE_SIZE = 25
+const inr = (n?: number | string | null) =>
+    `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 
 const JobPost = () => {
 
@@ -152,9 +154,9 @@ const JobPost = () => {
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
-                                                        <DollarSign className="w-4 h-4 text-gray-400" />
+                                                        <IndianRupee className="w-4 h-4 text-gray-400" />
                                                         <span className="text-sm font-medium text-gray-700">
-                                                            {post?.salaryMin} - {post?.salaryMax}
+                                                            {inr(post?.salaryMin)} - {inr(post?.salaryMax)}
                                                         </span>
                                                     </div>
                                                 </TableCell>

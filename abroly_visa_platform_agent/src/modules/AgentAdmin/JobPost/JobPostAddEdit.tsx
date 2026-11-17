@@ -229,10 +229,10 @@ const JobPostAddEdit = () => {
                             <Input {...controlProps} aria-label="Job role" placeholder="e.g. Software engineer" value={formData.jobRole} onValueChange={(v) => setField("jobRole", v)} />
                         </Field>
                         <Field label="Salary min (INR / month)" required>
-                            <Input {...controlProps} type="number" aria-label="Salary min" placeholder="e.g. 40000" value={String(formData.salaryMin)} onValueChange={(v) => setField("salaryMin", v)} />
+                            <Input {...controlProps} type="number" aria-label="Salary min" placeholder="e.g. 40000" startContent={<span className="text-default-400 text-sm">₹</span>} value={String(formData.salaryMin)} onValueChange={(v) => setField("salaryMin", v)} />
                         </Field>
                         <Field label="Salary max (INR / month)" required>
-                            <Input {...controlProps} type="number" aria-label="Salary max" placeholder="e.g. 60000" value={String(formData.salaryMax)} onValueChange={(v) => setField("salaryMax", v)} />
+                            <Input {...controlProps} type="number" aria-label="Salary max" placeholder="e.g. 60000" startContent={<span className="text-default-400 text-sm">₹</span>} value={String(formData.salaryMax)} onValueChange={(v) => setField("salaryMax", v)} />
                         </Field>
                     </div>
                 </section>
