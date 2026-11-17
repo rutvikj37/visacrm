@@ -37,6 +37,7 @@ const HELP: [string, Help][] = [
     ["/crm/sources", { title: "Lead sources", points: [
         "Connect where your leads come from. Each source gets its own link or key - new leads arrive in the inbox within seconds.",
         "A source can belong to a branch, so its leads go straight to that office.",
+        "Turn on auto-assign and pick which counsellors receive new leads (round robin). Leave none selected to include everyone eligible.",
         "Use 'Send test lead' after connecting to check it works.",
     ] }],
     ["/crm/templates", { title: "Visa templates", points: [

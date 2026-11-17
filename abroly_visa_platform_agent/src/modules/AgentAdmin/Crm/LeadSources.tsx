@@ -2,7 +2,7 @@ import FirstTip from "@/components/help/FirstTip";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Button, Card, CardBody, CardHeader, Chip, Code, Input, Spinner, Switch, Tab, Tabs, useDisclosure } from "@heroui/react";
+import { Button, Card, CardBody, CardHeader, Checkbox, Chip, Code, Input, Spinner, Switch, Tab, Tabs, useDisclosure } from "@heroui/react";
 import { ArrowLeft, Copy, FileSpreadsheet, Globe, Lock, Plus, RefreshCw, ShoppingBag, Trash2 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import CommonConfirmation from "@/components/CommonConfirmation";
@@ -11,6 +11,13 @@ import { formatDateTime, timeAgo } from "./crmShared";
 import { FacebookSourceCard, WhatsappSourceCard } from "./MetaSourceCards";
 import { InstagramSourceCard, PushSourceCard } from "./PushSourceCards";
 import SourceBranchCard from "./SourceBranchCard";
+
+const AUTO_ASSIGN_ROLES = new Set(["counsellor", "branch_manager"]);
+const roleLabel = (role?: string) => {
+    if (role === "branch_manager") return "Branch manager";
+    if (role === "counsellor") return "Counsellor";
+    return role || "Team";
+};
 
 const copy = async (text: string) => {
     try {
@@ -70,6 +77,9 @@ const LeadSources = () => {
 
     const [integrations, setIntegrations] = useState<any[]>([]);
     const [autoAssign, setAutoAssign] = useState(false);
+    const [autoAssignMemberIds, setAutoAssignMemberIds] = useState<number[]>([]);
+    const [savedAutoAssignMemberIds, setSavedAutoAssignMemberIds] = useState<number[]>([]);
+    const [eligibleMembers, setEligibleMembers] = useState<any[]>([]);
     const [rules, setRules] = useState({ new_lead_hours: "", stale_days: "" });
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState<string | null>(null);
@@ -83,17 +93,29 @@ const LeadSources = () => {
     const allowedSources: string[] | null = subscription?.plan ? (subscription.plan.features?.sources || []) : null;
     const isLocked = (key: string) => Boolean(allowedSources && !allowedSources.includes(key));
     const deleteConfirm = useDisclosure();
+    const memberSelectionDirty = JSON.stringify([...autoAssignMemberIds].sort((a, b) => a - b))
+        !== JSON.stringify([...savedAutoAssignMemberIds].sort((a, b) => a - b));
 
     const load = useCallback(async () => {
-        const [list, settings, meta] = await Promise.all([
+        const [list, settings, meta, team] = await Promise.all([
             commonGetAPICalls("/crm/integrations"),
             commonGetAPICalls("/crm/settings"),
             commonGetAPICalls("/crm/meta/status"),
+            commonGetAPICalls("/crm/team"),
         ]);
         if (meta.success) setMetaConfig(meta.data);
         if (list.success) setIntegrations(list.data || []);
+        if (team.success) {
+            const members = (team.data || []).filter((m: any) => m.role !== "agent" && AUTO_ASSIGN_ROLES.has(m.team_role || "counsellor"));
+            setEligibleMembers(members);
+        }
         if (settings.success) {
             setAutoAssign(Boolean(settings.data?.auto_assign));
+            const ids = Array.isArray(settings.data?.auto_assign_member_ids)
+                ? settings.data.auto_assign_member_ids.map((n: any) => Number(n)).filter((n: number) => Number.isInteger(n) && n > 0)
+                : [];
+            setAutoAssignMemberIds(ids);
+            setSavedAutoAssignMemberIds(ids);
             setRules({ new_lead_hours: settings.data?.rules?.new_lead_hours ? String(settings.data.rules.new_lead_hours) : "", stale_days: settings.data?.rules?.stale_days ? String(settings.data.rules.stale_days) : "" });
         }
         setLoading(false);
@@ -149,20 +171,76 @@ const LeadSources = () => {
 
             {/* settings */}
             <Card shadow="sm">
-                <CardBody className="flex flex-row items-center gap-4">
-                    <div className="flex-1">
-                        <div className="font-medium">Auto-assign new leads</div>
-                        <div className="text-sm text-default-500">Share new leads one by one (round robin) between your active team members.</div>
+                <CardBody className="gap-4">
+                    <div className="flex flex-row items-center gap-4">
+                        <div className="flex-1">
+                            <div className="font-medium">Auto-assign new leads</div>
+                            <div className="text-sm text-default-500">Share new leads one by one (round robin) between selected counsellors and branch managers.</div>
+                        </div>
+                        <Switch
+                            isSelected={autoAssign}
+                            isDisabled={busy === "settings"}
+                            onValueChange={async (v) => {
+                                setAutoAssign(v);
+                                const r = await call("settings", "crm/settings", { auto_assign: v });
+                                if (!r.success) setAutoAssign(!v);
+                            }}
+                            aria-label="Auto-assign"
+                        />
                     </div>
-                    <Switch
-                        isSelected={autoAssign}
-                        isDisabled={busy === "settings"}
-                        onValueChange={async (v) => {
-                            const r = await call("settings", "crm/settings", { auto_assign: v });
-                            if (!r.success) setAutoAssign(!v);
-                        }}
-                        aria-label="Auto-assign"
-                    />
+                    {autoAssign && (
+                        <div className="rounded-xl border border-default-200 p-3 flex flex-col gap-3">
+                            <div>
+                                <div className="text-sm font-medium">Who receives auto-assigned leads</div>
+                                <div className="text-xs text-default-500 mt-0.5">
+                                    Select team members for the rotation. If none are selected, every active counsellor and branch manager is included. Branch rules still apply when a lead belongs to a branch.
+                                </div>
+                            </div>
+                            {eligibleMembers.length === 0 ? (
+                                <div className="text-sm text-default-500">No active counsellors or branch managers yet. Add them under Roles &amp; branches.</div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {eligibleMembers.map((m) => {
+                                        const id = Number(m.id);
+                                        const checked = autoAssignMemberIds.includes(id);
+                                        return (
+                                            <Checkbox
+                                                key={m.uuid || id}
+                                                size="sm"
+                                                isSelected={checked}
+                                                onValueChange={(on) => {
+                                                    setAutoAssignMemberIds((prev) => on
+                                                        ? [...prev.filter((x) => x !== id), id]
+                                                        : prev.filter((x) => x !== id));
+                                                }}
+                                            >
+                                                <span className="text-sm">{m.username || m.email || `Member #${id}`}</span>
+                                                <span className="text-xs text-default-500 ml-1.5">{roleLabel(m.team_role)}</span>
+                                            </Checkbox>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    color="primary"
+                                    variant="flat"
+                                    isLoading={busy === "auto-members"}
+                                    isDisabled={!memberSelectionDirty}
+                                    onPress={async () => {
+                                        const r = await call("auto-members", "crm/settings", { auto_assign_member_ids: autoAssignMemberIds });
+                                        if (r.success) setSavedAutoAssignMemberIds(autoAssignMemberIds);
+                                    }}
+                                >
+                                    Save members
+                                </Button>
+                                {!autoAssignMemberIds.length && (
+                                    <span className="text-xs text-default-500">Currently: all eligible members</span>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </CardBody>
             </Card>
 

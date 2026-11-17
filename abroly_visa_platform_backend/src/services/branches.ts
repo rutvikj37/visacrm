@@ -5,6 +5,7 @@ import AgencyBranch from "../model/AgencyBranch";
 import LeadIntegration from "../model/LeadIntegration";
 import { RequestWithUser } from "../utils/types";
 import { accessOf } from "../helpers/access";
+import { filterAutoAssignTeam, readAutoAssignMemberIds } from "./autoAssignMembers";
 
 /**
  * Multi-branch rules.
@@ -52,10 +53,15 @@ export const resolveLeadBranch = async (agencyUuid: string, opts: { integrationI
 export const pickBranchAssignee = async (agencyUuid: string, branchId: number): Promise<number | null> => {
     const branch: any = await AgencyBranch.findOne({ where: { id: branchId, agency_uuid: agencyUuid }, attributes: ["id", "last_assigned_id"] });
     if (!branch) return null;
-    const team: any[] = await Agent.findAll({
+    const agency: any = await Agent.findOne({
+        where: { uuid: agencyUuid, role: "agent" },
+        attributes: ["crm_auto_assign_member_ids"],
+    });
+    const allEligible: any[] = await Agent.findAll({
         where: { parent_uuid: agencyUuid, status: "active", branch_id: branchId, team_role: ["counsellor", "branch_manager"] },
         attributes: ["id"], order: [["id", "ASC"]],
     });
+    const team = filterAutoAssignTeam(allEligible, readAutoAssignMemberIds(agency?.dataValues?.crm_auto_assign_member_ids));
     if (!team.length) return null;
     const lastId = Number(branch.dataValues.last_assigned_id) || 0;
     const next = team.find((m) => m.dataValues.id > lastId) || team[0];

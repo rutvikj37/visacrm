@@ -1,4 +1,5 @@
 import { branchOfAgent, isAgencyBranch, pickBranchAssignee, resolveLeadBranch } from "./branches";
+import { filterAutoAssignTeam, readAutoAssignMemberIds } from "./autoAssignMembers";
 import { Op } from "sequelize";
 import { leadRecipients, notifyLater } from "./notifications";
 import { refreshScore } from "./leadScore";
@@ -207,16 +208,17 @@ const autoAssignOn = async (agencyUuid: string) => {
 const pickAutoAssignee = async (agencyUuid: string): Promise<number | null> => {
     const agency: any = await Agent.findOne({
         where: { uuid: agencyUuid, role: "agent" },
-        attributes: ["id", "crm_auto_assign", "crm_last_assigned_id"],
+        attributes: ["id", "crm_auto_assign", "crm_auto_assign_member_ids", "crm_last_assigned_id"],
     });
     if (!agency || Number(agency.dataValues.crm_auto_assign) !== 1) return null;
 
     // only people who work leads take part in the rotation
-    const team: any[] = await Agent.findAll({
+    const allEligible: any[] = await Agent.findAll({
         where: { parent_id: agency.dataValues.id, status: "active", team_role: ["counsellor", "branch_manager"] },
         attributes: ["id"],
         order: [["id", "ASC"]],
     });
+    const team = filterAutoAssignTeam(allEligible, readAutoAssignMemberIds(agency.dataValues.crm_auto_assign_member_ids));
     if (!team.length) return null;
 
     const lastId = Number(agency.dataValues.crm_last_assigned_id) || 0;

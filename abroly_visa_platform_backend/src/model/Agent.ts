@@ -198,6 +198,12 @@ const Agent = sequelize.define('Agent', {
         type: DataTypes.TINYINT,
         defaultValue: 0, // 1 = new leads are assigned round-robin to active team members
     },
+    // JSON array of agent ids eligible for auto-assign; null / [] = all active counsellors & branch managers
+    crm_auto_assign_member_ids: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        defaultValue: null
+    },
     crm_last_assigned_id: {
         type: DataTypes.INTEGER,
         allowNull: true,

@@ -901,9 +901,21 @@ class CrmController {
     // GET /crm/settings
     async getSettings(req: RequestWithUser, res: Response) {
         try {
-            const agency: any = await Agent.findOne({ where: { uuid: ctx(req).agencyUuid, role: "agent" }, attributes: ["crm_auto_assign", "crm_rules"] });
+            const agency: any = await Agent.findOne({
+                where: { uuid: ctx(req).agencyUuid, role: "agent" },
+                attributes: ["crm_auto_assign", "crm_auto_assign_member_ids", "crm_rules"],
+            });
+            let autoAssignMemberIds: number[] = [];
+            try {
+                const raw = agency?.dataValues?.crm_auto_assign_member_ids;
+                const parsed = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : [];
+                if (Array.isArray(parsed)) {
+                    autoAssignMemberIds = parsed.map((v: any) => Number(v)).filter((n: number) => Number.isInteger(n) && n > 0);
+                }
+            } catch { /* keep [] */ }
             return returnHelper(res, 200, true, "Settings fetched", {
                 auto_assign: Number(agency?.dataValues?.crm_auto_assign) === 1,
+                auto_assign_member_ids: autoAssignMemberIds,
                 rules: readRules(agency?.dataValues?.crm_rules),
             });
         } catch (error) {
@@ -911,12 +923,37 @@ class CrmController {
         }
     }
 
-    // POST /crm/settings  { auto_assign?: boolean, rules?: { new_lead_hours, stale_days } }
+    // POST /crm/settings  { auto_assign?: boolean, auto_assign_member_ids?: number[], rules?: { new_lead_hours, stale_days } }
     async updateSettings(req: RequestWithUser, res: Response) {
         try {
             if (!ctx(req).isOwner) return returnHelper(res, 200, false, "Only the agency owner can change settings");
+            const { agencyUuid } = ctx(req);
             const updates: Record<string, any> = {};
             if (req.body?.auto_assign !== undefined) updates.crm_auto_assign = req.body.auto_assign ? 1 : 0;
+            if (req.body?.auto_assign_member_ids !== undefined) {
+                const raw = Array.isArray(req.body.auto_assign_member_ids) ? req.body.auto_assign_member_ids : [];
+                const requested = [...new Set(raw.map((v: any) => Number(v)).filter((n: number) => Number.isInteger(n) && n > 0))];
+                if (!requested.length) {
+                    updates.crm_auto_assign_member_ids = null; // empty = all eligible counsellors / branch managers
+                } else {
+                    const agency: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["id"] });
+                    if (!agency) return returnHelper(res, 200, false, "Agency not found");
+                    const eligible: any[] = await Agent.findAll({
+                        where: {
+                            parent_id: agency.dataValues.id,
+                            status: "active",
+                            team_role: ["counsellor", "branch_manager"],
+                            id: requested,
+                        },
+                        attributes: ["id"],
+                    });
+                    const validIds = eligible.map((m) => m.dataValues.id);
+                    if (validIds.length !== requested.length) {
+                        return returnHelper(res, 200, false, "Only active counsellors and branch managers can be selected for auto-assign");
+                    }
+                    updates.crm_auto_assign_member_ids = JSON.stringify(validIds);
+                }
+            }
             if (req.body?.rules !== undefined) {
                 const num = (v: any, max: number) => {
                     if (v === null || v === undefined || v === "") return null;
@@ -926,7 +963,7 @@ class CrmController {
                 updates.crm_rules = JSON.stringify({ new_lead_hours: num(req.body.rules?.new_lead_hours, 72), stale_days: num(req.body.rules?.stale_days, 60) });
             }
             if (!Object.keys(updates).length) return returnHelper(res, 200, false, "Nothing to save");
-            await Agent.update(updates, { where: { uuid: ctx(req).agencyUuid, role: "agent" } });
+            await Agent.update(updates, { where: { uuid: agencyUuid, role: "agent" } });
             return returnHelper(res, 200, true, "Settings saved");
         } catch (error) {
             return handleError(res, error, "updateSettings");
