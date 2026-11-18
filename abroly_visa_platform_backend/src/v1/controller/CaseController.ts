@@ -189,8 +189,8 @@ class CaseController {
                 order: [["updatedAt", "DESC"]],
                 limit,
                 offset: paginate ? (page - 1) * limit : 0,
-                distinct: true,
-                col: "id",
+                // belongsTo user_of is 1:1 — do not pass distinct/col; Sequelize 6
+                // prefixes col with the model name and generates AgencyLeads->AgencyLeads.id
             });
             const ids = cases.map((c: any) => c.dataValues.id);
 
