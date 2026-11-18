@@ -91,7 +91,7 @@ import PlatformSchedulerHeartbeat from "../model/PlatformSchedulerHeartbeat";
 
 interface SyncOptions {
   force?: boolean;
-  alter?: boolean;
+  alter?: boolean | { drop: boolean };
 }
 
 class ModelInitializer {

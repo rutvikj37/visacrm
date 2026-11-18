@@ -19,7 +19,8 @@ const syncDatabase = async () => {
     if (initializer.isModelInitialized()) {
       // Use reinitialize which resets state and calls initializeModels
       const syncOptions = {
-        alter: process.env.NODE_ENV !== 'production',
+        // add / widen columns, but never DROP a column that left a model (that would delete data)
+        alter: process.env.NODE_ENV !== 'production' ? { drop: false } : false,
         force: false
       };
       console.log(`📊 Sync options:`, syncOptions);
@@ -27,7 +28,8 @@ const syncDatabase = async () => {
     } else {
       // First time initialization
       const syncOptions = {
-        alter: process.env.NODE_ENV !== 'production',
+        // add / widen columns, but never DROP a column that left a model (that would delete data)
+        alter: process.env.NODE_ENV !== 'production' ? { drop: false } : false,
         force: false
       };
       console.log(`📊 Sync options:`, syncOptions);
