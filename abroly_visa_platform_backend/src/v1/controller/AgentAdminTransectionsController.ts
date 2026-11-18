@@ -1,5 +1,5 @@
+import { saveFile, ownerFromRequest } from "../../helpers/storage";
 import { Response } from "express";
-import { privateFilePath } from "../../helpers/privateFiles";
 import { RequestWithUser } from "../../utils/types";
 import AgentTransectionsToAdmin from "../../model/AgentTransectionsToAdmin";
 import { returnHelper } from "../../helpers/returnHelper";
@@ -39,6 +39,8 @@ class AgentAdminTransectionsController {
                 1000 + Math.random() * 9000
             )}${path.parse(req?.file?.originalname).ext}`;
 
+            const stored = await saveFile({ owner: ownerFromRequest(req), folder: "subscription_proof", name: file_name, body: req.file!.buffer, contentType: req.file!.mimetype });
+
             const transaction = await AgentTransectionsToAdmin.create({
                 agent_id: req?.id,
                 plan_id,
@@ -46,13 +48,8 @@ class AgentAdminTransectionsController {
                 transection_id,
                 transaction_type,
                 amount,
-                payment_proof: file_name,
+                payment_proof: stored,
                 status: 'pending'
-            }).then(() => {
-                fs.writeFileSync(
-                    privateFilePath("subscription_proof", file_name),
-                    req.file!.buffer
-                );
             })
 
             return returnHelper(res, 200, true, "transaction created successfully");

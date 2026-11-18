@@ -1,3 +1,4 @@
+import { saveFile, deleteFile, ownerFromRequest } from "../../helpers/storage";
 import { Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import path from 'path'
@@ -20,17 +21,13 @@ class TestimonialsController {
                     1000 + Math.random() * 9000
                 )}${path.parse(req.file.originalname).ext}`;
             }
+            if (req.file) {
+                file_url = await saveFile({ owner: ownerFromRequest(req), folder: "testimonials", name: file_url, body: req.file.buffer, contentType: req.file.mimetype });
+            }
             await Testimonial.create({
                 name,
                 description,
                 file_url
-            }).then(() => {
-                if (req.file) {
-                    fs.writeFileSync(
-                        path.join("public/testimonials", file_url),
-                        req.file!.buffer
-                    );
-                }
             })
             return returnHelper(res, 200, true, "Added!")
         } catch (error: any) {
@@ -81,11 +78,7 @@ class TestimonialsController {
             })
 
             // delete file
-            if (!fs.existsSync(`public/testimonials/${findTestimonial.dataValues.file_url}`)) {
-                unlink(`public/testimonials/${findTestimonial.dataValues.file_url}`, (err) => {
-                    console.log(err?.message)
-                })
-            }
+            await deleteFile("testimonials", findTestimonial.dataValues.file_url);
 
             return returnHelper(res, 200, true, "Deleted!")
         } catch (error: any) {

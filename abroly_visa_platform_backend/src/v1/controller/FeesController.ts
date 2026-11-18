@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../../helpers/storage";
 import AgencyBranch from "../../model/AgencyBranch";
 import { invoiceHistory } from "./ActivityLogController";
 import { audit } from "../../services/audit";
@@ -343,7 +344,7 @@ class FeesController {
             if (!invoice) return returnHelper(res, 200, false, "Invoice not found");
             const agency: any = await Agent.findOne({ where: { uuid: accessOf(req).agencyUuid, role: "agent" }, attributes: ["billing_settings", "billing_credentials", "app_name", "username", "agency_address", "support_number", "support_email", "favicon_url"] });
             const billing = readBilling(agency?.dataValues?.billing_settings);
-            const logo = agency?.dataValues?.favicon_url ? (String(agency.dataValues.favicon_url).startsWith("http") ? agency.dataValues.favicon_url : `${process.env.LOCAL_PATH || ""}public/profiles/${agency.dataValues.favicon_url}`) : null;
+            const logo = agency?.dataValues?.favicon_url ? (String(agency.dataValues.favicon_url).startsWith("http") ? agency.dataValues.favicon_url : publicFileUrl("profiles", agency.dataValues.favicon_url)) : null;
             // the branch that billed it prints its own address / GSTIN / contact where it has them
             const br: any = invoice.dataValues.branch_id ? await AgencyBranch.findByPk(invoice.dataValues.branch_id, { paranoid: false }) : null;
             const bd = br?.dataValues || {};

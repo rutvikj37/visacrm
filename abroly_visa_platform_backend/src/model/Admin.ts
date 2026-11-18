@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataType, DataTypes, ModelDefined, Optional, TinyIntegerDataType } from "sequelize";
 import sequelize from "../config/dbconfig";
 
@@ -35,7 +36,7 @@ const Admin = sequelize.define(
     access_profile: {
       type: DataTypes.VIRTUAL,
       get(this: any) {
-        return this.profile_image !== "" ? `${process.env.LOCAL_PATH}public/profiles/${this.profile_image}` : null
+        return this.profile_image !== "" ? publicFileUrl("profiles", this.profile_image) : null
       },
     },
     user_type: {

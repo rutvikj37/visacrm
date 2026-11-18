@@ -1,3 +1,4 @@
+import { saveFile, deleteFile, ownerFromRequest } from "../../helpers/storage";
 import { Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import { AgentProfile, BranchOffice, Certification, Language } from "../../model/AgentProfile";
@@ -441,19 +442,16 @@ class AgentProfileController {
                 type = "pdf";
             }
 
+            const stored = await saveFile({ owner: ownerFromRequest(req), folder: "certificates", name, body: req.file.buffer, contentType: req.file.mimetype });
+
             // create certificate
             await Certification.create({
-                name,
+                name: stored,
                 type,
                 certificationName,
                 accreditationBody,
                 agent_uuid: req.user?.user?.uuid
             })
-
-            fs.writeFileSync(
-                path.join("public/certificates", name),
-                req.file.buffer
-            );
 
             return returnHelper(res, 200, true, "Certificate Added")
 
@@ -481,13 +479,7 @@ class AgentProfileController {
 
             if (findCertificate.dataValues.name && findCertificate.dataValues.name !== "") {
 
-                if (fs.existsSync(`./public/certificates/${findCertificate.dataValues.name}`)) {
-                    fs.unlink("./public/certificates/" + findCertificate.dataValues.name, (err) => {
-                        if (err) {
-                            console.error("Some issue in deleting file", err);
-                        }
-                    });
-                }
+                await deleteFile("certificates", findCertificate.dataValues.name);
             }
 
             await Certification.destroy({

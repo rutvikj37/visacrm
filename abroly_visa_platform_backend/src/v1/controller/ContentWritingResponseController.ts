@@ -1,3 +1,4 @@
+import { saveFile, ownerFromRequest } from "../../helpers/storage";
 import { Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
@@ -98,15 +99,14 @@ class ContentWritingResponseController {
             }
 
 
+            if (req.file) {
+                file_name = await saveFile({ owner: ownerFromRequest(req), folder: "content_writing_files", name: file_name, body: req.file.buffer, contentType: req.file.mimetype });
+            }
+
             await ContentWritingServicesResponsesFiles.create({
                 ref_uuid: uuid,
                 file_name: file_name,
                 file_type
-            }).then(() => {
-                fs.writeFileSync(
-                    path.join("public/content_writing_files", file_name),
-                    req.file!.buffer
-                );
             })
 
             return returnHelper(res, 200, true, "File Uploaded")

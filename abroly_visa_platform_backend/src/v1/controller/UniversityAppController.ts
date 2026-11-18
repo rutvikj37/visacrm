@@ -1,3 +1,4 @@
+import { saveFile, agencyOwner } from "../../helpers/storage";
 import fs from "fs";
 import crypto from "crypto";
 import path from "path";
@@ -6,7 +7,7 @@ import { NextFunction, Request, Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import { caseScope } from "../../helpers/access";
-import { privateFilePath, signedFileUrl } from "../../helpers/privateFiles";
+import { signedFileUrl } from "../../helpers/privateFiles";
 import AgencyLeads from "../../model/AgencyLeads";
 import UniversityApplication, { UNI_APP_STATUSES } from "../../model/UniversityApplication";
 import Commission from "../../model/Commission";
@@ -216,12 +217,11 @@ class UniversityAppController {
             if (!files.length) return returnHelper(res, 200, false, "Please choose a file");
             const existing = Array.isArray(app.get("offer_files")) ? app.get("offer_files") : [];
             if (existing.length + files.length > 10) return returnHelper(res, 200, false, "Up to 10 files per university");
-            const saved = files.map((f) => {
+            const saved = await Promise.all(files.map(async (f) => {
                 const original = path.basename(f.originalname).replace(/[^\w.\- ()]+/g, "_").slice(-120) || "offer";
-                const name = `offer_${crypto.randomUUID()}${path.extname(original).toLowerCase()}`;
-                fs.writeFileSync(privateFilePath("student_docs", name), f.buffer);
+                const name = await saveFile({ owner: agencyOwner(c.dataValues.agent_uuid), folder: "student_docs", name: `offer_${crypto.randomUUID()}${path.extname(original).toLowerCase()}`, body: f.buffer, contentType: f.mimetype });
                 return { name, original, size: f.size, mime: f.mimetype, at: new Date().toISOString() };
-            });
+            }));
             await UniversityApplication.update({ offer_files: [...existing, ...saved] }, { where: { id: app.dataValues.id } });
             audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "university_file", summary: `${app.dataValues.university}: ${saved.map((s) => s.original).join(", ")} uploaded` });
             const fresh: any = await UniversityApplication.findByPk(app.dataValues.id);

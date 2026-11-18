@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/dbconfig';
 
@@ -21,7 +22,7 @@ const ServiceInfo = sequelize.define('ServiceInfo', {
     access_file: {
         type: DataTypes.VIRTUAL,
         get(this: any) {
-            return this.file && this.file !== "" ? `${process.env.LOCAL_PATH}public/service_info/${this.file}` : null
+            return this.file && this.file !== "" ? publicFileUrl("service_info", this.file) : null
         },
     },
     section_type: {

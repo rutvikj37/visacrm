@@ -1,3 +1,4 @@
+import { publicFileUrl, saveFile, deleteFile, ownerFromRequest, agencyOwner } from "../../helpers/storage";
 import { Request, Response } from "express";
 import { getAgencyAccess } from "../../services/saas";
 import {
@@ -890,18 +891,7 @@ class AgentController {
                     1000 + Math.random() * 9000
                 )}${path.parse(faviconFile.originalname).ext}`;
 
-                // Ensure directory exists
-                const faviconDir = path.join("public", "profiles");
-                if (!fs.existsSync(faviconDir)) {
-                    fs.mkdirSync(faviconDir, { recursive: true });
-                }
-
-                fs.writeFileSync(
-                    path.join(faviconDir, faviconFileName),
-                    faviconFile.buffer as any
-                );
-
-                createRecords.favicon_url = faviconFileName;
+                createRecords.favicon_url = await saveFile({ owner: ownerFromRequest(req), folder: "profiles", name: faviconFileName, body: faviconFile.buffer, contentType: faviconFile.mimetype });
             }
 
             // Handle og_image_file upload
@@ -911,18 +901,7 @@ class AgentController {
                     1000 + Math.random() * 9000
                 )}${path.parse(ogImageFile.originalname).ext}`;
 
-                // Ensure directory exists
-                const ogImageDir = path.join("public", "profiles");
-                if (!fs.existsSync(ogImageDir)) {
-                    fs.mkdirSync(ogImageDir, { recursive: true });
-                }
-
-                fs.writeFileSync(
-                    path.join(ogImageDir, ogImageFileName),
-                    ogImageFile.buffer as any
-                );
-
-                createRecords.og_image = ogImageFileName;
+                createRecords.og_image = await saveFile({ owner: ownerFromRequest(req), folder: "profiles", name: ogImageFileName, body: ogImageFile.buffer, contentType: ogImageFile.mimetype });
             }
 
             await Agent.create(createRecords)
@@ -1160,13 +1139,13 @@ class AgentController {
             if (accountData.favicon_url) {
                 accountData.favicon_url_full = accountData.favicon_url.startsWith('http') 
                     ? accountData.favicon_url 
-                    : `${process.env.LOCAL_PATH || ''}public/profiles/${accountData.favicon_url}`;
+                    : publicFileUrl("profiles", accountData.favicon_url);
             }
     
             if (accountData.og_image) {
                 accountData.og_image_full = accountData.og_image.startsWith('http') 
                     ? accountData.og_image 
-                    : `${process.env.LOCAL_PATH || ''}public/profiles/${accountData.og_image}`;
+                    : publicFileUrl("profiles", accountData.og_image);
             }
     
             return returnHelper(res, 200, true, "Account details retrieved successfully", accountData)
@@ -1290,13 +1269,13 @@ class AgentController {
             if (accountData.favicon_url) {
                 accountData.favicon_url_full = accountData.favicon_url.startsWith('http') 
                     ? accountData.favicon_url 
-                    : `${process.env.LOCAL_PATH || ''}public/profiles/${accountData.favicon_url}`;
+                    : publicFileUrl("profiles", accountData.favicon_url);
             }
     
             if (accountData.og_image) {
                 accountData.og_image_full = accountData.og_image.startsWith('http') 
                     ? accountData.og_image 
-                    : `${process.env.LOCAL_PATH || ''}public/profiles/${accountData.og_image}`;
+                    : publicFileUrl("profiles", accountData.og_image);
             }
     
             return returnHelper(res, 200, true, "Account details retrieved successfully", accountData)
@@ -1398,26 +1377,9 @@ class AgentController {
                     1000 + Math.random() * 9000
                 )}${path.parse(faviconFile.originalname).ext}`;
 
-                // Ensure directory exists
-                const faviconDir = path.join("public", "profiles");
-                if (!fs.existsSync(faviconDir)) {
-                    fs.mkdirSync(faviconDir, { recursive: true });
-                }
-
-                // Delete old favicon file if exists
-                if (existingAccount.dataValues.favicon_url) {
-                    const oldFaviconPath = path.join(faviconDir, existingAccount.dataValues.favicon_url);
-                    if (fs.existsSync(oldFaviconPath)) {
-                        fs.unlinkSync(oldFaviconPath);
-                    }
-                }
-
-                fs.writeFileSync(
-                    path.join(faviconDir, faviconFileName),
-                    faviconFile.buffer as any
-                );
-
-                updateRecords.favicon_url = faviconFileName;
+                const oldfavicon = existingAccount.dataValues.favicon_url;
+                updateRecords.favicon_url = await saveFile({ owner: agencyOwner(existingAccount.dataValues.uuid), folder: "profiles", name: faviconFileName, body: faviconFile.buffer, contentType: faviconFile.mimetype });
+                if (oldfavicon) await deleteFile("profiles", oldfavicon);
             } else if (favicon_url !== undefined) {
                 updateRecords.favicon_url = favicon_url;
             }
@@ -1429,26 +1391,9 @@ class AgentController {
                     1000 + Math.random() * 9000
                 )}${path.parse(ogImageFile.originalname).ext}`;
 
-                // Ensure directory exists
-                const ogImageDir = path.join("public", "profiles");
-                if (!fs.existsSync(ogImageDir)) {
-                    fs.mkdirSync(ogImageDir, { recursive: true });
-                }
-
-                // Delete old og_image file if exists
-                if (existingAccount.dataValues.og_image) {
-                    const oldOgImagePath = path.join(ogImageDir, existingAccount.dataValues.og_image);
-                    if (fs.existsSync(oldOgImagePath)) {
-                        fs.unlinkSync(oldOgImagePath);
-                    }
-                }
-
-                fs.writeFileSync(
-                    path.join(ogImageDir, ogImageFileName),
-                    ogImageFile.buffer as any
-                );
-
-                updateRecords.og_image = ogImageFileName;
+                const oldogImage = existingAccount.dataValues.og_image;
+                updateRecords.og_image = await saveFile({ owner: agencyOwner(existingAccount.dataValues.uuid), folder: "profiles", name: ogImageFileName, body: ogImageFile.buffer, contentType: ogImageFile.mimetype });
+                if (oldogImage) await deleteFile("profiles", oldogImage);
             } else if (og_image !== undefined) {
                 updateRecords.og_image = og_image;
             }
@@ -1524,13 +1469,13 @@ class AgentController {
             if (accountData.favicon_url) {
                 accountData.favicon_url_full = accountData.favicon_url.startsWith('http') 
                     ? accountData.favicon_url 
-                    : `${process.env.LOCAL_PATH || ''}public/profiles/${accountData.favicon_url}`;
+                    : publicFileUrl("profiles", accountData.favicon_url);
             }
 
             if (accountData.og_image) {
                 accountData.og_image_full = accountData.og_image.startsWith('http') 
                     ? accountData.og_image 
-                    : `${process.env.LOCAL_PATH || ''}public/profiles/${accountData.og_image}`;
+                    : publicFileUrl("profiles", accountData.og_image);
             }
 
             return returnHelper(res, 200, true, "Account details retrieved successfully", accountData)
@@ -1664,7 +1609,7 @@ class AgentController {
                         // agency look for the panel header: colour, name and logo (Branding settings)
                         ...(await (async () => {
                             const ag: any = await Agent.findOne({ where: { uuid: (req.user?.user as any)?.agent_uuid, role: "agent" }, attributes: ["primary_color", "app_name", "username", "favicon_url"], raw: true });
-                            const logo = ag?.favicon_url ? (String(ag.favicon_url).startsWith("http") ? ag.favicon_url : `${process.env.LOCAL_PATH || ""}public/profiles/${ag.favicon_url}`) : null;
+                            const logo = ag?.favicon_url ? (String(ag.favicon_url).startsWith("http") ? ag.favicon_url : publicFileUrl("profiles", ag.favicon_url)) : null;
                             return { brand_color: ag?.primary_color || null, agency_name: ag?.app_name || ag?.username || null, agency_logo: logo };
                         })())
                     }

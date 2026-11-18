@@ -1,3 +1,4 @@
+import { publicFileUrl, saveFile, deleteFile, agencyOwner } from "../../helpers/storage";
 import fs from "fs";
 import path from "path";
 import { Response } from "express";
@@ -13,7 +14,7 @@ const LOGO_TYPES: Record<string, string> = { "image/png": ".png", "image/jpeg": 
 
 const present = (agency: any) => {
     const a = agency.toJSON();
-    const logo = a.favicon_url ? (String(a.favicon_url).startsWith("http") ? a.favicon_url : `${process.env.LOCAL_PATH || ""}public/profiles/${a.favicon_url}`) : null;
+    const logo = a.favicon_url ? (String(a.favicon_url).startsWith("http") ? a.favicon_url : publicFileUrl("profiles", a.favicon_url)) : null;
     return {
         app_name: a.app_name, primary_color: a.primary_color, primary_foreground_color: a.primary_foreground_color, dark_primary_color: a.dark_primary_color,
         support_number: a.support_number, support_email: a.support_email, agency_address: a.agency_address, meta_description: a.meta_description,
@@ -59,14 +60,9 @@ class BrandingController {
                 if (!ext) return returnHelper(res, 200, false, "Logo must be a PNG, JPG or WEBP image");
                 if (file.size > 2 * 1024 * 1024) return returnHelper(res, 200, false, "Logo must be smaller than 2 MB");
                 const name = `logo-${agency.dataValues.id}-${Date.now()}${ext}`;
-                const dir = path.join(process.cwd(), "public", "profiles");
-                fs.mkdirSync(dir, { recursive: true });
-                fs.writeFileSync(path.join(dir, name), file.buffer);
                 const old = agency.dataValues.favicon_url;
-                if (old && /^logo-\d+-\d+\.(png|jpg|webp)$/.test(old)) {
-                    fs.promises.unlink(path.join(dir, old)).catch(() => undefined);
-                }
-                updates.favicon_url = name;
+                updates.favicon_url = await saveFile({ owner: agencyOwner(agency.dataValues.uuid), folder: "profiles", name, body: file.buffer, contentType: file.mimetype });
+                if (old && /(^|\/)logo-\d+-\d+\.(png|jpg|webp)$/.test(old)) await deleteFile("profiles", old);
             }
 
             if (!Object.keys(updates).length) return returnHelper(res, 200, false, "Nothing to save");

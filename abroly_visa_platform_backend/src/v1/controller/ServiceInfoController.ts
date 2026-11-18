@@ -1,3 +1,4 @@
+import { saveFile, deleteFile, ownerFromRequest } from "../../helpers/storage";
 import { Request, Response } from "express";
 import { returnHelper } from "../../helpers/returnHelper";
 import { RequestWithUser } from "../../utils/types";
@@ -46,12 +47,7 @@ class ServiceInfoController {
                     1000 + Math.random() * 9000
                 )}${path.parse(req.file.originalname).ext}`;
 
-                createRecords["file"] = file
-
-                fs.writeFileSync(
-                    path.join("public/service_info", file),
-                    req.file.buffer
-                );
+                createRecords["file"] = await saveFile({ owner: ownerFromRequest(req), folder: "service_info", name: file, body: req.file.buffer, contentType: req.file.mimetype });
 
             }
 
@@ -134,23 +130,12 @@ class ServiceInfoController {
                         1000 + Math.random() * 9000
                     )}${path.parse(req.file.originalname).ext}`;
 
-                    createRecords["file"] = file
-
-                    fs.writeFileSync(
-                        path.join("public/service_info", file),
-                        req.file.buffer
-                    );
+                    createRecords["file"] = await saveFile({ owner: ownerFromRequest(req), folder: "service_info", name: file, body: req.file.buffer, contentType: req.file.mimetype });
 
                     // delete old file if there is any
                     if (findBlock.dataValues.file && findBlock.dataValues.file !== "") {
 
-                        if (fs.existsSync(`./public/service_info/${findBlock.dataValues.file}`)) {
-                            fs.unlink("./public/service_info/" + findBlock.dataValues.file, (err) => {
-                                if (err) {
-                                    console.error("Some issue in deleting file", err);
-                                }
-                            });
-                        }
+                        await deleteFile("service_info", findBlock.dataValues.file);
                     }
                 }
             }
@@ -164,13 +149,7 @@ class ServiceInfoController {
                 // delete old file if there is any
                 if (findBlock.dataValues.file && findBlock.dataValues.file !== "") {
 
-                    if (fs.existsSync(`./public/service_info/${findBlock.dataValues.file}`)) {
-                        fs.unlink("./public/service_info/" + findBlock.dataValues.file, (err) => {
-                            if (err) {
-                                console.error("Some issue in deleting file", err);
-                            }
-                        });
-                    }
+                    await deleteFile("service_info", findBlock.dataValues.file);
                 }
             }
 
@@ -204,13 +183,7 @@ class ServiceInfoController {
 
             if (findBlock.dataValues.file && findBlock.dataValues.file !== "") {
 
-                if (fs.existsSync(`./public/service_info/${findBlock.dataValues.file}`)) {
-                    fs.unlink("./public/service_info/" + findBlock.dataValues.file, (err) => {
-                        if (err) {
-                            console.error("Some issue in deleting file", err);
-                        }
-                    });
-                }
+                await deleteFile("service_info", findBlock.dataValues.file);
             }
 
             await ServiceInfo.destroy({

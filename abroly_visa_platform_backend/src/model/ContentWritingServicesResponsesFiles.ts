@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataType, DataTypes, ModelDefined, Optional, TinyIntegerDataType } from "sequelize";
 import sequelize from "../config/dbconfig";
 
@@ -22,7 +23,7 @@ const ContentWritingServicesResponsesFiles = sequelize.define(
     access_file: {
       type: DataTypes.VIRTUAL,
       get(this: any) {
-        return this.file_name !== "" && this.file_name !== null ? `${process.env.LOCAL_PATH}public/content_writing_files/${this.file_name}` : null
+        return this.file_name !== "" && this.file_name !== null ? publicFileUrl("content_writing_files", this.file_name) : null
       },
     },
     file_type: {

@@ -1,3 +1,4 @@
+import { saveFile, deleteFile, ownerFromRequest } from "../../helpers/storage";
 import { Request, Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import EventBanner from "../../model/EventBanner"; // Ensure you have the EventBanner model
@@ -40,11 +41,8 @@ class EventBannerController {
                 const timestamp = new Date().toISOString(); // Get the current timestamp
                 const buffer = image.buffer; // Get the buffer from the image
                 const name = `${timestamp}_${image.originalname}`; // Add timestamp to the original name of the image
-                fs.writeFileSync(
-                    path.join("public/event_images", name),
-                    buffer
-                );
-                eventBannerImages.push({ eventBannerId: eventBanner.dataValues.uuid, imageUrl: name });
+                const stored = await saveFile({ owner: ownerFromRequest(req), folder: "event_images", name, body: buffer, contentType: image.mimetype });
+                eventBannerImages.push({ eventBannerId: eventBanner.dataValues.uuid, imageUrl: stored });
             }
 
             // Assuming you have an EventBannerImage model imported
@@ -86,11 +84,8 @@ class EventBannerController {
                     const timestamp = new Date().toISOString(); // Get the current timestamp
                     const buffer = image.buffer; // Get the buffer from the image
                     const name = `${timestamp}_${image.originalname}`; // Add timestamp to the original name of the image
-                    fs.writeFileSync(
-                        path.join("public/event_images", name),
-                        buffer as any
-                    );
-                    eventBannerImages.push({ eventBannerId: eventBanner.dataValues.uuid, imageUrl: name });
+                    const stored = await saveFile({ owner: ownerFromRequest(req), folder: "event_images", name, body: buffer, contentType: image.mimetype });
+                    eventBannerImages.push({ eventBannerId: eventBanner.dataValues.uuid, imageUrl: stored });
                 }
 
                 // Assuming you have an EventBannerImage model imported
@@ -156,13 +151,7 @@ class EventBannerController {
 
             if (imageRecord.dataValues.imageUrl && imageRecord.dataValues.imageUrl !== "") {
 
-                if (fs.existsSync(`./public/event_images/${imageRecord.dataValues.imageUrl}`)) {
-                    fs.unlink("./public/event_images/" + imageRecord.dataValues.imageUrl, (err) => {
-                        if (err) {
-                            console.error("Some issue in deleting file", err);
-                        }
-                    });
-                }
+                await deleteFile("event_images", imageRecord.dataValues.imageUrl);
             }
 
             return returnHelper(res, 200, true, "Event Banner Image deleted successfully");
@@ -203,9 +192,7 @@ class EventBannerController {
 
                 await Promise.all(findImages.map(async (image) => {
                     if (image.dataValues.imageUrl && image.dataValues.imageUrl !== "") {
-                        if (fs.existsSync(`./public/event_images/${image.dataValues.imageUrl}`)) {
-                            fs.unlink("./public/event_images/" + image.dataValues.imageUrl, (err) => { });
-                        }
+                        await deleteFile("event_images", image.dataValues.imageUrl);
                     }
                 }));
             }
@@ -352,11 +339,8 @@ class EventBannerController {
                 const timestamp = new Date().toISOString(); // Get the current timestamp
                 const buffer = image.buffer; // Get the buffer from the image
                 const name = `${timestamp}_${image.originalname}`; // Add timestamp to the original name of the image
-                fs.writeFileSync(
-                    path.join("public/event_images", name),
-                    buffer
-                );
-                eventBannerImages.push({ agent_event_banner_id: eventBanner.dataValues.id, imageUrl: name });
+                const stored = await saveFile({ owner: ownerFromRequest(req), folder: "event_images", name, body: buffer, contentType: image.mimetype });
+                eventBannerImages.push({ agent_event_banner_id: eventBanner.dataValues.id, imageUrl: stored });
             }
 
             // Assuming you have an EventBannerImage model imported
@@ -410,9 +394,7 @@ class EventBannerController {
 
                 await Promise.all(images.map(async (image) => {
                     if (image.dataValues.imageUrl && image.dataValues.imageUrl !== "") {
-                        if (fs.existsSync(`./public/event_images/${image.dataValues.imageUrl}`)) {
-                            fs.unlink("./public/event_images/" + image.dataValues.imageUrl, (err) => { });
-                        }
+                        await deleteFile("event_images", image.dataValues.imageUrl);
                     }
                 }));
             }
@@ -448,11 +430,8 @@ class EventBannerController {
                 const timestamp = new Date().toISOString(); // Get the current timestamp
                 const buffer = image.buffer; // Get the buffer from the image
                 const name = `${timestamp}_${image.originalname}`; // Add timestamp to the original name of the image
-                fs.writeFileSync(
-                    path.join("public/event_images", name),
-                    buffer
-                );
-                eventBannerImages.push({ agent_event_banner_id: eventBanner.dataValues.id, imageUrl: name });
+                const stored = await saveFile({ owner: ownerFromRequest(req), folder: "event_images", name, body: buffer, contentType: image.mimetype });
+                eventBannerImages.push({ agent_event_banner_id: eventBanner.dataValues.id, imageUrl: stored });
             }
 
             // Assuming you have an EventBannerImage model imported
@@ -579,13 +558,7 @@ class EventBannerController {
 
             if (imageRecord.dataValues.imageUrl && imageRecord.dataValues.imageUrl !== "") {
 
-                if (fs.existsSync(`./public/event_images/${imageRecord.dataValues.imageUrl}`)) {
-                    fs.unlink("./public/event_images/" + imageRecord.dataValues.imageUrl, (err) => {
-                        if (err) {
-                            console.error("Some issue in deleting file", err);
-                        }
-                    });
-                }
+                await deleteFile("event_images", imageRecord.dataValues.imageUrl);
             }
 
             return returnHelper(res, 200, true, "Event Banner Image deleted successfully");

@@ -1,10 +1,10 @@
+import { saveFile, deleteFile, agencyOwner, ownerFromRequest } from "../../helpers/storage";
 import { signedFileUrl } from "../../helpers/privateFiles";
 import UniversityApplication from "../../model/UniversityApplication";
 import { Response } from "express";
 import { audit } from "../../services/audit";
 import { leadRecipients, notifyLater } from "../../services/notifications";
 import { logPortalDocUpload } from "../../services/portalLeadActivity";
-import { existingFilePath, privateFilePath } from "../../helpers/privateFiles";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import AgencyLeads from "../../model/AgencyLeads";
@@ -159,12 +159,7 @@ class LeadProgressController {
                     1000 + Math.random() * 9000
                 )}${path.parse(req.file.originalname).ext}`;
 
-                fs.writeFileSync(
-                    privateFilePath("student_docs", file_name),
-                    buffer
-                );
-                // Save the file path relative to your public directory
-                question_answer = `${file_name}`;
+                question_answer = await saveFile({ owner: ownerFromRequest(req), folder: "student_docs", name: file_name, body: buffer, contentType: req.file.mimetype });
 
             }
 
@@ -600,19 +595,13 @@ class LeadProgressController {
                     1000 + Math.random() * 9000
                 )}${path.parse(req.file.originalname).ext}`;
 
-                fs.writeFileSync(
-                    privateFilePath("student_docs", file_name),
-                    buffer
-                );
-                // Save the file path relative to your public directory
-                question_answer = `${file_name}`;
+                // stored in the student's agency folder
+                const student: any = await User.findByPk(req?.user?.user?.id, { attributes: ["agency_uuid"] });
+                question_answer = await saveFile({ owner: agencyOwner(student?.dataValues?.agency_uuid), folder: "student_docs", name: file_name, body: buffer, contentType: req.file.mimetype });
 
                 // remove old file 
                 if (findQuestion?.dataValues?.status == "rejected") {
-                    const oldFile = existingFilePath("student_docs", findQuestion?.dataValues?.question_answer)
-                    if (oldFile) {
-                        fs.unlinkSync(oldFile)
-                    }
+                    await deleteFile("student_docs", findQuestion?.dataValues?.question_answer)
                 }
 
             } else {

@@ -1,3 +1,4 @@
+import { saveFile, agencyOwner } from "../../helpers/storage";
 import fs from "fs";
 import crypto from "crypto";
 import path from "path";
@@ -7,7 +8,7 @@ import { Op } from "sequelize";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import { accessOf, caseScope } from "../../helpers/access";
-import { privateFilePath, signedFileUrl } from "../../helpers/privateFiles";
+import { signedFileUrl } from "../../helpers/privateFiles";
 import Agent from "../../model/Agent";
 import User from "../../model/User";
 import AgencyLeads from "../../model/AgencyLeads";
@@ -44,14 +45,14 @@ export const orderUpload = (req: Request, res: Response, next: NextFunction) =>
         return returnHelper(res, 200, false, msg);
     });
 
-const saveFiles = (files: Express.Multer.File[] | undefined) =>
-    (files || []).map((f) => {
+/** Saves order files in the agency's folder; returns what to keep on the update row. */
+const saveFiles = (agencyUuid: string, files: Express.Multer.File[] | undefined) =>
+    Promise.all((files || []).map(async (f) => {
         const original = path.basename(f.originalname).replace(/[^\w.\- ()]+/g, "_").slice(-120) || "file";
         const ext = path.extname(original).toLowerCase();
-        const name = `${crypto.randomUUID()}${ext}`;
-        fs.writeFileSync(privateFilePath("service_files", name), f.buffer);
+        const name = await saveFile({ owner: agencyOwner(agencyUuid), folder: "service_files", name: `${crypto.randomUUID()}${ext}`, body: f.buffer, contentType: f.mimetype });
         return { name, original, size: f.size, mime: f.mimetype };
-    });
+    }));
 
 const presentFiles = (files: any) => (Array.isArray(files) ? files : []).map((f: any) => ({ name: f.original, size: f.size, mime: f.mime, url: signedFileUrl("service_files", f.name) }));
 
@@ -198,7 +199,7 @@ class ServiceOrderController {
             if (action === "deliver" && !files?.length && !message) return returnHelper(res, 200, false, "Attach the finished file(s) or write a message to deliver");
             if (action === "message" && !files?.length && !message) return returnHelper(res, 200, false, "Write a message or attach a file");
             if (action === "complete" && d.status === "completed") return returnHelper(res, 200, false, "The order is already completed");
-            const saved = saveFiles(files);
+            const saved = await saveFiles(d.agency_uuid, files);
             const me = await staffName(a.userId);
             const next = action === "deliver" ? "delivered" : action === "start" ? "in_progress" : action === "complete" ? "completed" : d.status === "new" && !internal ? "in_progress" : d.status;
             if (message || saved.length) {
@@ -313,7 +314,7 @@ class ServiceOrderController {
             if (action === "changes" && !message) return returnHelper(res, 200, false, "Please write what should be changed");
             if (action === "message" && !message && !files?.length) return returnHelper(res, 200, false, "Write a message or attach a file");
             if ((action === "approve" || action === "changes") && d.status !== "delivered") return returnHelper(res, 200, false, "You can do this once the work is delivered");
-            const saved = saveFiles(files);
+            const saved = await saveFiles(d.agency_uuid, files);
             const name = await studentName(d.student_id);
             if (message || saved.length) {
                 await ServiceOrderUpdate.create({ order_id: d.id, agency_uuid: d.agency_uuid, kind: "message", author_type: "student", author_id: d.student_id, author_name: name, message: message || null, files: saved.length ? saved : null });

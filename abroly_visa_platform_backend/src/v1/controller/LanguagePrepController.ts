@@ -1,3 +1,4 @@
+import { saveFile, deleteFile, ownerFromRequest } from "../../helpers/storage";
 import { response, Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
@@ -34,6 +35,7 @@ class LanguagePrepController {
             }
 
 
+            if (req.file) banner_image = await saveFile({ owner: ownerFromRequest(req), folder: "courses", name: banner_image, body: req.file.buffer, contentType: req.file.mimetype });
             await Courses.create({
                 title,
                 description,
@@ -42,12 +44,6 @@ class LanguagePrepController {
                 angecy_id: req?.user?.user?.id
             })
 
-            if (req.file) {
-                fs.writeFileSync(
-                    path.join("public/courses", banner_image),
-                    req.file!.buffer as any
-                );
-            }
 
             return returnHelper(res, 200, true, "Language Added!")
 
@@ -81,6 +77,7 @@ class LanguagePrepController {
             }
 
 
+            if (req.file) banner_image = await saveFile({ owner: ownerFromRequest(req), folder: "courses", name: banner_image, body: req.file.buffer, contentType: req.file.mimetype });
             await Courses.update(updateParams, {
                 where: { uuid , angecy_id: req?.user?.user?.id}
             })
@@ -89,10 +86,6 @@ class LanguagePrepController {
                 await Courses.update({ banner_image }, {
                     where: { uuid }
                 })
-                fs.writeFileSync(
-                    path.join("public/courses", banner_image),
-                    req.file!.buffer as any
-                ); 
             }
 
             return returnHelper(res, 200, true, "Language Updated!")
@@ -476,6 +469,7 @@ class LanguagePrepController {
             }
 
             // based on that create sub chatper with title and description
+            if (req.file) file = await saveFile({ owner: ownerFromRequest(req), folder: "course_chapter_items", name: file, body: req.file.buffer, contentType: req.file.mimetype });
             await CourseChapterPoints.create({
                 title,
                 short_description,
@@ -483,14 +477,6 @@ class LanguagePrepController {
                 video_url,
                 file,
                 file_type
-            }).then(() => {
-                // add file here 
-                if (req.file) {
-                    fs.writeFileSync(
-                        path.join("public/course_chapter_items", file),
-                        req.file!.buffer as any
-                    );
-                }
             })
 
             return returnHelper(res, 200, true, "Created")
@@ -559,18 +545,17 @@ class LanguagePrepController {
                 ...(order_number && { order_number }),
             }
 
+            if (req.file) file = await saveFile({ owner: ownerFromRequest(req), folder: "course_chapter_items", name: file, body: req.file.buffer, contentType: req.file.mimetype });
+            // a new file replaces the old one
+            const oldPoint: any = req.file ? await CourseChapterPoints.findOne({ where: { uuid }, attributes: ["file"] }) : null;
+            if (req.file) Object.assign(updateParams, { file, file_type });
             await CourseChapterPoints.update(updateParams, {
                 where: {
                     uuid
                 }
             })
 
-            if (req.file) {
-                fs.writeFileSync(
-                    path.join("public/course_chapter_items", file),
-                    req.file!.buffer as any
-                );
-            }
+            if (oldPoint?.dataValues?.file) await deleteFile("course_chapter_items", oldPoint.dataValues.file);
 
             return returnHelper(res, 200, true, "Updated")
 
@@ -1185,13 +1170,7 @@ async function deleteChapterFunction(uuid) {
         // based on that point if there is any file than delete it 
         if (findPoint.dataValues.file && findPoint.dataValues.file !== "") {
 
-            if (fs.existsSync(`./public/course_chapter_items/${findPoint.dataValues.file}`)) {
-                fs.unlink("./public/course_chapter_items/" + findPoint.dataValues.file, (err) => {
-                    if (err) {
-                        console.error("Some issue in deleting file", err);
-                    }
-                });
-            }
+            await deleteFile("course_chapter_items", findPoint.dataValues.file);
         }
 
         // destroy point

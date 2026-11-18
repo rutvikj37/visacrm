@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/dbconfig';
 
@@ -82,7 +83,7 @@ const Certification = sequelize.define('Certification', {
   access_file: {
     type: DataTypes.VIRTUAL,
     get(this: any) {
-      return this.name && this.name !== "" ? `${process.env.LOCAL_PATH}public/certificates/${this.name}` : null
+      return this.name && this.name !== "" ? publicFileUrl("certificates", this.name) : null
     },
   },
 

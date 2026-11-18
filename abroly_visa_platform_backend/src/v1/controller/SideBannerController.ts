@@ -1,3 +1,4 @@
+import { saveFile, ownerFromRequest } from "../../helpers/storage";
 import { Response } from "express";
 import { returnHelper } from "../../helpers/returnHelper";
 import { RequestWithUser } from "../../utils/types";
@@ -80,21 +81,17 @@ class SideBannerController {
 
         try {
             // Allow multiple overlapping banners for the same target — student UI shows all live ones in a slider.
+            const storedImage = await saveFile({ owner: ownerFromRequest(req), folder: "banners", name: image, body: req.file.buffer, contentType: req.file.mimetype });
             const newBanner = await SideBanner.create({
                 agent_uuid: req?.uuid,
                 campaign_title,
-                image,
+                image: storedImage,
                 start_date: startAt.toDate(),
                 end_date: endAt.toDate(),
                 position,
                 target_type: target_type,
                 status: "accept",
             });
-
-            fs.writeFileSync(
-                path.join("public/banners", image),
-                req.file.buffer as any
-            );
 
             return res.status(201).json({
                 success: true,

@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataType, DataTypes, ModelDefined, Optional, TinyIntegerDataType } from "sequelize";
 import sequelize from "../config/dbconfig";
 
@@ -49,7 +50,7 @@ const Courses = sequelize.define(
     access_banner: {
       type: DataTypes.VIRTUAL,
       get(this: any) {
-        return this.banner_image && this.banner_image !== ""  ? `${process.env.LOCAL_PATH}public/courses/${this.banner_image}` : null
+        return this.banner_image && this.banner_image !== ""  ? publicFileUrl("courses", this.banner_image) : null
       },
     },
     angecy_id:{

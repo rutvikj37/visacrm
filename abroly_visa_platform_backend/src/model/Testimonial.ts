@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataType, DataTypes, ModelDefined, Optional, TinyIntegerDataType } from "sequelize";
 import sequelize from "../config/dbconfig";
 
@@ -29,7 +30,7 @@ const Testimonial = sequelize.define(
     access_file: {
       type: DataTypes.VIRTUAL,
       get(this: any) {
-        return this.file_url && this.file_url !== "" ? `${process.env.LOCAL_PATH}public/testimonials/${this.file_url}` : null
+        return this.file_url && this.file_url !== "" ? publicFileUrl("testimonials", this.file_url) : null
       },
     },
   },

@@ -11,6 +11,7 @@ import sequelize from './config/dbconfig';
 import v1_routes from './v1/routes';
 import { startScheduler } from './services/scheduler';
 import { migratePublicFiles, serveSignedFile } from './helpers/privateFiles';
+import { serveMedia } from './helpers/storage';
 
 dotenv.config();
 
@@ -118,7 +119,9 @@ if (cluster.isPrimary) {
       // Serve files from the public directory under the "/public" route
       // private files (student documents, payment proofs, reports): signed, expiring links only.
       // Registered before /public so these folders are never served publicly, even before migration.
-      app.get('/api/v1/files/:folder/:name', serveSignedFile)
+      app.get('/api/v1/files/:folder/*', serveSignedFile)
+      // public images stored in S3 (agencies/<uuid>/<folder>/<name>) - redirects to a short-lived S3 link
+      app.get('/api/v1/media/*', serveMedia)
       app.use(['/public/student_docs', '/public/subscription_proof', '/public/reports'], (_req: Request, res: Response) => res.status(404).send('Not found'))
       app.use('/public', express.static(publicDirectoryPath));
 

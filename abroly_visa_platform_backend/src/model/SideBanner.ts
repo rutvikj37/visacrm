@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataTypes } from "sequelize";
 import sequelize from "../config/dbconfig";
 
@@ -25,7 +26,7 @@ const SideBanner = sequelize.define('SideBanner', {
     access_image: {
         type: DataTypes.VIRTUAL,
         get(this: any) {
-            return this.image && this.image !== "" ? `${process.env.LOCAL_PATH}public/banners/${this.image}` : null
+            return this.image && this.image !== "" ? publicFileUrl("banners", this.image) : null
         },
     },
     start_date: {

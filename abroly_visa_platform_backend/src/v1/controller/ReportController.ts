@@ -1,5 +1,5 @@
+import { saveFile, agencyOwner } from "../../helpers/storage";
 import { Request, Response } from "express";
-import { privateFilePath } from "../../helpers/privateFiles";
 import ExcelJS from "exceljs";
 import * as asyncQueue from "async"; // Rename async to asyncQueue
 import path from "path";
@@ -246,21 +246,9 @@ async function generateReport(reportId: number, reportType: string, agentUuid: s
     worksheet.addRows(data);
     console.log(`Rows added to worksheet for reportId: ${reportId}`);
 
-    const filename = `${reportType}_${reportId}_${Date.now()}.xlsx`;
-    const filePath = privateFilePath("reports", filename);
-
-    console.log(`Attempting to save file to: ${filePath}`);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    console.log(`Directory ensured: ${path.dirname(filePath)}`);
-    await workbook.xlsx.writeFile(filePath);
-    console.log(`File written successfully: ${filePath}`);
-
-    if (fs.existsSync(filePath)) {
-        console.log(`File confirmed on disk: ${filePath}`);
-    } else {
-        console.error(`File not found after write: ${filePath}`);
-        throw new Error(`File not created: ${filePath}`);
-    }
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const filename = await saveFile({ owner: agencyOwner(agentUuid), folder: "reports", name: `${reportType}_${reportId}_${Date.now()}.xlsx`, body: buffer });
+    console.log(`Report saved: ${filename}`);
 
     await GeneratedReport.update({ filename }, { where: { id: reportId } });
     console.log(`Updated GeneratedReport with filename: ${filename} for reportId: ${reportId}`);

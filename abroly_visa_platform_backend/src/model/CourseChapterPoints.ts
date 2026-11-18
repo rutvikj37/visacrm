@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataType, DataTypes, ModelDefined, Optional, TinyIntegerDataType } from "sequelize";
 import sequelize from "../config/dbconfig";
 
@@ -32,7 +33,7 @@ const CourseChapterPoints = sequelize.define(
     access_file: {
       type: DataTypes.VIRTUAL,
       get(this: any) {
-        return this.file && this.file !== ""  ? `${process.env.LOCAL_PATH}public/course_chapter_items/${this.file}` : null
+        return this.file && this.file !== ""  ? publicFileUrl("course_chapter_items", this.file) : null
       },
     },
     file_type: {

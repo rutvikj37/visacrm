@@ -1,3 +1,4 @@
+import { publicFileUrl } from "../helpers/storage";
 import { DataTypes } from 'sequelize';
 import EventBanner from './EventBanner'; // Import the EventBanner model
 import sequelize from '../config/dbconfig';
@@ -18,7 +19,7 @@ const AgentEventBannerImages = sequelize.define('AgentEventBannerImages', {
     url: {
         type: DataTypes.VIRTUAL,
         get(this: any) {
-          return this.imageUrl && this.imageUrl !== "" ? `${process.env.LOCAL_PATH}public/event_images/${this.imageUrl}` : null
+          return this.imageUrl && this.imageUrl !== "" ? publicFileUrl("event_images", this.imageUrl) : null
         },
     },
 }, {
