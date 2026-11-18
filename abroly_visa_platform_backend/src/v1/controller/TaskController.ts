@@ -108,26 +108,33 @@ const agencyMemberIdSet = async (agencyUuid: string) => {
 
 const resolveRelatedLabel = async (agencyUuid: string, type: string, id: string | null) => {
     if (!id || type === "none") return null;
-    if (type === "lead") {
-        const lead: any = await CrmLead.findOne({
-            where: { agency_uuid: agencyUuid, uuid: id },
-            attributes: ["name", "phone"],
-        });
-        if (!lead) return null;
-        return lead.dataValues.name || lead.dataValues.phone || "Lead";
-    }
-    if (type === "case") {
-        const c: any = await AgencyLeads.findOne({
-            where: { agent_uuid: agencyUuid, id: Number(id) },
-            attributes: ["id", "selected_country", "university", "selected_suggestion"],
-        });
-        if (!c) return null;
-        const d = c.dataValues;
-        const sel = typeof d.selected_suggestion === "string"
-            ? (() => { try { return JSON.parse(d.selected_suggestion); } catch { return {}; } })()
-            : (d.selected_suggestion || {});
-        return [d.selected_country || sel.country, d.university || sel.university || sel.fieldOfStudy]
-            .filter(Boolean).join(" · ") || `Case #${d.id}`;
+    try {
+        if (type === "lead") {
+            // crm_leads uses phone_number (not phone) — wrong attrs 500 the whole task list
+            const lead: any = await CrmLead.findOne({
+                where: { agency_uuid: agencyUuid, uuid: id },
+                attributes: ["name", "phone_number", "email"],
+            });
+            if (!lead) return null;
+            const d = lead.dataValues;
+            return d.name || d.phone_number || d.email || "Lead";
+        }
+        if (type === "case") {
+            const c: any = await AgencyLeads.findOne({
+                where: { agent_uuid: agencyUuid, id: Number(id) },
+                attributes: ["id", "selected_country", "university", "selected_suggestion"],
+            });
+            if (!c) return null;
+            const d = c.dataValues;
+            const sel = typeof d.selected_suggestion === "string"
+                ? (() => { try { return JSON.parse(d.selected_suggestion); } catch { return {}; } })()
+                : (d.selected_suggestion || {});
+            return [d.selected_country || sel.country, d.university || sel.university || sel.fieldOfStudy]
+                .filter(Boolean).join(" · ") || `Case #${d.id}`;
+        }
+    } catch (err) {
+        console.error("resolveRelatedLabel failed", type, id, err);
+        return null;
     }
     return null;
 };
