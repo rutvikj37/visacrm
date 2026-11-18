@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useChatUpdates } from "@/lib/realtime";
 import { Avatar, Button, Spinner, Textarea } from "@nextui-org/react";
 import { MessagesSquare, RefreshCw, Send } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
@@ -51,9 +52,11 @@ const StudentChat = () => {
 
     useEffect(() => {
         load();
-        const t = setInterval(() => { if (!document.hidden) load({ silent: true }); }, 10000);
+        // live updates come over the WebSocket; this slow poll is only a fallback
+        const t = setInterval(() => { if (!document.hidden) load({ silent: true }); }, 60000);
         return () => clearInterval(t);
     }, [load]);
+    useChatUpdates(() => load({ silent: true }));
 
     useEffect(() => {
         if (data && (data.messages?.length || 0) !== count.current) {

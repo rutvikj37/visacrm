@@ -1,3 +1,4 @@
+import { emitChatUpdate } from "../../services/realtime";
 import { Response } from "express";
 import { Op, Sequelize } from "sequelize";
 import { RequestWithUser } from "../../utils/types";
@@ -76,7 +77,7 @@ const assigneeForStudent = async (agencyUuid: string, studentId: number) => {
 
 const markRead = async (agencyUuid: string, studentId: number, reader: "student" | "agent") => {
     const other = reader === "student" ? "agent" : "student";
-    await PortalChatMessage.update(
+    const [changed] = await PortalChatMessage.update(
         { read_at: new Date() },
         {
             where: {
@@ -87,6 +88,8 @@ const markRead = async (agencyUuid: string, studentId: number, reader: "student"
             },
         },
     );
+    // read receipts / unread badges update live (only when something was actually unread, so no reload loop)
+    if (changed) emitChatUpdate(agencyUuid, studentId);
 };
 
 class PortalChatController {
@@ -279,6 +282,7 @@ class PortalChatController {
                 sender_id: a.userId,
                 body,
             });
+            emitChatUpdate(a.agencyUuid, studentId);
 
             return returnHelper(res, 200, true, "Sent", {
                 id: row.dataValues.id,
@@ -360,6 +364,7 @@ class PortalChatController {
                 sender_id: studentId,
                 body,
             });
+            emitChatUpdate(agencyUuid, studentId);
 
             const assignee = await assigneeForStudent(agencyUuid, studentId);
             if (assignee?.id) {

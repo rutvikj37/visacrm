@@ -12,6 +12,7 @@ import v1_routes from './v1/routes';
 import { startScheduler } from './services/scheduler';
 import { migratePublicFiles, serveSignedFile } from './helpers/privateFiles';
 import { serveMedia } from './helpers/storage';
+import { setupRealtimePrimary, startRealtime } from './services/realtime';
 import { captureUnhandledError, platformErrorCaptureMiddleware } from './middleware/platformErrorCapture';
 
 dotenv.config();
@@ -25,6 +26,9 @@ if (cluster.isPrimary) {
   console.log(`🧠 Primary process PID: ${process.pid}`);
   console.log(`🚀 Spawning ${numCPUs} worker processes...`);
 
+  // relays realtime chat events between workers
+  setupRealtimePrimary();
+
   for (let i = 0; i < numCPUs; i++) {
     cluster.fork();
   }
@@ -37,6 +41,8 @@ if (cluster.isPrimary) {
   // 👷 Each worker runs this
   const app = express();
   const server = http.createServer(app);
+  // realtime chat updates (WebSocket at /socket.io)
+  startRealtime(server);
 
   // ✅ Initialize connections per worker
   const startServer = async () => {

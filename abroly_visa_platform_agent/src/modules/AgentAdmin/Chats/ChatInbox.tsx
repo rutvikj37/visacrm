@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useChatUpdates } from "@/lib/realtime";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Avatar, Button, Chip, Input, Pagination, Skeleton, Tab, Tabs, Textarea } from "@heroui/react";
 import { ArrowLeft, MessagesSquare, RefreshCw, Search, Send, User } from "lucide-react";
@@ -76,9 +77,11 @@ const ChatThread = ({ studentId, onBack, onSent }: { studentId: string; onBack: 
     useEffect(() => {
         setData(null); setText(""); setError(""); setLoading(true); count.current = 0;
         load();
-        const t = setInterval(() => { if (!document.hidden) load({ silent: true }); }, 10000);
+        // live updates come over the WebSocket; this slow poll is only a fallback
+        const t = setInterval(() => { if (!document.hidden) load({ silent: true }); }, 60000);
         return () => clearInterval(t);
     }, [load]);
+    useChatUpdates((u) => { if (u.reconnected || Number(u.student_id) === Number(studentId)) load({ silent: true }); });
 
     useEffect(() => {
         if (data && data.messages.length !== count.current) {
@@ -283,9 +286,11 @@ const ChatInbox = () => {
 
     useEffect(() => {
         const t0 = setTimeout(load, q ? 300 : 0);
-        const t = setInterval(() => { if (!document.hidden) load(); }, 15000);
+        const t = setInterval(() => { if (!document.hidden) load(); }, 60000);
         return () => { clearTimeout(t0); clearInterval(t); };
     }, [load, q]);
+    // a new message or read receipt anywhere in the agency: refresh the list (unread counts, order)
+    useChatUpdates(() => load());
 
     useEffect(() => {
         if (page !== 1) setPage(1);
