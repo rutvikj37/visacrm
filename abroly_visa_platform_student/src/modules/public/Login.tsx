@@ -10,6 +10,7 @@ import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { getAgentUuid, getAppName, getSupportEmail, getSupportNumber } from '@/utils/config'
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 import { AgencyLogo } from '@/components/AgencyBrand'
+import InstallAppCard from '@/components/InstallAppCard'
 
 const IS_LOCAL = import.meta.env.VITE_IS_LOCAL || false
 
@@ -230,7 +231,10 @@ const Login = () => {
     }
 
     return (
-        <section className="min-h-[85vh] flex items-center justify-center bg-gradient-to-b from-primary/10 to-default-100">
+        <section className="min-h-[85vh] flex flex-col items-center justify-center gap-4 px-4 bg-gradient-to-b from-primary/10 to-default-100">
+            <div className="w-full max-w-md">
+                <InstallAppCard />
+            </div>
             <Card className="w-full max-w-md shadow-lg p-6 bg-white rounded-xl">
                 <CardHeader className="flex flex-col items-center gap-3">
                     <AgencyLogo size={56} />
