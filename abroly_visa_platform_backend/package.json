@@ -13,7 +13,8 @@
     "mail:test": "ts-node src/scripts/testMail.ts",
     "demo:seed": "ts-node src/scripts/seedDemo.ts",
     "demo:seed:tasks-chats": "ts-node src/scripts/seedDemoTasksChats.ts",
-    "admin:code": "ts-node src/scripts/adminLoginCode.ts"
+    "admin:code": "ts-node src/scripts/adminLoginCode.ts",
+    "files:s3": "node dist/scripts/migrateFilesToS3.js"
   },
   "keywords": [],
   "author": "TechxSolutions",
