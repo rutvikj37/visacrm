@@ -119,11 +119,15 @@ const resolveRelatedLabel = async (agencyUuid: string, type: string, id: string 
     if (type === "case") {
         const c: any = await AgencyLeads.findOne({
             where: { agent_uuid: agencyUuid, id: Number(id) },
-            attributes: ["id", "country", "preferred_course"],
+            attributes: ["id", "selected_country", "university", "selected_suggestion"],
         });
         if (!c) return null;
         const d = c.dataValues;
-        return [d.country, d.preferred_course].filter(Boolean).join(" · ") || `Case #${d.id}`;
+        const sel = typeof d.selected_suggestion === "string"
+            ? (() => { try { return JSON.parse(d.selected_suggestion); } catch { return {}; } })()
+            : (d.selected_suggestion || {});
+        return [d.selected_country || sel.country, d.university || sel.university || sel.fieldOfStudy]
+            .filter(Boolean).join(" · ") || `Case #${d.id}`;
     }
     return null;
 };

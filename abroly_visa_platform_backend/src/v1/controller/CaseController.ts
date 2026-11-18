@@ -190,7 +190,7 @@ class CaseController {
                 limit,
                 offset: paginate ? (page - 1) * limit : 0,
                 distinct: true,
-                col: "AgencyLeads.id",
+                col: "id",
             });
             const ids = cases.map((c: any) => c.dataValues.id);
 
