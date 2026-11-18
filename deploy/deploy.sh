@@ -18,7 +18,8 @@ if [ "${FULL:-}" = "1" ] || [ -z "$PREV" ] || ! git cat-file -e "$PREV^{commit}"
 [ -n "$PREV" ] && echo "changes since $(git log -1 --format=%h "$PREV"):" && git diff --stat "$PREV" "$NEW" | tail -1
 
 # changed <path...>: true when a full deploy or any file under the paths changed since the last deploy
-changed() { [ -z "$PREV" ] || ! git diff --quiet "$PREV" "$NEW" -- "$@"; }
+# (paths are from the repo root - run git there, whatever folder the script is in at the time)
+changed() { [ -z "$PREV" ] || ! git -C "$APP_DIR" diff --quiet "$PREV" "$NEW" -- "$@"; }
 # install: only when the lockfile changed or node_modules is missing
 install() {
     if [ -d node_modules ] && ! changed "$(basename "$PWD")/package-lock.json" "$(basename "$PWD")/package.json"; then
