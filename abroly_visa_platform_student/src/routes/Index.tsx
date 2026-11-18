@@ -112,7 +112,8 @@ const Index = () => {
                     META_KEYWORDS: data.meta_keywords || data.metaKeywords || '',
                     OG_IMAGE: data.og_image_full || data.ogImageFull || data.og_image || data.ogImage || '/logo.png',
                     OG_URL: ensureFullUrl(data.og_url || data.ogUrl || ''),
-                    ADDONS: JSON.stringify(data.addons ?? null)
+                    ADDONS: JSON.stringify(data.addons ?? null),
+                    BUSINESS_FOCUS: data.business_focus || 'study'
                 };
 
                 addToLocal('app_config', JSON.stringify(config));

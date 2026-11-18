@@ -339,6 +339,150 @@ export const VISA_TEMPLATE_LIBRARY: LibraryTemplate[] = [
     },
 ];
 
+
+// ------------------------------------------------------------------ tourist & business visas
+// Seven steps that follow the case stages: trip -> documents -> finances -> work / invitation -> bookings
+// -> appointment -> decision. `extra` adds country-specific items to a step.
+type TravelExtra = Partial<Record<"trip" | "personal" | "finance" | "work" | "bookings" | "appointment", TemplateQuestion[]>>;
+const travelSteps = (business: boolean, extra: TravelExtra = {}): TemplateStep[] => [
+    {
+        title: "Trip details", due_in_days: 2,
+        description: business ? "Tell us about the meetings / event and your travel plan." : "Tell us where you want to go and who is travelling.",
+        questions: [
+            text(business ? "Purpose of the trip (meetings, trade fair, conference) and the company you will visit" : "Cities / places you want to visit"),
+            text("Planned travel dates (from - to)"),
+            text("Who is travelling? (names and relation)"),
+            ...(extra.trip || []),
+        ],
+    },
+    {
+        title: "Personal documents", due_in_days: 4,
+        description: "Clear colour scans of every page that has a stamp.",
+        questions: [
+            file("Passport - first and last page (valid 6+ months after return)"),
+            file("Old passports / previous visas (if any)"),
+            file("Passport size photo (white background, recent)"),
+            file("Aadhaar card and PAN card"),
+            ...(extra.personal || []),
+        ],
+    },
+    {
+        title: "Financial documents", due_in_days: 6,
+        description: "Statements must show regular income and enough balance for the trip.",
+        questions: [
+            file("Bank statements - last 6 months (stamped by the bank)"),
+            file("Income tax returns / Form 16 - last 3 years"),
+            business ? file("Company bank statements - last 6 months") : file("Salary slips - last 3 months (or business proof if self-employed)"),
+            text("Who is paying for the trip? (self / company / sponsor)"),
+            ...(extra.finance || []),
+        ],
+    },
+    business ? {
+        title: "Company & invitation", due_in_days: 8,
+        description: "Letters on company letterhead, signed and stamped.",
+        questions: [
+            file("Invitation letter from the company / event you are visiting"),
+            file("Cover letter from your company (purpose, dates, who pays)"),
+            file("Company registration / GST certificate"),
+            file("Visiting card and employee ID / proof of directorship"),
+            ...(extra.work || []),
+        ],
+    } : {
+        title: "Work & ties to India", due_in_days: 8,
+        description: "Shows the visa officer you will come back after the trip.",
+        questions: [
+            file("Leave letter / NOC from employer (or business registration if self-employed)"),
+            file("Property papers or other ties to India (optional, helps)"),
+            file("Students: school / college ID and bonafide letter"),
+            ...(extra.work || []),
+        ],
+    },
+    {
+        title: "Bookings & itinerary", due_in_days: 10,
+        description: "We prepare the day-by-day itinerary and cover letter for you.",
+        questions: [
+            file("Flight reservation (return)"),
+            file("Hotel bookings for every night"),
+            file("Travel insurance"),
+            text("Any changes to the itinerary we prepared?"),
+            ...(extra.bookings || []),
+        ],
+    },
+    {
+        title: "Appointment & submission", due_in_days: 14,
+        description: "Carry the original documents and the printed file to the appointment.",
+        questions: [
+            text("Appointment date and centre (VFS / embassy)"),
+            file("Signed application form"),
+            ...(extra.appointment || []),
+        ],
+    },
+    {
+        title: "Decision & passport",
+        description: "Upload the visa copy once your passport is back.",
+        questions: [file("Visa copy (first page with the visa)")],
+    },
+];
+
+const TRAVEL_TEMPLATES: LibraryTemplate[] = [
+    {
+        key: "schengen-tourist", name: "Schengen Tourist Visa (Europe)", country: "Schengen (Europe)", visa_type: "Tourist Visa",
+        description: "Short-stay tourist visa for France, Italy, Switzerland, Germany, Spain and other Schengen countries.",
+        steps: travelSteps(false, {
+            bookings: [file("Schengen travel insurance - min EUR 30,000 cover for all days")],
+            appointment: [text("Main destination country (where you stay longest) - you apply to that embassy")],
+        }),
+    },
+    {
+        key: "schengen-business", name: "Schengen Business Visa (Europe)", country: "Schengen (Europe)", visa_type: "Business Visa",
+        description: "Short-stay business visa for meetings, trade fairs and conferences in the Schengen area.",
+        steps: travelSteps(true, {
+            work: [file("Trade fair / conference registration (if attending one)")],
+            bookings: [file("Schengen travel insurance - min EUR 30,000 cover for all days")],
+        }),
+    },
+    {
+        key: "uk-visitor", name: "UK Standard Visitor Visa (tourism)", country: "United Kingdom", visa_type: "Tourist Visa",
+        description: "UK visitor visa for holidays and visiting family.",
+        steps: travelSteps(false, { trip: [text("Have you travelled to the UK, USA, Canada or Schengen before? Which years?")], finance: [file("Sponsor's letter and documents (if someone else pays)")] }),
+    },
+    {
+        key: "uk-business-visitor", name: "UK Standard Visitor Visa (business)", country: "United Kingdom", visa_type: "Business Visa",
+        description: "UK visitor visa for meetings, conferences and site visits (no paid work).",
+        steps: travelSteps(true, { trip: [text("Have you travelled to the UK, USA, Canada or Schengen before? Which years?")] }),
+    },
+    {
+        key: "usa-b1b2", name: "USA B1/B2 Visitor Visa", country: "USA", visa_type: "Business / Tourist Visa (B1/B2)",
+        description: "US visitor visa for business and tourism, with DS-160 and interview preparation.",
+        steps: travelSteps(false, {
+            trip: [text("Purpose: tourism, business meetings or both?")],
+            personal: [file("DS-160 confirmation page"), text("Previous US visa refusals (if any) - year and reason")],
+            appointment: [text("OFC (biometrics) date and consulate interview date"), text("Mock interview done? (we schedule it)")],
+        }),
+    },
+    {
+        key: "canada-trv", name: "Canada Visitor Visa (TRV)", country: "Canada", visa_type: "Tourist Visa",
+        description: "Canada temporary resident visa for tourism or visiting family.",
+        steps: travelSteps(false, { work: [file("Invitation letter from family in Canada (if visiting family)")], appointment: [text("Biometrics date at VFS")] }),
+    },
+    {
+        key: "dubai-tourist", name: "Dubai / UAE Tourist Visa (30 or 60 days)", country: "United Arab Emirates", visa_type: "Tourist Visa",
+        description: "Quick e-visa for Dubai and the UAE - usually ready in 3-5 working days.",
+        steps: [
+            { title: "Trip details", due_in_days: 1, questions: [text("Travel dates and 30 or 60 day visa?"), text("Who is travelling? (names and relation)")] },
+            { title: "Documents", due_in_days: 2, questions: [file("Passport - first and last page"), file("Passport size photo (white background)"), file("PAN card")] },
+            { title: "Bookings", due_in_days: 3, questions: [file("Return flight ticket"), file("Hotel booking / host address in UAE")] },
+            { title: "Visa issued", questions: [file("E-visa copy")] },
+        ],
+    },
+    {
+        key: "australia-visitor-600", name: "Australia Visitor Visa (subclass 600)", country: "Australia", visa_type: "Tourist Visa",
+        description: "Australia visitor visa for tourism, family visits or business visitor activities.",
+        steps: travelSteps(false, { personal: [file("Health / medical exam (if asked by the department)")], appointment: [text("Biometrics date at VFS (if asked)")] }),
+    },
+];
+VISA_TEMPLATE_LIBRARY.push(...TRAVEL_TEMPLATES);
+
 export const findLibraryTemplate = (key: string) => VISA_TEMPLATE_LIBRARY.find((t) => t.key === key) || null;
 
 const MAX_STEPS = 30;

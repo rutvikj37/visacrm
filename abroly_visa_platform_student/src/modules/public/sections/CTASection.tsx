@@ -3,12 +3,12 @@ import React from 'react'
 import { LogInIcon } from "lucide-react"
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getAppName, getMetaDescription } from '@/utils/config'
+import { getAppName, getMetaDescription, isTravelFocus } from '@/utils/config'
 
 const CTASection = () => {
     const navigate = useNavigate()
     const agencyName = getAppName() || 'your agency'
-    const blurb = getMetaDescription() || `Take the next step toward studying abroad with ${agencyName}.`
+    const blurb = getMetaDescription() || (isTravelFocus() ? `Plan your next holiday or business trip with ${agencyName} - we handle the visa.` : `Take the next step toward studying abroad with ${agencyName}.`)
 
     return (
         <section className='bg-gradient-to-r from-primary to-sidebar-primary py-16 my-20'>
@@ -34,7 +34,7 @@ const CTASection = () => {
                             onPress={() => navigate('/login')}
                             endContent={<LogInIcon />}
                         >
-                            Student login
+                            {isTravelFocus() ? "Client login" : "Student login"}
                         </Button>
                     </div>
                 </motion.div>

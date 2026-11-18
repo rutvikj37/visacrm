@@ -1,3 +1,4 @@
+import { applyCaseFlow } from '@/modules/AgentAdmin/Cases/caseShared';
 import React, { useEffect } from 'react'
 import { applyBrand } from '@/lib/theme';
 import { useDispatch, useSelector } from 'react-redux';
@@ -45,6 +46,7 @@ const Index = () => {
         if (success == true) {
             // Brand CSS vars first (no React remount). Then batch Redux updates.
             applyBrand(data?.brand_color)
+            applyCaseFlow(data?.business_focus)
             dispatch(setRole(data?.role))
             dispatch(setSubscription(data?.subscription))
             dispatch(setTeamRole(data?.team_role))

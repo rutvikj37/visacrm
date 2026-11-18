@@ -74,6 +74,11 @@ const AgencyLeads = sequelize.define('AgencyLeads', {
         type:DataTypes.STRING,
         allowNull: true
     },
+    // tourist / business visas: itinerary, cover letter and funds check (JSON) - see CaseController.travelDocs
+    travel_docs:{
+        type:DataTypes.TEXT,
+        allowNull: true
+    },
     // last automatic "documents pending" reminder sent to the student
     docs_reminded_at:{
         type:DataTypes.DATE,

@@ -52,6 +52,9 @@ export const getPrimaryColor = (): string => getConfig('PRIMARY_COLOR', DEFAULT_
 export const getPrimaryForegroundColor = (): string => getConfig('PRIMARY_FOREGROUND_COLOR', '#ffffff');
 export const getDarkPrimaryColor = (): string => getConfig('DARK_PRIMARY_COLOR', '#050a30');
 export const getAppName = (): string => getConfig('APP_NAME');
+/** What the agency mainly does: "study" (default), "travel" (tourist & business visas) or "both". */
+export const getBusinessFocus = (): string => getConfig('BUSINESS_FOCUS') || 'study';
+export const isTravelFocus = (): boolean => getBusinessFocus() === 'travel';
 export const getSupportNumber = (): string => getConfig('SUPPORT_NUMBER');
 export const getSupportEmail = (): string => getConfig('SUPPORT_EMAIL');
 export const getCertificateUrl = (): string => getConfig('CERTIFICATE_URL');

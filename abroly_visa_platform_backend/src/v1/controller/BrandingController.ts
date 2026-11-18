@@ -5,6 +5,7 @@ import { Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import Agent from "../../model/Agent";
+import { BUSINESS_FOCUS, businessFocusOf, readUiPrefs } from "../../services/businessFocus";
 
 /** Agency branding for the student portal: name, logo, colours, support details (agency owner). */
 
@@ -19,6 +20,7 @@ const present = (agency: any) => {
         app_name: a.app_name, primary_color: a.primary_color, primary_foreground_color: a.primary_foreground_color, dark_primary_color: a.dark_primary_color,
         support_number: a.support_number, support_email: a.support_email, agency_address: a.agency_address, meta_description: a.meta_description,
         logo_url: logo,
+        business_focus: businessFocusOf(a.ui_prefs),
         portal_address: a.domain ? `${a.sudomain ? `${a.sudomain}.` : ""}${a.domain}` : null,
     };
 };
@@ -66,6 +68,11 @@ class BrandingController {
             }
 
             if (!Object.keys(updates).length) return returnHelper(res, 200, false, "Nothing to save");
+            if (req.body?.business_focus !== undefined) {
+                const focus = String(req.body.business_focus);
+                if (!BUSINESS_FOCUS.includes(focus as any)) return returnHelper(res, 200, false, "Choose what your agency mainly does");
+                updates.ui_prefs = JSON.stringify({ ...readUiPrefs(agency.dataValues.ui_prefs), business_focus: focus });
+            }
             await Agent.update(updates, { where: { id: agency.dataValues.id } });
             const fresh = await Agent.findByPk(agency.dataValues.id);
             return returnHelper(res, 200, true, "Branding saved. Students see it the next time they open the portal.", present(fresh));

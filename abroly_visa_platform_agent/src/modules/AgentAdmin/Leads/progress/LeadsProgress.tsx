@@ -1,7 +1,8 @@
 import CaseToolbar, { StepDueDate } from "@/modules/AgentAdmin/Cases/CaseToolbar"
 import UniversityApplications from "@/modules/AgentAdmin/Cases/UniversityApplications"
 import CaseCommissions from "@/modules/AgentAdmin/Commissions/CaseCommissions"
-import { fmtShortDate, isOverdue } from "@/modules/AgentAdmin/Cases/caseShared"
+import { fmtShortDate, isOverdue, isTravelCase } from "@/modules/AgentAdmin/Cases/caseShared"
+import TravelDocuments from "@/modules/AgentAdmin/Cases/TravelDocuments"
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Spinner, Textarea } from "@heroui/react";
@@ -414,15 +415,31 @@ const LeadsProgress = () => {
 
     const activeStep = tabs?.[step]
 
+    // tourist / business visa case? -> itinerary & cover letter instead of universities
+    const { data: caseInfo } = useQuery({
+        queryKey: ["case_kind", id],
+        queryFn: async () => {
+            const { success, data } = await commonGetAPICalls(`/crm/cases/${id}`)
+            return success ? data : null
+        },
+        enabled: Boolean(id),
+    })
+    const travel = isTravelCase(caseInfo)
+
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
             {/* 1. Case header (student, stage, assignment, outcomes) */}
             <CaseToolbar caseId={id!} reloadKey={caseReload} />
 
+            {travel ? (
+                /* 2. Tourist / business visa: itinerary, cover letter, funds check */
+                <TravelDocuments caseId={id!} />
+            ) : (<>
             {/* 2. Universities the student applied to (+ commission for owner / accounts / managers) */}
             <UniversityApplications caseId={id!} onChanged={() => setCaseReload((n) => n + 1)}
                 onAddCommission={canBill ? (app) => setCommissionFor({ app, n: Date.now() }) : undefined} />
             <CaseCommissions caseId={id!} addRequest={commissionFor} onChanged={() => setCaseReload((n) => n + 1)} />
+            </>)}
 
             {/* 2. Application steps */}
             <section className="space-y-3">

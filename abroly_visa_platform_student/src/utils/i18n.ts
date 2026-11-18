@@ -163,6 +163,18 @@ const T: Record<string, Record<Lang, string>> = {
     could_not_load: { en: "Could not load your case. Check your internet and try again.", hi: "आपका केस लोड नहीं हो सका। इंटरनेट जांचें और फिर कोशिश करें।", gu: "તમારો કેસ લોડ ન થયો. ઇન્ટરનેટ તપાસી ફરી પ્રયાસ કરો." },
     try_again: { en: "Try again", hi: "फिर कोशिश करें", gu: "ફરી પ્રયાસ કરો" },
     other_cases: { en: "Your other cases", hi: "आपके दूसरे केस", gu: "તમારા બીજા કેસ" },
+    // tourist / business visa stages and travel documents
+    tstage_documents: { en: "Documents", hi: "दस्तावेज़", gu: "દસ્તાવેજો" },
+    tstage_application: { en: "Itinerary & letters", hi: "यात्रा योजना और पत्र", gu: "પ્રવાસ યોજના અને પત્રો" },
+    tstage_offer: { en: "Bookings", hi: "बुकिंग", gu: "બુકિંગ" },
+    tstage_funds: { en: "Funds check", hi: "फंड जांच", gu: "ફંડ તપાસ" },
+    tstage_visa_filed: { en: "Submitted", hi: "जमा किया", gu: "જમા કર્યું" },
+    tstage_decision: { en: "Decision", hi: "निर्णय", gu: "નિર્ણય" },
+    travel_docs: { en: "Your travel documents", hi: "आपके यात्रा दस्तावेज़", gu: "તમારા પ્રવાસ દસ્તાવેજો" },
+    travel_docs_text: { en: "Prepared by {agency} for your visa file. Print them or save as PDF.", hi: "{agency} ने आपकी वीज़ा फ़ाइल के लिए तैयार किए। प्रिंट करें या PDF सेव करें।", gu: "{agency} એ તમારી વિઝા ફાઇલ માટે તૈયાર કર્યા. પ્રિન્ટ કરો અથવા PDF સાચવો." },
+    itinerary: { en: "Itinerary", hi: "यात्रा योजना", gu: "પ્રવાસ યોજના" },
+    cover_letter: { en: "Cover letter", hi: "कवर लेटर", gu: "કવર લેટર" },
+    days_n: { en: "{n} days", hi: "{n} दिन", gu: "{n} દિવસ" },
 };
 
 const KEY = "portal_lang";

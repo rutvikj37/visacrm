@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { commonGetAPICalls } from "@/utils/ApiCallUtils";
 import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, Clock, FileText, FileUp, GraduationCap, IndianRupee, PencilLine, Star } from "lucide-react";
 import { PRIMARY_COLOR } from "@/lib/theme";
+import { isTravelFocus } from "@/utils/config";
 
 export const fmt = (v?: string | null) => {
     if (!v) return "";
@@ -14,6 +15,9 @@ export const overdue = (v?: string | null) => Boolean(v) && String(v).slice(0, 1
 
 /** The case's journey, so students see where they are (same stages as the agency's case board). */
 export const STAGES = ["documents", "application", "offer", "funds", "visa_filed", "decision"].map((key) => ({ key, label: `stage_${key}` }));
+/** Tourist / business visa cases (or a travel agency) use travel stage names. */
+export const isTravelCaseView = (c?: { is_travel?: boolean } | null) => Boolean(c?.is_travel) || isTravelFocus();
+export const stageText = (key: string, travel: boolean) => `${travel ? "tstage" : "stage"}_${key}`;
 export const stageIndex = (stage?: string | null) => {
     if (stage === "biometrics") return 4; // shown together with "Visa filed"
     const i = STAGES.findIndex((s) => s.key === stage);
@@ -112,7 +116,7 @@ const Ring = ({ pct }: { pct: number }) => {
     );
 };
 
-const StagePath = ({ stage, done }: { stage?: string | null; done?: boolean }) => {
+const StagePath = ({ stage, done, travel = false }: { stage?: string | null; done?: boolean; travel?: boolean }) => {
     const { t } = useT();
     const at = done ? STAGES.length - 1 : stageIndex(stage);
     return (
@@ -125,7 +129,7 @@ const StagePath = ({ stage, done }: { stage?: string | null; done?: boolean }) =
                     </div>
                 ))}
             </div>
-            <div className="mt-1 text-xs text-gray-500">{t("now")}: <span className="font-medium text-gray-800 dark:text-gray-200">{t(STAGES[at].label)}</span>{at < STAGES.length - 1 ? ` · ${t("next")}: ${t(STAGES[at + 1].label)}` : ""}</div>
+            <div className="mt-1 text-xs text-gray-500">{t("now")}: <span className="font-medium text-gray-800 dark:text-gray-200">{t(stageText(STAGES[at].key, travel))}</span>{at < STAGES.length - 1 ? ` · ${t("next")}: ${t(stageText(STAGES[at + 1].key, travel))}` : ""}</div>
         </div>
     );
 };
@@ -198,7 +202,7 @@ const ProgressTracker = ({ compact = false }: { compact?: boolean }) => {
                                 ) : (
                                     <div className="mt-2 text-sm text-gray-500">{t("preparing_steps")}</div>
                                 )}
-                                {!rejected && <StagePath stage={c.stage} done={approved} />}
+                                {!rejected && <StagePath stage={c.stage} done={approved} travel={isTravelCaseView(c)} />}
                                 <VisaDates visa={c.visa} />
                             </div>
                             <ChevronRight className="text-gray-400 shrink-0 mt-1" size={20} />

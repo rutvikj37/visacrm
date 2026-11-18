@@ -19,6 +19,8 @@ import { resolveTemplate } from "./VisaTemplateController";
 import { notifyLater } from "../../services/notifications";
 import { accessOf, canAssignTo, caseScope } from "../../helpers/access";
 import PortalChatMessage from "../../model/PortalChatMessage";
+import { readTravelDocs, sanitizeTravelDocs } from "../../services/travelDocs";
+import { isTravelVisaType } from "../../services/businessFocus";
 
 /**
  * Visa cases (AgencyLeads): board by stage, outcome, assignment, step due dates, extra applications.
@@ -278,6 +280,9 @@ class CaseController {
                 country: x.selected_country || sel.country || null,
                 university: x.university || sel.university || null,
                 course: sel.fieldOfStudy || null,
+                visa_type: sel.otherOption || null,
+                is_travel: isTravelVisaType(sel.otherOption),
+                travel_docs: readTravelDocs(x.travel_docs),
                 intake: [sel.intakeMonth, sel.intakeYear || x.selected_intake_year].filter(Boolean).join(" ") || null,
                 assignee: assignee ? { id: assignee.dataValues.id, name: assignee.dataValues.username } : null,
                 visa: {
@@ -573,6 +578,52 @@ class CaseController {
             return returnHelper(res, 200, true, "Reapplication case created", { id: result.id });
         } catch (error) {
             console.error("reapply failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // GET /crm/cases/:id/travel_docs - itinerary, cover letter and funds check (tourist / business visas)
+    async travelDocs(req: RequestWithUser, res: Response) {
+        try {
+            const c: any = await AgencyLeads.findOne({
+                where: { ...scope(req), id: Number(req.params.id) || 0 },
+                include: [{ model: User, as: "user_of", attributes: ["id", "username", "phone_number", "country_code", "email"] }],
+            });
+            if (!c) return returnHelper(res, 200, false, "Case not found");
+            const x = c.toJSON();
+            const sel = parseJson(x.selected_suggestion) || {};
+            const agency: any = await Agent.findOne({
+                where: { uuid: ctx(req).agencyUuid, role: "agent" },
+                attributes: ["app_name", "username", "agency_address", "support_number", "support_email", "favicon_url", "primary_color"], raw: true,
+            });
+            const { publicFileUrl } = await import("../../helpers/storage");
+            return returnHelper(res, 200, true, "Travel documents", {
+                docs: readTravelDocs(x.travel_docs),
+                client: x.user_of ? { name: x.user_of.username, phone: [x.user_of.country_code, x.user_of.phone_number].filter(Boolean).join(" "), email: x.user_of.email } : null,
+                country: x.selected_country || sel.country || null,
+                visa_type: sel.otherOption || null,
+                agency: agency ? {
+                    name: agency.app_name || agency.username, address: agency.agency_address, phone: agency.support_number, email: agency.support_email, color: agency.primary_color,
+                    logo: agency.favicon_url ? (String(agency.favicon_url).startsWith("http") ? agency.favicon_url : publicFileUrl("profiles", agency.favicon_url)) : null,
+                } : null,
+            });
+        } catch (error) {
+            console.error("travel docs failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/cases/:id/travel_docs { docs }
+    async saveTravelDocs(req: RequestWithUser, res: Response) {
+        try {
+            const c: any = await findCase(req, req.params.id);
+            if (!c) return returnHelper(res, 200, false, "Case not found");
+            const docs = sanitizeTravelDocs({ ...(req.body?.docs || {}), updated_at: new Date().toISOString() });
+            await AgencyLeads.update({ travel_docs: JSON.stringify(docs) }, { where: { id: c.dataValues.id } });
+            audit(req, { entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "travel_docs", summary: `Travel documents saved${docs.shared ? " (shared with client)" : ""}` });
+            return returnHelper(res, 200, true, docs.shared ? "Saved - the client can see it in the portal" : "Saved", { docs });
+        } catch (error) {
+            console.error("save travel docs failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

@@ -6,6 +6,7 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import { applyBrand, DEFAULT_BRAND } from "@/lib/theme";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
+import { applyCaseFlow } from "@/modules/AgentAdmin/Cases/caseShared";
 
 const DEFAULTS = { primary_color: DEFAULT_BRAND, primary_foreground_color: "#ffffff", dark_primary_color: "#050a30" };
 
@@ -39,7 +40,7 @@ const BrandingSettings = () => {
     const load = useCallback(async () => {
         const { success, data } = await commonGetAPICalls("/crm/branding");
         if (success) {
-            setForm({ ...data, app_name: data.app_name || "", primary_color: data.primary_color || "", primary_foreground_color: data.primary_foreground_color || "", dark_primary_color: data.dark_primary_color || "", support_number: data.support_number || "", support_email: data.support_email || "", agency_address: data.agency_address || "", meta_description: data.meta_description || "" });
+            setForm({ ...data, app_name: data.app_name || "", primary_color: data.primary_color || "", primary_foreground_color: data.primary_foreground_color || "", dark_primary_color: data.dark_primary_color || "", support_number: data.support_number || "", support_email: data.support_email || "", agency_address: data.agency_address || "", meta_description: data.meta_description || "", business_focus: data.business_focus || "study" });
             setLogoPreview(data.logo_url || null);
         }
     }, []);
@@ -82,7 +83,7 @@ const BrandingSettings = () => {
     const save = async () => {
         setSaving(true);
         const fd = new FormData();
-        for (const k of ["app_name", "primary_color", "primary_foreground_color", "dark_primary_color", "support_number", "support_email", "agency_address", "meta_description"]) fd.append(k, form[k] ?? "");
+        for (const k of ["app_name", "primary_color", "primary_foreground_color", "dark_primary_color", "support_number", "support_email", "agency_address", "meta_description", "business_focus"]) fd.append(k, form[k] ?? "");
         if (logo) fd.append("logo", logo);
         const { success, data } = await commonPostAPICallWithFile(fd, "crm/branding");
         setSaving(false);
@@ -92,6 +93,7 @@ const BrandingSettings = () => {
             if (data?.logo_url) setLogoPreview(data.logo_url);
             // CSS vars update live via applyBrand; avoid full reload flash
             applyBrand(form.primary_color || null);
+            applyCaseFlow(form.business_focus);
         }
     };
 
@@ -104,6 +106,29 @@ const BrandingSettings = () => {
                 <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Branding</h1>
                 <p className="text-sm text-default-500">Name, logo and colours for your student portal and this panel</p>
             </div>
+
+            <Card shadow="sm">
+                <CardHeader className="flex flex-col items-start gap-0.5">
+                    <span className="font-semibold">What does your agency mainly do?</span>
+                    <span className="text-xs text-default-500 font-normal">Sets case stage names, the tools on each case and the wording in your client portal.</span>
+                </CardHeader>
+                <CardBody className="pt-0 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                        { key: "study", title: "Student visas", text: "Universities, offers, intakes, study permits." },
+                        { key: "travel", title: "Tourist & business visas", text: "Appointments, itinerary, cover letters, funds check." },
+                        { key: "both", title: "Both", text: "Each case follows its visa type." },
+                    ].map((o) => {
+                        const on = form.business_focus === o.key;
+                        return (
+                            <button key={o.key} type="button" onClick={() => set("business_focus")(o.key)} aria-pressed={on}
+                                className={`text-left rounded-xl border-2 p-3 transition-colors ${on ? "border-primary bg-primary/5" : "border-default-200 hover:border-default-300"}`}>
+                                <span className="block text-sm font-semibold text-foreground">{o.title}</span>
+                                <span className="block text-xs text-default-500 mt-0.5">{o.text}</span>
+                            </button>
+                        );
+                    })}
+                </CardBody>
+            </Card>
 
             <Card shadow="sm">
                 <CardHeader className="font-semibold">Name & logo</CardHeader>

@@ -1,3 +1,4 @@
+import { businessFocusOf } from "../../services/businessFocus";
 import { publicFileUrl, saveFile, deleteFile, ownerFromRequest, agencyOwner } from "../../helpers/storage";
 import { Request, Response } from "express";
 import { getAgencyAccess } from "../../services/saas";
@@ -1117,6 +1118,7 @@ class AgentController {
                     "sudomain",
                     "domain",
                     "status",
+                    "ui_prefs",
                     "createdAt",
                     "updatedAt"
                 ]
@@ -1131,6 +1133,9 @@ class AgentController {
             // SaaS: which optional modules the student portal may show (null = all, agency has no plan)
             const portalAccess = await getAgencyAccess(accountData.uuid);
             accountData.addons = portalAccess?.plan ? portalAccess.plan.features.addons : null;
+            // what the agency mainly does (student / tourist & business visas) - portal wording and stages
+            accountData.business_focus = businessFocusOf(accountData.ui_prefs);
+            delete accountData.ui_prefs;
             
             // Add full URLs for favicon and og_image if they exist
             if (accountData.favicon_url) {
@@ -1604,9 +1609,9 @@ class AgentController {
                         // agency colour (Branding settings) - the agency panel uses the same colour as the student portal
                         // agency look for the panel header: colour, name and logo (Branding settings)
                         ...(await (async () => {
-                            const ag: any = await Agent.findOne({ where: { uuid: (req.user?.user as any)?.agent_uuid, role: "agent" }, attributes: ["primary_color", "app_name", "username", "favicon_url"], raw: true });
+                            const ag: any = await Agent.findOne({ where: { uuid: (req.user?.user as any)?.agent_uuid, role: "agent" }, attributes: ["primary_color", "app_name", "username", "favicon_url", "ui_prefs"], raw: true });
                             const logo = ag?.favicon_url ? (String(ag.favicon_url).startsWith("http") ? ag.favicon_url : publicFileUrl("profiles", ag.favicon_url)) : null;
-                            return { brand_color: ag?.primary_color || null, agency_name: ag?.app_name || ag?.username || null, agency_logo: logo };
+                            return { brand_color: ag?.primary_color || null, agency_name: ag?.app_name || ag?.username || null, agency_logo: logo, business_focus: businessFocusOf(ag?.ui_prefs) };
                         })())
                     }
                 })

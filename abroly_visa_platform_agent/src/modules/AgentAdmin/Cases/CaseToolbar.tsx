@@ -12,7 +12,7 @@ import InvoiceFormModal from "@/modules/AgentAdmin/Fees/InvoiceFormModal";
 import CountrySelectWithFlag from "@/modules/AgentAdmin/Crm/CountrySelectWithFlag";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast } from "@/utils/Toaster";
-import { CASE_STAGES, fmtShortDate, isOverdue, stageLabel } from "./caseShared";
+import { fmtShortDate, isOverdue, stageLabel, stagesForCase } from "./caseShared";
 
 const Field = ({ label, children }: any) => (
     <div className="flex flex-col gap-1 min-w-0"><span className="text-xs font-medium text-default-600">{label}</span>{children}</div>
@@ -116,6 +116,7 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
         : info.status === "visa_rejected" ? { label: "Visa rejected", color: "danger" as const }
             : notStarted ? { label: "Not started", color: "warning" as const }
                 : decided ? { label: "Withdrawn", color: "default" as const } : null;
+    const CASE_STAGES = stagesForCase(info);
     const at = Math.max(0, CASE_STAGES.findIndex((x) => x.key === (info.stage || "documents")));
 
     return (

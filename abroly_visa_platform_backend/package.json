@@ -13,6 +13,7 @@
     "mail:test": "ts-node src/scripts/testMail.ts",
     "demo:seed": "ts-node src/scripts/seedDemo.ts",
     "demo:seed:tasks-chats": "ts-node src/scripts/seedDemoTasksChats.ts",
+    "demo:seed:travel": "ts-node src/scripts/seedTravelDemo.ts",
     "admin:code": "ts-node src/scripts/adminLoginCode.ts",
     "files:s3": "node dist/scripts/migrateFilesToS3.js"
   },

@@ -46,7 +46,7 @@ import CommonConfirmation from "@/components/CommonConfirmation"
 import LogoutAllDevicesItem from "@/components/LogoutAllDevicesItem"
 import { handleLogout } from "@/utils/LogoutUtils"
 import { useSelector } from "react-redux"
-import { getAppName, getConfig } from "@/utils/config"
+import { getAppName, getConfig, isTravelFocus } from "@/utils/config"
 import { AgencyLogo, StudentTopBar } from "@/components/AgencyBrand"
 import StudentBottomNav from "@/components/StudentBottomNav"
 import { PRIMARY_COLOR, PRIMARY_COLOR_FOREGROUND } from "@/lib/theme"
@@ -86,7 +86,7 @@ const MAIN_LINKS: NavLink[] = [
 ]
 
 const ACCOUNT_LINKS: NavLink[] = [
-  { title: "Student profile", url: "/student_profile", icon: UserRound, match: (p) => p.startsWith("/student_profile") },
+  { title: "My profile", url: "/student_profile", icon: UserRound, match: (p) => p.startsWith("/student_profile") },
   { title: "FAQs", url: "/faq", icon: MessageCircleQuestion, match: (p) => p.startsWith("/faq") },
   { title: "Contact us", url: "/contact_us", icon: Contact, match: (p) => p.startsWith("/contact") },
 ]
@@ -150,7 +150,7 @@ const StudentDashboard = () => {
                   <AgencyLogo size={32} />
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">{getAppName()}</span>
-                    <span className="truncate text-xs text-default-500">Student portal</span>
+                    <span className="truncate text-xs text-default-500">{isTravelFocus() ? "Client portal" : "Student portal"}</span>
                   </div>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -1,12 +1,44 @@
-export const CASE_STAGES = [
-    { key: "documents", label: "Documents" },
-    { key: "application", label: "Application" },
-    { key: "offer", label: "Offer" },
-    { key: "funds", label: "Fees & funds" },
-    { key: "visa_filed", label: "Visa filed" },
-    { key: "biometrics", label: "Biometrics" },
-    { key: "decision", label: "Decision" },
-];
+/**
+ * Case stages. Keys are fixed (stored on the case); labels follow what the agency mainly does
+ * (Branding > "What does your agency mainly do?"): student visas or tourist & business visas.
+ * applyCaseFlow() relabels in place at login, so every screen that imports CASE_STAGES follows.
+ */
+const STUDY_LABELS: Record<string, string> = {
+    documents: "Documents", application: "Application", offer: "Offer", funds: "Fees & funds",
+    visa_filed: "Visa filed", biometrics: "Biometrics", decision: "Decision",
+};
+const TRAVEL_LABELS: Record<string, string> = {
+    documents: "Documents", application: "Itinerary & letters", offer: "Bookings", funds: "Funds check",
+    visa_filed: "Submitted", biometrics: "Biometrics", decision: "Decision",
+};
+
+export type BusinessFocus = "study" | "travel" | "both";
+const FOCUS_KEY = "business_focus";
+let focus: BusinessFocus = (() => { try { const v = localStorage.getItem(FOCUS_KEY); return v === "travel" || v === "both" ? v : "study"; } catch { return "study"; } })();
+
+export const CASE_STAGES = Object.keys(STUDY_LABELS).map((key) => ({ key, label: (focus === "travel" ? TRAVEL_LABELS : STUDY_LABELS)[key] }));
+
+export const getBusinessFocus = () => focus;
+export const applyCaseFlow = (next?: string | null) => {
+    focus = next === "travel" || next === "both" ? next : "study";
+    try { localStorage.setItem(FOCUS_KEY, focus); } catch { /* private mode */ }
+    const labels = focus === "travel" ? TRAVEL_LABELS : STUDY_LABELS;
+    CASE_STAGES.forEach((s) => { s.label = labels[s.key]; });
+};
+
+/** Tourist / visitor / business visa (not a study visa)? */
+export const isTravelVisaType = (visaType?: string | null) =>
+    /tour|visit|business|travel|b1|b2|schengen|transit|family|conference/i.test(String(visaType || "")) && !/stud|f-?1\b/i.test(String(visaType || ""));
+
+/** Should this case use the tourist / business tools (itinerary, cover letter) instead of universities? */
+export const isTravelCase = (c?: { is_travel?: boolean; visa_type?: string | null } | null) =>
+    focus === "travel" || Boolean(c?.is_travel) || (focus === "both" && isTravelVisaType(c?.visa_type));
+
+/** Stage labels for one case (travel wording for travel cases even in a mixed agency). */
+export const stagesForCase = (c?: { is_travel?: boolean; visa_type?: string | null } | null) => {
+    const labels = isTravelCase(c) ? TRAVEL_LABELS : STUDY_LABELS;
+    return CASE_STAGES.map((s) => ({ key: s.key, label: labels[s.key] }));
+};
 
 export const OUTCOMES = [
     { key: "approved", label: "Approved", color: "success" as const },

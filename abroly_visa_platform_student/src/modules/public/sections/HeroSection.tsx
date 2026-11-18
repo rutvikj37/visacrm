@@ -5,14 +5,22 @@ import { LogInIcon } from "lucide-react"
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { AgencyLogo } from '@/components/AgencyBrand'
-import { getAppName, getMetaDescription } from '@/utils/config'
+import { getAppName, getMetaDescription, isTravelFocus } from '@/utils/config'
+import { FaGlobeEurope, FaFileSignature } from 'react-icons/fa'
 
 const HeroSection = () => {
     const navigate = useNavigate()
     const agencyName = getAppName() || "your agency"
-    const tagline = getMetaDescription() || `Study abroad with ${agencyName}. Expert counselling, visa guidance and end-to-end support.`
+    const travel = isTravelFocus()
+    const tagline = getMetaDescription() || (travel
+        ? `Tourist and business visas made simple with ${agencyName} - checklists, itinerary, cover letters and appointment support.`
+        : `Study abroad with ${agencyName}. Expert counselling, visa guidance and end-to-end support.`)
 
-    const features = [
+    const features = travel ? [
+        { icon: <FaGlobeEurope className="text-2xl" />, title: "Tourist & Business Visas", desc: "Schengen, UK, USA, Canada, Dubai, Australia and more" },
+        { icon: <FaFileSignature className="text-2xl" />, title: "Itinerary & Cover Letters", desc: "Prepared for you, ready for the embassy" },
+        { icon: <FaPassport className="text-2xl" />, title: "Client Portal", desc: "Upload documents, pay fees and follow your visa" },
+    ] : [
         {
             icon: <FaUniversity className="text-2xl" />,
             title: "University Admission",
@@ -85,7 +93,7 @@ const HeroSection = () => {
                         </div>
 
                         <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-                            Study abroad with
+                            {travel ? "Travel the world with" : "Study abroad with"}
                             <span className="bg-primary bg-clip-text text-transparent"> {agencyName}</span>
                         </h1>
 
@@ -100,7 +108,7 @@ const HeroSection = () => {
                                 onPress={() => navigate('/login')}
                                 endContent={<LogInIcon />}
                             >
-                                Student login
+                                {travel ? "Client login" : "Student login"}
                             </Button>
                             <Button
                                 size="lg"

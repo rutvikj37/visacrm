@@ -1,3 +1,5 @@
+import { readTravelDocs } from "../../services/travelDocs";
+import { isTravelVisaType } from "../../services/businessFocus";
 import { saveFile, deleteFile, agencyOwner, ownerFromRequest } from "../../helpers/storage";
 import { signedFileUrl } from "../../helpers/privateFiles";
 import UniversityApplication from "../../model/UniversityApplication";
@@ -242,7 +244,7 @@ class LeadProgressController {
             const studentId = req?.id
             const cases: any[] = await AgencyLeads.findAll({
                 where: { user_id: studentId, status: ["visa_progress", "visa_completed", "visa_rejected"] },
-                attributes: ["id", "status", "case_stage", "selected_country", "university", "selected_suggestion", "visa_lodged_on", "biometrics_on", "decision_on", "reapplied_from", "createdAt"],
+                attributes: ["id", "status", "case_stage", "selected_country", "university", "selected_suggestion", "visa_lodged_on", "biometrics_on", "decision_on", "reapplied_from", "travel_docs", "createdAt"],
                 order: [["createdAt", "DESC"]],
             })
             // the universities the agency applied to for the student (no internal notes / money they earn)
@@ -300,6 +302,10 @@ class LeadProgressController {
                     waiting_review: questions.filter((q) => q.dataValues.status === "provided").length,
                     visa: { lodged_on: x.visa_lodged_on || null, biometrics_on: x.biometrics_on || null, decision_on: x.decision_on || null },
                     reapplication: Boolean(x.reapplied_from),
+                    visa_type: sel.otherOption || null,
+                    is_travel: isTravelVisaType(sel.otherOption),
+                    // itinerary / cover letter only once staff share them with the client
+                    travel_docs: (() => { const d = readTravelDocs(x.travel_docs); return d && d.shared ? d : null; })(),
                     universities: uniRows.filter((u) => u.dataValues.case_id === x.id).map((u) => {
                         const d = u.dataValues
                         const files = Array.isArray(u.get("offer_files")) ? u.get("offer_files") : []

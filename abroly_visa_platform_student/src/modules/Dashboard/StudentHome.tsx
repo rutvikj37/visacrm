@@ -13,7 +13,8 @@ import { getAppName, getConfig, getSupportEmail, getSupportNumber } from "@/util
 import { useChatUpdates } from "@/lib/realtime";
 import InstallAppCard from "@/components/InstallAppCard";
 import AchievementBanner from "@/modules/AchievementBanner/AchievementBanner";
-import { STAGES, fmt, overdue, stageIndex } from "@/modules/VisaConsultation/ProgressTracker";
+import { STAGES, fmt, isTravelCaseView, overdue, stageIndex, stageText } from "@/modules/VisaConsultation/ProgressTracker";
+import { printCoverLetter, printItinerary } from "@/utils/travelPrint";
 
 /* ------------------------------------------------------------------ data */
 
@@ -102,7 +103,7 @@ const Ring = ({ pct }: { pct: number }) => {
 };
 
 /** Six-stage journey (same stages as the agency case board): segments, with labels from tablet width. */
-const StageBar = ({ stage, done }: { stage?: string | null; done?: boolean }) => {
+const StageBar = ({ stage, done, travel = false }: { stage?: string | null; done?: boolean; travel?: boolean }) => {
     const { t } = useT();
     const at = done ? STAGES.length - 1 : stageIndex(stage);
     return (
@@ -114,12 +115,12 @@ const StageBar = ({ stage, done }: { stage?: string | null; done?: boolean }) =>
             </div>
             <div className="hidden sm:grid grid-cols-6 gap-1.5 mt-1.5 text-[11px] leading-tight">
                 {STAGES.map((s, i) => (
-                    <span key={s.key} className={i === at ? "font-semibold" : "opacity-70"}>{t(s.label)}</span>
+                    <span key={s.key} className={i === at ? "font-semibold" : "opacity-70"}>{t(stageText(s.key, travel))}</span>
                 ))}
             </div>
             <div className="sm:hidden mt-1.5 text-xs">
-                <span className="opacity-80">{t("now")}:</span> <span className="font-semibold">{t(STAGES[at].label)}</span>
-                {at < STAGES.length - 1 && <span className="opacity-80"> · {t("next")}: {t(STAGES[at + 1].label)}</span>}
+                <span className="opacity-80">{t("now")}:</span> <span className="font-semibold">{t(stageText(STAGES[at].key, travel))}</span>
+                {at < STAGES.length - 1 && <span className="opacity-80"> · {t("next")}: {t(stageText(STAGES[at + 1].key, travel))}</span>}
             </div>
         </div>
     );
@@ -183,7 +184,7 @@ const CaseHero = ({ c }: { c: any }) => {
                     </div>
                 </div>
 
-                {!rejected && <StageBar stage={c.stage} done={approved} />}
+                {!rejected && <StageBar stage={c.stage} done={approved} travel={isTravelCaseView(c)} />}
 
                 {dates.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -399,6 +400,48 @@ const Updates = ({ cases, loading }: { cases: any[]; loading: boolean }) => {
     );
 };
 
+/** Itinerary and cover letter the agency prepared and shared (tourist / business visas). */
+const TravelDocsCard = ({ cases }: { cases: any[] }) => {
+    const { t } = useT();
+    const withDocs = cases.filter((c) => c.travel_docs);
+    if (!withDocs.length) return null;
+    const agency = { name: getAppName(), address: getConfig("AGENCY_ADDRESS"), phone: getSupportNumber(), email: getSupportEmail(), logo: getConfig("FAVICON_URL") !== "/logo.png" ? getConfig("FAVICON_URL") : null, color: getConfig("PRIMARY_COLOR") || null };
+    const userName = (() => { try { return localStorage.getItem("name") || ""; } catch { return ""; } })();
+    return (
+        <Card>
+            <SectionTitle icon={FileText}>{t("travel_docs")}</SectionTitle>
+            <p className="px-4 -mt-1 text-xs text-default-500">{t("travel_docs_text", { agency: getAppName() || t("your_agency") })}</p>
+            <ul className="p-2 flex flex-col gap-1">
+                {withDocs.map((c) => {
+                    const d = c.travel_docs;
+                    const days = d.itinerary?.length || 0;
+                    const ctx = { client: userName, country: c.country, visaType: c.visa_type, agency };
+                    return (
+                        <li key={c.id} className="rounded-xl px-2 py-2">
+                            <div className="text-sm font-medium text-foreground px-1">{d.trip?.destination || caseLabel(c, t("visa_application"))}</div>
+                            <div className="text-xs text-default-500 px-1">
+                                {[d.trip?.start_date ? `${fmt(d.trip.start_date)} - ${fmt(d.trip.end_date)}` : "", days ? t("days_n", { n: days }) : ""].filter(Boolean).join(" · ")}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2 px-1">
+                                {days > 0 && (
+                                    <button type="button" onClick={() => printItinerary(d, ctx)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold">
+                                        <CalendarDays size={14} /> {t("itinerary")}
+                                    </button>
+                                )}
+                                {d.cover_letter?.body && (
+                                    <button type="button" onClick={() => printCoverLetter(d, { client: userName })} className="inline-flex items-center gap-1.5 rounded-lg border border-default-200 px-3 py-2 text-xs font-semibold text-foreground">
+                                        <FileText size={14} /> {t("cover_letter")}
+                                    </button>
+                                )}
+                            </div>
+                        </li>
+                    );
+                })}
+            </ul>
+        </Card>
+    );
+};
+
 const HelpCard = () => {
     const { t } = useT();
     const navigate = useNavigate();
@@ -535,6 +578,7 @@ const StudentHome = () => {
                 )}
 
                 <TodoList items={todos} loading={todoLoading} waitingReview={waitingReview} />
+                <TravelDocsCard cases={cases} />
                 <OtherCases cases={others} />
                 <InstallAppCard />
             </div>

@@ -7,7 +7,7 @@ import { addToLocal } from '../../utils/localstorage'
 import { GrEdit } from 'react-icons/gr'
 import { useNavigate } from 'react-router-dom'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
-import { getAgentUuid, getAppName, getSupportEmail, getSupportNumber } from '@/utils/config'
+import { getAgentUuid, getAppName, getSupportEmail, getSupportNumber, isTravelFocus } from '@/utils/config'
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 import { AgencyLogo } from '@/components/AgencyBrand'
 import InstallAppCard from '@/components/InstallAppCard'
@@ -240,7 +240,7 @@ const Login = () => {
                     <AgencyLogo size={56} />
                     <div className="text-center">
                         <h1 className="text-2xl font-semibold text-gray-800">{agencyName}</h1>
-                        <p className="text-sm text-gray-500 mt-1">Student login — track your visa case and documents</p>
+                        <p className="text-sm text-gray-500 mt-1">{isTravelFocus() ? "Client login — track your visa application and documents" : "Student login — track your visa case and documents"}</p>
                     </div>
                 </CardHeader>
                 <CardBody>
