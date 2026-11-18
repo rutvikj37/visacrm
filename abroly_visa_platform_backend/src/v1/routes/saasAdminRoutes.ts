@@ -14,6 +14,7 @@ saasAdminRoutes.route("/plans/:uuid/delete").post(validateAdmin, SaasAdminContro
 
 saasAdminRoutes.route("/agencies").get(validateAdmin, SaasAdminController.listAgencies)
 saasAdminRoutes.route("/usage").get(validateAdmin, SaasAdminController.usage)
+saasAdminRoutes.route("/monitoring").get(validateAdmin, SaasAdminController.monitoring)
 saasAdminRoutes.route("/agencies").post(validateAdmin, SaasAdminController.createAgency)
 saasAdminRoutes.route("/agencies/bulk").post(validateAdmin, SaasAdminController.bulkAgencies)
 saasAdminRoutes.route("/agencies/:uuid").get(validateAdmin, SaasAdminController.agencyDetails)

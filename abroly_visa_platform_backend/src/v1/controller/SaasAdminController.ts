@@ -12,6 +12,7 @@ import CrmLead from "../../model/CrmLead";
 import SaasCoupon from "../../model/SaasCoupon";
 import { sendFailureReminderNow } from "../../services/saasFollowups";
 import { agencyUsage } from "../../services/saasUsage";
+import { buildMonitoringPayload } from "../../services/platformMonitoring";
 import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin";
 import { normalizeCountryCode } from "../../services/phoneMatch";
 import { panelBaseOf } from "../../services/panelUrl";
@@ -840,6 +841,16 @@ class SaasAdminController {
             return returnHelper(res, 200, true, "Usage", { summary, agencies: rows });
         } catch (error) {
             return fail(res, error, "usage");
+        }
+    }
+
+    // GET /saas_admin/monitoring — application/platform health (API probes, live errors, scheduler jobs)
+    async monitoring(req: RequestWithUser, res: Response) {
+        try {
+            const data = await buildMonitoringPayload();
+            return returnHelper(res, 200, true, "Monitoring", data);
+        } catch (error) {
+            return fail(res, error, "monitoring");
         }
     }
 

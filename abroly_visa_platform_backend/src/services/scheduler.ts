@@ -4,6 +4,7 @@ import { documentsPendingReminders, feeDueReminders } from "./messaging";
 import { paymentFailureFollowups } from "./saasFollowups";
 import { monthlyOwnerSummaries } from "./ownerSummary";
 import { dailyDigest, followUpReminders, ruleReminders, stepDueReminders, subscriptionReminders } from "./notifications";
+import { recordSchedulerHeartbeat } from "./platformMonitoring";
 
 /**
  * Simple in-process scheduler. Started by one cluster worker only (see server.ts),
@@ -17,10 +18,17 @@ let indiamartRunning = false;
 const runIndiamart = async () => {
     if (indiamartRunning) return;
     indiamartRunning = true;
+    const t0 = Date.now();
     try {
         await pullAllIndiamart();
-    } catch (error) {
+        await recordSchedulerHeartbeat("indiamart_pull", { ok: true, durationMs: Date.now() - t0 });
+    } catch (error: any) {
         console.error("IndiaMART scheduled pull failed", error);
+        await recordSchedulerHeartbeat("indiamart_pull", {
+            ok: false,
+            durationMs: Date.now() - t0,
+            error: error?.message || String(error),
+        });
     } finally {
         indiamartRunning = false;
     }
@@ -32,6 +40,7 @@ let remindersRunning = false;
 const runReminders = async () => {
     if (remindersRunning) return;
     remindersRunning = true;
+    const t0 = Date.now();
     try {
         await followUpReminders();
         await stepDueReminders();
@@ -43,8 +52,14 @@ const runReminders = async () => {
         await subscriptionReminders();
         await paymentFailureFollowups();
         await monthlyOwnerSummaries();
-    } catch (error) {
+        await recordSchedulerHeartbeat("reminders_digest", { ok: true, durationMs: Date.now() - t0 });
+    } catch (error: any) {
         console.error("Reminder job failed", error);
+        await recordSchedulerHeartbeat("reminders_digest", {
+            ok: false,
+            durationMs: Date.now() - t0,
+            error: error?.message || String(error),
+        });
     } finally {
         remindersRunning = false;
     }
@@ -59,6 +74,18 @@ export const startScheduler = () => {
     // follow-up reminders, morning digest, trial / plan ending reminders
     setTimeout(runReminders, 30 * 1000);
     // work created before branches carried leads / cases takes the branch of the person handling it
-    setTimeout(() => { backfillBranches().catch((e) => console.error("branch backfill failed", e)); }, 20 * 1000);
+    setTimeout(() => {
+        const t0 = Date.now();
+        backfillBranches()
+            .then(() => recordSchedulerHeartbeat("branch_backfill", { ok: true, durationMs: Date.now() - t0 }))
+            .catch((e) => {
+                console.error("branch backfill failed", e);
+                return recordSchedulerHeartbeat("branch_backfill", {
+                    ok: false,
+                    durationMs: Date.now() - t0,
+                    error: e?.message || String(e),
+                });
+            });
+    }, 20 * 1000);
     setInterval(runReminders, REMINDER_INTERVAL_MS);
 };

@@ -8,6 +8,7 @@ const SaasPayments = lazy(()=> import("@/modules/Saas/SaasPayments"))
 const SaasInvoice = lazy(()=> import("@/modules/Saas/SaasInvoice"))
 const SaasCoupons = lazy(()=> import("@/modules/Saas/SaasCoupons"))
 const SaasUsage = lazy(()=> import("@/modules/Saas/SaasUsage"))
+const SaasMonitoring = lazy(()=> import("@/modules/Saas/SaasMonitoring"))
 const SaasAnnouncements = lazy(()=> import("@/modules/Saas/SaasAnnouncements"))
 const SaasBillingSettings = lazy(()=> import("@/modules/Saas/SaasBillingSettings"))
 const SaasMetaSettings = lazy(()=> import("@/modules/Saas/SaasMetaSettings"))
@@ -107,6 +108,10 @@ export const AdminRoutes = [
     {
         path: "/saas/usage",
         element: SaasUsage
+    },
+    {
+        path: "/saas/monitoring",
+        element: SaasMonitoring
     },
     {
         path: "/saas/announcements",

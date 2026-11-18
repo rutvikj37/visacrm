@@ -86,6 +86,8 @@ import PortalChatMessage from "../model/PortalChatMessage";
 import AgencyTask from "../model/AgencyTask";
 import UniversityApplication from "../model/UniversityApplication";
 import Commission from "../model/Commission";
+import PlatformErrorLog from "../model/PlatformErrorLog";
+import PlatformSchedulerHeartbeat from "../model/PlatformSchedulerHeartbeat";
 
 interface SyncOptions {
   force?: boolean;
@@ -180,7 +182,7 @@ class ModelInitializer {
       LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate,
       // SaaS billing
       SaasPlan, SaasSubscription, SaasPayment,
-      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, AgencyTask, UniversityApplication, Commission
+      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat
     ];
 
     // Sync base models first

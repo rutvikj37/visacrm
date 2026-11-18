@@ -12,6 +12,7 @@ import v1_routes from './v1/routes';
 import { startScheduler } from './services/scheduler';
 import { migratePublicFiles, serveSignedFile } from './helpers/privateFiles';
 import { serveMedia } from './helpers/storage';
+import { captureUnhandledError, platformErrorCaptureMiddleware } from './middleware/platformErrorCapture';
 
 dotenv.config();
 
@@ -115,6 +116,9 @@ if (cluster.isPrimary) {
         })
       })
 
+      // Capture live API failures for SaaS Monitoring (application errors only — not host metrics)
+      app.use(platformErrorCaptureMiddleware);
+
       // Construct the absolute path to the public directory
       const publicDirectoryPath = path.join(__dirname, '..', 'public');
 
@@ -132,6 +136,7 @@ if (cluster.isPrimary) {
       app.use((err: any, req: Request, res: Response, next: NextFunction) => {
         console.error('Global Error Handler:', err.stack);
         const statusCode = err.statusCode || 500;
+        captureUnhandledError(err, req, statusCode);
         res.status(statusCode).json({
           success: false,
           message: err.message || 'Internal Server Error',
