@@ -8,7 +8,7 @@ import {
   LogOut,
   MessageCircleQuestion,
   MessagesSquare,
-  Route,
+  Route as RouteIcon,
   Store,
   UserRound,
 } from "lucide-react"
@@ -63,7 +63,7 @@ const MAIN_LINKS: NavLink[] = [
   {
     title: "My progress",
     url: "/my_progress",
-    icon: Route,
+    icon: RouteIcon,
     match: (p) => p.startsWith("/my_progress"),
   },
   { title: "Chat with counsellor", url: "/chat", icon: MessagesSquare, match: (p) => p.startsWith("/chat") },
