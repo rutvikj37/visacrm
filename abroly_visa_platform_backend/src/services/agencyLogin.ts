@@ -23,12 +23,18 @@ import { sharedPanel } from "./panelUrl";
 export const LOGIN_CODE_LENGTH = 6;
 export const PASSCODE_MIN = 4;
 export const PASSCODE_MAX = 6;
+/** New passcodes must be 6 digits (4–5 digit passcodes set earlier still work at login). */
+export const NEW_PASSCODE_MIN = 6;
 /** returned as the "verificationId" by login_with_number so the panel shows invite-code boxes */
 export const LOGIN_CODE_MARKER = "LOGIN_CODE";
 /** returned when the account already has a personal passcode */
 export const PASSCODE_MARKER = "PASSCODE";
-/** Platform admin always uses this fixed 6-digit OTP (no SMS / CLI rotation required). */
-export const ADMIN_FIXED_OTP = "111111";
+/**
+ * Old shared admin code. No longer accepted: anyone who knew an admin's phone number could log in.
+ * Admins now get a random code from `npm run admin:code`, or a secret ADMIN_LOGIN_OTP in .env.
+ */
+const LEGACY_ADMIN_OTP = "111111";
+const adminEnvOtp = () => String(process.env.ADMIN_LOGIN_OTP || "").replace(/\D/g, "");
 const RESET_MINUTES = 15;
 const SETUP_TOKEN_MINUTES = 30;
 
@@ -124,23 +130,17 @@ export const studentUsesLoginCode = (studentId: number) => usesCodeOn(User, stud
 export const studentHasPasscode = (studentId: number) => hasPasscodeOn(User, studentId);
 export const checkStudentLoginCode = (studentId: number, code: unknown) => checkCodeOn(User, studentId, code);
 
-/** Platform admins - fixed OTP only (no personal passcode / SMS). */
-export const setAdminLoginCode = async (adminId: number) => {
-    await (Admin as any).update(
-        {
-            login_pin: await bcrypt.hash(ADMIN_FIXED_OTP, 10),
-            login_pin_attempts: 0,
-            login_pin_locked_until: null,
-        },
-        { where: { id: adminId } },
-    );
-    return ADMIN_FIXED_OTP;
-};
-/** Admins always enter the fixed 6-digit OTP (never SMS). */
+/** Platform admins: a random 6-digit code per admin (replaces the previous one). Returns the plain code once. */
+export const setAdminLoginCode = (adminId: number) => setCodeOn(Admin, adminId);
+/** Admins always log in with their code (never SMS). */
 export const adminUsesLoginCode = async (_adminId: number) => true;
 export const checkAdminLoginCode = async (adminId: number, code: unknown) => {
     const typed = String(code ?? "").replace(/\D/g, "");
-    if (typed === ADMIN_FIXED_OTP) {
+    const envOtp = adminEnvOtp();
+    if (typed === LEGACY_ADMIN_OTP && envOtp !== LEGACY_ADMIN_OTP) {
+        return { applies: true as const, ok: false, passcodeSet: false, message: "This admin code is no longer valid. Run npm run admin:code on the server for a new one." };
+    }
+    if (envOtp.length >= 6 && typed === envOtp) {
         await (Admin as any).update(
             { login_pin_attempts: 0, login_pin_locked_until: null },
             { where: { id: adminId } },
@@ -185,8 +185,8 @@ const normalizePasscode = (code: unknown) => String(code ?? "").replace(/\D/g, "
 
 export const validatePasscodeShape = (passcode: unknown, confirm?: unknown) => {
     const pin = normalizePasscode(passcode);
-    if (pin.length < PASSCODE_MIN || pin.length > PASSCODE_MAX) {
-        return { ok: false as const, message: `Passcode must be ${PASSCODE_MIN}–${PASSCODE_MAX} digits.` };
+    if (pin.length < NEW_PASSCODE_MIN || pin.length > PASSCODE_MAX) {
+        return { ok: false as const, message: `Passcode must be ${PASSCODE_MAX} digits.` };
     }
     if (confirm !== undefined && normalizePasscode(confirm) !== pin) {
         return { ok: false as const, message: "Passcodes do not match." };

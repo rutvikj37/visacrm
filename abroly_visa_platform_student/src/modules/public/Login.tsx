@@ -212,8 +212,8 @@ const Login = () => {
 
     const savePasscode = async () => {
         const pin = passcode.replace(/\D/g, "")
-        if (pin.length < 4 || pin.length > 6) {
-            ErrorToast("Passcode must be 4–6 digits")
+        if (pin.length !== 6) {
+            ErrorToast("Passcode must be 6 digits")
             return
         }
         if (pin !== confirmPasscode.replace(/\D/g, "")) {
@@ -428,14 +428,14 @@ const Login = () => {
                     {screen === "set_passcode" && (
                         <div className="space-y-4">
                             <p className="text-sm text-gray-600 text-center">
-                                Choose a 4–6 digit passcode for future logins.
+                                Choose a 6-digit passcode for future logins.
                             </p>
                             <Input
                                 type="password"
                                 inputMode="numeric"
                                 label="New passcode"
                                 labelPlacement="outside"
-                                placeholder="4–6 digits"
+                                placeholder="6 digits"
                                 variant="bordered"
                                 value={passcode}
                                 onChange={(e) => setPasscode(e.target.value.replace(/\D/g, "").slice(0, 6))}

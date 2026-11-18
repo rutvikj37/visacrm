@@ -1,3 +1,4 @@
+import { loginRateLimit } from "../../middleware/loginRateLimit"
 import { localOnly } from "../../middleware/localOnly"
 import express from 'express';
 import AgentController from '../controller/AgentController';
@@ -9,13 +10,13 @@ import { uploadImage } from '../../middleware/fileUpload';
 
 const agentRoutes = express.Router();
 
-agentRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), AgentController.validateOTP)
+agentRoutes.route("/validate_otp").post(loginRateLimit("agency"), validationBodyMw(otpValidation), AgentController.validateOTP)
 agentRoutes.route("/validate_otp_custom").post(localOnly, AgentController.validateOTPCustom)
-agentRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberValidation), AgentController.loginWithNumber)
+agentRoutes.route("/login_with_number").post(loginRateLimit("agency"), validationBodyMw(loginWithNumberValidation), AgentController.loginWithNumber)
 agentRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), AgentController.loginWithNumberCustom)
-agentRoutes.route("/request_passcode_reset").post(validationBodyMw(loginWithNumberValidation), AgentController.requestPasscodeReset)
-agentRoutes.route("/verify_passcode_reset").post(AgentController.verifyPasscodeReset)
-agentRoutes.route("/set_passcode").post(AgentController.setPasscode)
+agentRoutes.route("/request_passcode_reset").post(loginRateLimit("agency"), validationBodyMw(loginWithNumberValidation), AgentController.requestPasscodeReset)
+agentRoutes.route("/verify_passcode_reset").post(loginRateLimit("agency"), AgentController.verifyPasscodeReset)
+agentRoutes.route("/set_passcode").post(loginRateLimit("agency"), AgentController.setPasscode)
 // agentRoutes.route("/signup").post(validationBodyMw(sinupWithNumberValidation), AgentNumberExistMw, AgentController.signup)
 // agentRoutes.route("/signup_custom").post(validationBodyMw(sinupWithNumberValidation), AgentNumberExistMw, AgentController.signupCustom)
 

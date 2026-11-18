@@ -10,7 +10,7 @@ import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 
 const IS_LOCAL = import.meta.env.VITE_IS_LOCAL || false
-// Platform admin uses a fixed 6-digit OTP (111111) — never SMS 4-digit
+// Platform admin uses a 6-digit login code (npm run admin:code on the server) — never SMS 4-digit
 const OTP_LENGTH = 6
 
 const Login = () => {

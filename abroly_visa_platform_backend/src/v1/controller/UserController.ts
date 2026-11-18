@@ -1321,7 +1321,7 @@ class UserController {
                     message: "Phone number not registered YET!"
                 })
             }
-            // Fixed admin OTP 111111 — same as production (no SMS)
+            // admins log in with their own code from npm run admin:code (no SMS)
             return returnHelper(res, 200, true, "Enter your 6-digit admin login code.", LOGIN_CODE_MARKER)
         } catch (error: any) {
             return res.status(200).json({

@@ -1,3 +1,4 @@
+import { loginRateLimit } from "../../middleware/loginRateLimit"
 import { localOnly } from "../../middleware/localOnly"
 import express from 'express'
 import UserController from '../controller/UserController'
@@ -12,9 +13,9 @@ const userRoutes = express.Router()
 // admim Login
 const adminRoutes = express.Router()
 
-adminRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), UserController.AdminValidateOTP)
+adminRoutes.route("/validate_otp").post(loginRateLimit("admin"), validationBodyMw(otpValidation), UserController.AdminValidateOTP)
 adminRoutes.route("/validate_otp_custom").post(localOnly, UserController.AdminValidateOTPCUstom)
-adminRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberValidation), UserController.adminLoginWithNumber)
+adminRoutes.route("/login_with_number").post(loginRateLimit("admin"), validationBodyMw(loginWithNumberValidation), UserController.adminLoginWithNumber)
 adminRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), UserController.AdminLoginWithNumberCustomLogic)
 adminRoutes.route("/kyc").post(validateAdmin, UserController.kycTokenTypeAdmin)
 
@@ -28,13 +29,13 @@ const noStudentSignup = (_req: any, res: any) =>
     res.status(200).json({ success: false, message: "Sign up is not available. Your agency will add you and email your login code." });
 studentRoutes.route("/signup").post(noStudentSignup)
 studentRoutes.route("/signup_custom").post(noStudentSignup)
-studentRoutes.route("/login_with_number").post(validationBodyMw(loginWithNumberValidation), UserController.studentLoginWithNumber)
+studentRoutes.route("/login_with_number").post(loginRateLimit("student"), validationBodyMw(loginWithNumberValidation), UserController.studentLoginWithNumber)
 studentRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(loginWithNumberValidation), UserController.studentLoginCustom)
-studentRoutes.route("/validate_otp").post(validationBodyMw(otpValidation), UserController.studentValidateOTP)
+studentRoutes.route("/validate_otp").post(loginRateLimit("student"), validationBodyMw(otpValidation), UserController.studentValidateOTP)
 studentRoutes.route("/validate_otp_custom").post(localOnly, UserController.studentValidateOTPCUstom)
-studentRoutes.route("/request_passcode_reset").post(validationBodyMw(loginWithNumberValidation), UserController.studentRequestPasscodeReset)
-studentRoutes.route("/verify_passcode_reset").post(UserController.studentVerifyPasscodeReset)
-studentRoutes.route("/set_passcode").post(UserController.studentSetPasscode)
+studentRoutes.route("/request_passcode_reset").post(loginRateLimit("student"), validationBodyMw(loginWithNumberValidation), UserController.studentRequestPasscodeReset)
+studentRoutes.route("/verify_passcode_reset").post(loginRateLimit("student"), UserController.studentVerifyPasscodeReset)
+studentRoutes.route("/set_passcode").post(loginRateLimit("student"), UserController.studentSetPasscode)
 
 userRoutes.use("/student",studentRoutes)
 
