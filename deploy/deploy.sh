@@ -31,6 +31,11 @@ for app in admin agent student; do
     npm run build
 done
 
+say "Nightly database backup (02:30)"
+chmod +x "$APP_DIR/deploy/backup-db.sh"
+echo "30 2 * * * root bash $APP_DIR/deploy/backup-db.sh >> /var/log/visacrm-backup.log 2>&1" > /etc/cron.d/visacrm-backup
+chmod 644 /etc/cron.d/visacrm-backup
+
 say "Nginx sites and automatic HTTPS"
 bash "$APP_DIR/deploy/install-auto-https.sh"
 
