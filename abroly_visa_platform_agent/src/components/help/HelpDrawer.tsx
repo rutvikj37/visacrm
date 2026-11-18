@@ -29,10 +29,10 @@ const HELP: [string, Help][] = [
         "Green numbers are unread student messages. Use All / Unread / Mine to focus.",
     ] }],
     ["/crm/tasks", { title: "Tasks", points: [
-        "Assign work to your team: create a task, pick an assignee and due date.",
-        "Board columns are To do, In progress and Done. Use Move to on a card to change status.",
+        "Assign work to your team: create a task, pick an assignee, tag colleagues, and set a due date.",
+        "Board columns are Pending, In progress, Ready and Completed. Use Start / Mark as ready / Mark completed.",
         "Optionally link a CRM lead or visa case so the assignee can open it from the task.",
-        "Filters: Mine, Assigned by me, All — plus Open / Overdue / Done.",
+        "Filters: Mine, Assigned by me, Tagged me, All — plus Open / Overdue / each status.",
     ] }],
     ["/crm/sources", { title: "Lead sources", points: [
         "Connect where your leads come from. Each source gets its own link or key - new leads arrive in the inbox within seconds.",

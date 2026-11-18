@@ -1,9 +1,11 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/dbconfig";
+import { jsonGetter } from "../helpers/json";
 
 /**
  * Internal agency tasks assigned to team members.
  * Optionally linked to a CRM lead (uuid) or visa case (AgencyLeads id as string).
+ * Status: todo (Pending) → in_progress → ready_for_review (Ready) → done (Completed).
  */
 const AgencyTask = sequelize.define("AgencyTask", {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
@@ -13,7 +15,7 @@ const AgencyTask = sequelize.define("AgencyTask", {
     title: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     status: {
-        type: DataTypes.ENUM("todo", "in_progress", "done"),
+        type: DataTypes.ENUM("todo", "in_progress", "ready_for_review", "done"),
         allowNull: false,
         defaultValue: "todo",
     },
@@ -29,6 +31,12 @@ const AgencyTask = sequelize.define("AgencyTask", {
         defaultValue: "none",
     },
     related_id: { type: DataTypes.STRING(64), allowNull: true },
+    /** Extra colleagues tagged on the task (watchers); not the primary assignee. */
+    tagged_member_ids: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        get: jsonGetter("tagged_member_ids"),
+    },
     completed_at: { type: DataTypes.DATE, allowNull: true },
 }, {
     tableName: "agency_tasks",

@@ -29,7 +29,7 @@ const REPLACE = process.env.DEMO_TASKS_CHATS_REPLACE !== "0";
 type TaskSpec = {
     title: string;
     description?: string;
-    status: "todo" | "in_progress" | "done";
+    status: "todo" | "in_progress" | "ready_for_review" | "done";
     priority: "low" | "normal" | "high";
     assignee: string;
     createdBy?: string;
@@ -113,7 +113,7 @@ const TASKS: TaskSpec[] = [
     {
         title: "Prepare Kabir Mehta biometrics briefing",
         description: "VFS Ahmedabad — passport, appointment letter, CoE checklist.",
-        status: "in_progress",
+        status: "ready_for_review",
         priority: "high",
         assignee: "Arjun Desai",
         dueDays: 2,
@@ -124,7 +124,7 @@ const TASKS: TaskSpec[] = [
     {
         title: "GIC & funds call with Vihaan Joshi parents",
         description: "Explain GIC amount, SDS vs non-SDS, and payment timeline.",
-        status: "in_progress",
+        status: "ready_for_review",
         priority: "normal",
         assignee: "Neha Patel",
         dueDays: 3,
@@ -500,6 +500,7 @@ export async function seedDemoTasksAndChats(opts?: {
     const taskCounts = {
         todo: await AgencyTask.count({ where: { agency_uuid: agencyUuid, status: "todo" } }),
         in_progress: await AgencyTask.count({ where: { agency_uuid: agencyUuid, status: "in_progress" } }),
+        ready_for_review: await AgencyTask.count({ where: { agency_uuid: agencyUuid, status: "ready_for_review" } }),
         done: await AgencyTask.count({ where: { agency_uuid: agencyUuid, status: "done" } }),
         total: await AgencyTask.count({ where: { agency_uuid: agencyUuid } }),
     };
@@ -509,7 +510,7 @@ export async function seedDemoTasksAndChats(opts?: {
     console.log("\n--- Seed complete (this agency only) ---");
     console.log(`Agency UUID: ${agencyUuid}`);
     console.log(`Tasks created: ${createdTaskIds.length} (ids ${createdTaskIds[0]}…${createdTaskIds[createdTaskIds.length - 1]})`);
-    console.log(`Task board: ${taskCounts.todo} todo / ${taskCounts.in_progress} in_progress / ${taskCounts.done} done (total ${taskCounts.total})`);
+    console.log(`Task board: ${taskCounts.todo} pending / ${taskCounts.in_progress} in_progress / ${taskCounts.ready_for_review} ready / ${taskCounts.done} completed (total ${taskCounts.total})`);
     console.log(`Portal chat threads: ${chatThreadCount}, messages: ${messageCount} (agency total ${portalTotal})`);
     for (const c of chatSummaries) {
         console.log(`  · ${c.student} (+91 ${c.phone}, student_id=${c.studentId}): ${c.messages} msgs, ${c.unreadForAgent} unread for agent`);

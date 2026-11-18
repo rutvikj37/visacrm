@@ -8,7 +8,7 @@ import {
     Spinner, Tab, Tabs, Textarea, useDisclosure,
 } from "@heroui/react";
 import {
-    CheckSquare, ExternalLink, LayoutGrid, List, MoreVertical, Plus, Search, Trash2,
+    CheckCircle2, CheckSquare, CircleDot, ExternalLink, LayoutGrid, List, MoreVertical, Play, Plus, Search, Trash2,
 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { BranchPicker, branchQuery } from "@/modules/AgentAdmin/Branches/branchShared";
@@ -16,16 +16,26 @@ import EmptyState from "@/components/ui-kit/EmptyState";
 import FirstTip from "@/components/help/FirstTip";
 
 const COLUMNS = [
-    { key: "todo", label: "To do" },
+    { key: "todo", label: "Pending" },
     { key: "in_progress", label: "In progress" },
-    { key: "done", label: "Done" },
+    { key: "ready_for_review", label: "Ready" },
+    { key: "done", label: "Completed" },
 ] as const;
+
+const emptyColumns = () => ({
+    todo: [] as Task[],
+    in_progress: [] as Task[],
+    ready_for_review: [] as Task[],
+    done: [] as Task[],
+});
 
 const PRIORITY_COLOR: Record<string, "default" | "primary" | "warning" | "danger"> = {
     low: "default",
     normal: "primary",
     high: "danger",
 };
+
+const statusLabel = (s: string) => COLUMNS.find((c) => c.key === s)?.label || s.replace(/_/g, " ");
 
 const dueLabel = (v?: string | null) => {
     if (!v) return null;
@@ -46,6 +56,7 @@ type Task = {
     title: string;
     description?: string;
     status: string;
+    status_label?: string;
     priority: string;
     due_at?: string | null;
     overdue?: boolean;
@@ -53,6 +64,8 @@ type Task = {
     assignee_name: string;
     created_by: number;
     created_by_name: string;
+    tagged_member_ids?: number[];
+    tagged_members?: { id: number; name: string }[];
     related_type: string;
     related_id?: string | null;
     related_link?: string | null;
@@ -63,6 +76,7 @@ const emptyForm = {
     title: "",
     description: "",
     assignee_id: "",
+    tagged_member_ids: [] as string[],
     priority: "normal",
     due_at: "",
     related_type: "none",
@@ -97,7 +111,14 @@ const Field = ({
     </div>
 );
 
-/** Agency task board: Kanban + list, assign to team, optional lead/case link. */
+const primaryAction = (status: string): { next: string; label: string; icon: any } | null => {
+    if (status === "todo") return { next: "in_progress", label: "Start", icon: Play };
+    if (status === "in_progress") return { next: "ready_for_review", label: "Mark as ready", icon: CircleDot };
+    if (status === "ready_for_review") return { next: "done", label: "Mark completed", icon: CheckCircle2 };
+    return null;
+};
+
+/** Agency task board: Kanban + list, assign to team, tag colleagues, optional lead/case link. */
 const TaskBoard = () => {
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
     const navigate = useNavigate();
@@ -112,7 +133,7 @@ const TaskBoard = () => {
     const [page, setPage] = useState(1);
     const [q, setQ] = useState("");
     const [branch, setBranch] = useState("");
-    const [columns, setColumns] = useState<Record<string, Task[]>>({ todo: [], in_progress: [], done: [] });
+    const [columns, setColumns] = useState<Record<string, Task[]>>(emptyColumns());
     const [tasks, setTasks] = useState<Task[]>([]);
     const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 });
     const [counts, setCounts] = useState({ open: 0, overdue: 0, total: 0 });
@@ -136,7 +157,7 @@ const TaskBoard = () => {
             `/crm/tasks?view=${view}&status=${status}&q=${encodeURIComponent(q)}${branchQuery(branch)}${layoutQ}`,
         );
         if (success) {
-            setColumns(data.columns || { todo: [], in_progress: [], done: [] });
+            setColumns(data.columns || emptyColumns());
             setTasks(data.tasks || []);
             setCounts(data.counts || { open: 0, overdue: 0, total: 0 });
             setPagination(data.pagination || { totalPages: 1, totalItems: data.tasks?.length || 0 });
@@ -166,6 +187,7 @@ const TaskBoard = () => {
         setForm({
             ...emptyForm,
             assignee_id: me ? String(me.id) : "",
+            tagged_member_ids: [],
         });
         modal.onOpen();
     };
@@ -176,6 +198,7 @@ const TaskBoard = () => {
             title: t.title,
             description: t.description || "",
             assignee_id: String(t.assignee_id),
+            tagged_member_ids: (t.tagged_member_ids || []).map(String),
             priority: t.priority || "normal",
             due_at: toLocalInput(t.due_at),
             related_type: t.related_type || "none",
@@ -192,6 +215,7 @@ const TaskBoard = () => {
             title: form.title.trim(),
             description: form.description,
             assignee_id: Number(form.assignee_id),
+            tagged_member_ids: form.tagged_member_ids.map(Number).filter(Boolean),
             priority: form.priority,
             due_at: form.due_at ? new Date(form.due_at).toISOString() : null,
             related_type: form.related_type,
@@ -207,16 +231,23 @@ const TaskBoard = () => {
 
     const setTaskStatus = async (id: number, next: string) => {
         setColumns((prev) => {
-            const all = [...prev.todo, ...prev.in_progress, ...prev.done];
+            const all = [
+                ...prev.todo,
+                ...prev.in_progress,
+                ...(prev.ready_for_review || []),
+                ...prev.done,
+            ];
             const t = all.find((x) => x.id === id);
             if (!t) return prev;
-            const updated = { ...t, status: next };
+            const updated = { ...t, status: next, status_label: statusLabel(next) };
             return {
                 todo: [...prev.todo.filter((x) => x.id !== id), ...(next === "todo" ? [updated] : [])],
                 in_progress: [...prev.in_progress.filter((x) => x.id !== id), ...(next === "in_progress" ? [updated] : [])],
+                ready_for_review: [...(prev.ready_for_review || []).filter((x) => x.id !== id), ...(next === "ready_for_review" ? [updated] : [])],
                 done: [...prev.done.filter((x) => x.id !== id), ...(next === "done" ? [updated] : [])],
             };
         });
+        setSelected((s) => (s && s.id === id ? { ...s, status: next, status_label: statusLabel(next) } : s));
         await commonPostAPICall({ status: next }, `crm/tasks/${id}/status`, false);
         load();
     };
@@ -249,9 +280,10 @@ const TaskBoard = () => {
                         else if (key === "delete") remove(t.id);
                         else setTaskStatus(t.id, String(key));
                     }}>
-                        <DropdownItem key="todo">Move to To do</DropdownItem>
+                        <DropdownItem key="todo">Move to Pending</DropdownItem>
                         <DropdownItem key="in_progress">Move to In progress</DropdownItem>
-                        <DropdownItem key="done">Move to Done</DropdownItem>
+                        <DropdownItem key="ready_for_review">Move to Ready</DropdownItem>
+                        <DropdownItem key="done">Move to Completed</DropdownItem>
                         <DropdownItem key="edit">Edit</DropdownItem>
                         <DropdownItem key="delete" className="text-danger" color="danger">Delete</DropdownItem>
                     </DropdownMenu>
@@ -266,6 +298,16 @@ const TaskBoard = () => {
                 <Avatar size="sm" name={t.assignee_name} className="w-5 h-5 text-[10px]" />
                 <span className="truncate">{t.assignee_name}</span>
             </div>
+            {!!t.tagged_members?.length && (
+                <div className="flex -space-x-1.5 items-center">
+                    {t.tagged_members.slice(0, 4).map((m) => (
+                        <Avatar key={m.id} size="sm" name={m.name} title={m.name} className="w-5 h-5 text-[9px] ring-1 ring-content1" />
+                    ))}
+                    {t.tagged_members.length > 4 && (
+                        <span className="text-[10px] text-default-400 pl-2">+{t.tagged_members.length - 4}</span>
+                    )}
+                </div>
+            )}
             {t.related_type !== "none" && (
                 <button
                     type="button"
@@ -279,11 +321,16 @@ const TaskBoard = () => {
     );
 
     const teamOptions = useMemo(() => team.map((m) => ({ id: String(m.id), name: m.username || `#${m.id}` })), [team]);
+    const taggableOptions = useMemo(
+        () => teamOptions.filter((m) => m.id !== form.assignee_id),
+        [teamOptions, form.assignee_id],
+    );
+    const action = selected ? primaryAction(selected.status) : null;
 
     return (
         <div className="flex flex-col gap-3 p-1 sm:p-2 max-w-full">
             <FirstTip id="tasks-board" title="Assign work to your team">
-                Create tasks, assign a counsellor, set a due date, and optionally link a lead or visa case. Drag is via Move to — columns are To do, In progress, and Done.
+                Create tasks, assign a counsellor, tag colleagues, set a due date, and move work Pending → In progress → Ready → Completed.
             </FirstTip>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -306,14 +353,16 @@ const TaskBoard = () => {
                 <Tabs size="sm" aria-label="View" selectedKey={view} onSelectionChange={(k) => setView(String(k))}>
                     <Tab key="mine" title="Mine" />
                     <Tab key="assigned_by_me" title="Assigned by me" />
+                    <Tab key="tagged_me" title="Tagged me" />
                     <Tab key="all" title="All" />
                 </Tabs>
                 <Tabs size="sm" aria-label="Status" selectedKey={status} onSelectionChange={(k) => setStatus(String(k))}>
                     <Tab key="open" title="Open" />
                     <Tab key="overdue" title="Overdue" />
-                    <Tab key="done" title="Done" />
-                    <Tab key="todo" title="To do" />
+                    <Tab key="todo" title="Pending" />
                     <Tab key="in_progress" title="In progress" />
+                    <Tab key="ready_for_review" title="Ready" />
+                    <Tab key="done" title="Completed" />
                 </Tabs>
                 <Input size="sm" className="sm:w-56" aria-label="Search" placeholder="Search tasks" startContent={<Search size={14} />} value={q} onValueChange={setQ} isClearable onClear={() => setQ("")} />
                 <BranchPicker value={branch} onChange={setBranch} />
@@ -325,9 +374,9 @@ const TaskBoard = () => {
                 !tasks.length ? (
                     <EmptyState icon={CheckSquare} title="No tasks yet" text="Create a task and assign it to a team member." actions={<Button color="primary" startContent={<Plus size={16} />} onPress={openCreate}>New task</Button>} />
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 min-h-[420px]">
+                    <div className="flex gap-3 overflow-x-auto pb-2 min-h-[420px]">
                         {COLUMNS.map((col) => (
-                            <div key={col.key} className="rounded-xl border border-default-200 bg-default-50/60 flex flex-col min-h-0">
+                            <div key={col.key} className="rounded-xl border border-default-200 bg-default-50/60 flex flex-col min-h-0 min-w-[240px] w-[260px] shrink-0 md:flex-1 md:min-w-[200px]">
                                 <div className="px-3 py-2 border-b border-default-100 flex items-center justify-between">
                                     <span className="text-sm font-semibold">{col.label}</span>
                                     <Chip size="sm" variant="flat">{(columns[col.key] || []).length}</Chip>
@@ -367,7 +416,7 @@ const TaskBoard = () => {
                                                 {t.priority === "high" && <Chip size="sm" color="danger" variant="flat" className="ml-2">High</Chip>}
                                             </td>
                                             <td className="px-3 py-2 text-default-600">{t.assignee_name}</td>
-                                            <td className="px-3 py-2 capitalize">{t.status.replace("_", " ")}</td>
+                                            <td className="px-3 py-2">{statusLabel(t.status)}</td>
                                             <td className={`px-3 py-2 ${t.overdue ? "text-danger" : "text-default-600"}`}>{dueLabel(t.due_at) || "—"}</td>
                                             <td className="px-3 py-2">{t.related_label || "—"}</td>
                                             <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
@@ -399,17 +448,46 @@ const TaskBoard = () => {
                                 <Field label="Description">
                                     <Textarea {...controlProps} aria-label="Description" placeholder="Optional details" minRows={2} value={form.description} onValueChange={(v) => setField("description", v)} />
                                 </Field>
-                                <Field label="Assignee" required>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
+                                    <Field label="Assignee" required>
+                                        <Select
+                                            {...controlProps}
+                                            aria-label="Assignee"
+                                            selectedKeys={form.assignee_id ? [form.assignee_id] : []}
+                                            onSelectionChange={(keys) => {
+                                                const v = Array.from(keys)[0];
+                                                if (v) setField("assignee_id", String(v));
+                                            }}
+                                        >
+                                            {teamOptions.map((m) => <SelectItem key={m.id}>{m.name}</SelectItem>)}
+                                        </Select>
+                                    </Field>
+                                    <Field label="Status">
+                                        <Select
+                                            {...controlProps}
+                                            aria-label="Status"
+                                            selectedKeys={[form.status]}
+                                            onSelectionChange={(keys) => {
+                                                const v = Array.from(keys)[0];
+                                                if (v) setField("status", String(v));
+                                            }}
+                                        >
+                                            {COLUMNS.map((c) => <SelectItem key={c.key}>{c.label}</SelectItem>)}
+                                        </Select>
+                                    </Field>
+                                </div>
+                                <Field label="Tag colleagues">
                                     <Select
                                         {...controlProps}
-                                        aria-label="Assignee"
-                                        selectedKeys={form.assignee_id ? [form.assignee_id] : []}
+                                        aria-label="Tag colleagues"
+                                        selectionMode="multiple"
+                                        placeholder="Optional watchers"
+                                        selectedKeys={new Set(form.tagged_member_ids)}
                                         onSelectionChange={(keys) => {
-                                            const v = Array.from(keys)[0];
-                                            if (v) setField("assignee_id", String(v));
+                                            setField("tagged_member_ids", Array.from(keys as Set<string>).map(String));
                                         }}
                                     >
-                                        {teamOptions.map((m) => <SelectItem key={m.id}>{m.name}</SelectItem>)}
+                                        {taggableOptions.map((m) => <SelectItem key={m.id}>{m.name}</SelectItem>)}
                                     </Select>
                                 </Field>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
@@ -482,14 +560,36 @@ const TaskBoard = () => {
                             <ModalBody className="flex flex-col gap-3">
                                 {selected.description && <p className="text-sm whitespace-pre-wrap text-default-700">{selected.description}</p>}
                                 <div className="flex flex-wrap gap-2">
-                                    <Chip size="sm" variant="flat" className="capitalize">{selected.status.replace("_", " ")}</Chip>
+                                    <Chip size="sm" variant="flat">{statusLabel(selected.status)}</Chip>
                                     <Chip size="sm" variant="flat" color={PRIORITY_COLOR[selected.priority]}>{selected.priority}</Chip>
                                     {selected.due_at && <Chip size="sm" variant="flat" color={selected.overdue ? "danger" : "default"}>Due {dueLabel(selected.due_at)}</Chip>}
                                 </div>
+                                {!!selected.tagged_members?.length && (
+                                    <div className="flex flex-wrap gap-1.5 items-center text-xs text-default-600">
+                                        <span>Tagged:</span>
+                                        {selected.tagged_members.map((m) => (
+                                            <Chip key={m.id} size="sm" variant="flat" avatar={<Avatar name={m.name} />}>{m.name}</Chip>
+                                        ))}
+                                    </div>
+                                )}
+                                {action && (
+                                    <Button
+                                        color="primary"
+                                        startContent={<action.icon size={16} />}
+                                        onPress={() => setTaskStatus(selected.id, action.next)}
+                                    >
+                                        {action.label}
+                                    </Button>
+                                )}
+                                {selected.status === "done" && (
+                                    <Button variant="flat" onPress={() => setTaskStatus(selected.id, "in_progress")}>
+                                        Reopen
+                                    </Button>
+                                )}
                                 <div className="flex flex-wrap gap-2">
                                     {COLUMNS.map((c) => (
                                         <Button key={c.key} size="sm" variant={selected.status === c.key ? "solid" : "flat"} color={selected.status === c.key ? "primary" : "default"}
-                                            onPress={() => setTaskStatus(selected.id, c.key).then(() => { setSelected({ ...selected, status: c.key }); })}>
+                                            onPress={() => setTaskStatus(selected.id, c.key)}>
                                             {c.label}
                                         </Button>
                                     ))}

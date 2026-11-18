@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { Op } from "sequelize";
+import { Op, literal } from "sequelize";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import { accessOf, canAssignTo, taskScope } from "../../helpers/access";
@@ -9,9 +9,17 @@ import CrmLead from "../../model/CrmLead";
 import AgencyLeads from "../../model/AgencyLeads";
 import { notifyLater } from "../../services/notifications";
 
-const STATUSES = ["todo", "in_progress", "done"] as const;
+const STATUSES = ["todo", "in_progress", "ready_for_review", "done"] as const;
+const OPEN_STATUSES = ["todo", "in_progress", "ready_for_review"] as const;
 const PRIORITIES = ["low", "normal", "high"] as const;
 const RELATED = ["none", "lead", "case"] as const;
+
+const STATUS_LABEL: Record<string, string> = {
+    todo: "Pending",
+    in_progress: "In progress",
+    ready_for_review: "Ready",
+    done: "Completed",
+};
 
 const canSetAssignee = (req: RequestWithUser, agentId: number) => {
     const a = accessOf(req);
@@ -31,6 +39,19 @@ const canDeleteTask = (req: RequestWithUser, task: any) => {
     return Number(task.created_by) === a.userId;
 };
 
+const parseTaggedIds = (raw: any, agencyMemberIds: Set<number>, assigneeId?: number) => {
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (typeof raw === "string" && raw.trim()) {
+        try { list = JSON.parse(raw); } catch { list = raw.split(",").map((s: string) => s.trim()); }
+    }
+    const ids = [...new Set(
+        list.map((x) => Number(x)).filter((n) => Number.isFinite(n) && n > 0 && agencyMemberIds.has(n)),
+    )];
+    if (assigneeId) return ids.filter((id) => id !== assigneeId);
+    return ids;
+};
+
 const serialize = (row: any, names: Map<number, string>) => {
     const d = row.toJSON ? row.toJSON() : row.dataValues || row;
     const due = d.due_at ? new Date(d.due_at) : null;
@@ -38,11 +59,15 @@ const serialize = (row: any, names: Map<number, string>) => {
     let related_link: string | null = null;
     if (d.related_type === "lead" && d.related_id) related_link = `/crm/leads/${d.related_id}`;
     if (d.related_type === "case" && d.related_id) related_link = `/leads/progress/${d.related_id}`;
+    const tagged = Array.isArray(d.tagged_member_ids)
+        ? d.tagged_member_ids.map((n: any) => Number(n)).filter(Boolean)
+        : [];
     return {
         id: d.id,
         title: d.title,
         description: d.description || "",
         status: d.status,
+        status_label: STATUS_LABEL[d.status] || d.status,
         priority: d.priority,
         due_at: d.due_at,
         overdue,
@@ -50,6 +75,11 @@ const serialize = (row: any, names: Map<number, string>) => {
         assignee_name: names.get(Number(d.assignee_id)) || "Team member",
         created_by: d.created_by,
         created_by_name: names.get(Number(d.created_by)) || "Someone",
+        tagged_member_ids: tagged,
+        tagged_members: tagged.map((id: number) => ({
+            id,
+            name: names.get(id) || "Team member",
+        })),
         related_type: d.related_type || "none",
         related_id: d.related_id || null,
         related_link,
@@ -65,6 +95,15 @@ const loadNames = async (ids: number[]) => {
     if (!unique.length) return new Map<number, string>();
     const rows: any[] = await Agent.findAll({ where: { id: unique }, attributes: ["id", "username"] });
     return new Map(rows.map((r) => [r.dataValues.id, r.dataValues.username || "Team member"]));
+};
+
+const agencyMemberIdSet = async (agencyUuid: string) => {
+    const rows: any[] = await Agent.findAll({
+        where: { [Op.or]: [{ uuid: agencyUuid }, { parent_uuid: agencyUuid }] },
+        attributes: ["id"],
+        raw: true,
+    });
+    return new Set(rows.map((r) => Number(r.id)).filter(Boolean));
 };
 
 const resolveRelatedLabel = async (agencyUuid: string, type: string, id: string | null) => {
@@ -100,8 +139,30 @@ const parseRelated = (body: any) => {
     return { related_type, related_id };
 };
 
+const notifyTagged = (
+    agencyUuid: string,
+    actorId: number,
+    recipientIds: number[],
+    title: string,
+    body: string,
+    taskId: number,
+) => {
+    const ids = [...new Set(recipientIds.filter((id) => id && id !== actorId))];
+    if (!ids.length) return;
+    notifyLater({
+        agencyUuid,
+        recipientIds: ids,
+        type: "task_assigned",
+        title,
+        body,
+        link: `/crm/tasks?task=${taskId}`,
+        skipUserId: actorId,
+        email: true,
+    });
+};
+
 class TaskController {
-    // GET /crm/tasks?view=all|mine|assigned_by_me&status=open|done|overdue|todo|in_progress|done&q=&branch=
+    // GET /crm/tasks?view=all|mine|assigned_by_me|tagged_me&status=open|done|overdue|todo|in_progress|ready_for_review&q=&branch=
     async list(req: RequestWithUser, res: Response) {
         try {
             const a = accessOf(req);
@@ -113,8 +174,13 @@ class TaskController {
 
             if (view === "mine") where.assignee_id = a.userId;
             if (view === "assigned_by_me") where.created_by = a.userId;
+            if (view === "tagged_me") {
+                where[Op.and] = [
+                    ...(where[Op.and] ? (Array.isArray(where[Op.and]) ? where[Op.and] : [where[Op.and]]) : []),
+                    literal(`JSON_CONTAINS(COALESCE(tagged_member_ids, '[]'), '${a.userId}')`),
+                ];
+            }
 
-            // Optional branch: filter by assignee's branch
             const branchId = req.query.branch ? Number(req.query.branch) : 0;
             if (branchId) {
                 const inBranch: any[] = await Agent.findAll({
@@ -128,7 +194,6 @@ class TaskController {
                 const ids = inBranch.map((r) => Number(r.id)).filter(Boolean);
                 const branchAssignees = { [Op.in]: ids.length ? ids : [0] };
                 if (where.assignee_id != null && typeof where.assignee_id === "number") {
-                    // mine + branch: keep only if assignee is in branch
                     if (!ids.includes(where.assignee_id)) where.assignee_id = -1;
                 } else {
                     where.assignee_id = branchAssignees;
@@ -136,7 +201,7 @@ class TaskController {
             }
 
             const now = new Date();
-            if (statusFilter === "open") where.status = { [Op.in]: ["todo", "in_progress"] };
+            if (statusFilter === "open") where.status = { [Op.in]: [...OPEN_STATUSES] };
             else if (statusFilter === "done") where.status = "done";
             else if (statusFilter === "overdue") {
                 where.status = { [Op.ne]: "done" };
@@ -169,7 +234,11 @@ class TaskController {
                 offset: paginate ? (page - 1) * limit : 0,
             });
 
-            const names = await loadNames(rows.flatMap((r: any) => [r.dataValues.assignee_id, r.dataValues.created_by]));
+            const taggedAll = rows.flatMap((r: any) => {
+                const t = r.dataValues.tagged_member_ids;
+                return Array.isArray(t) ? t.map(Number) : [];
+            });
+            const names = await loadNames(rows.flatMap((r: any) => [r.dataValues.assignee_id, r.dataValues.created_by, ...taggedAll]));
             const tasks = [];
             for (const r of rows) {
                 const item = serialize(r, names);
@@ -180,6 +249,7 @@ class TaskController {
             const columns = {
                 todo: tasks.filter((t) => t.status === "todo"),
                 in_progress: tasks.filter((t) => t.status === "in_progress"),
+                ready_for_review: tasks.filter((t) => t.status === "ready_for_review"),
                 done: tasks.filter((t) => t.status === "done"),
             };
 
@@ -222,7 +292,10 @@ class TaskController {
             const id = Number(req.params.id);
             const row: any = await AgencyTask.findOne({ where: { id, ...taskScope(req) } });
             if (!row) return returnHelper(res, 200, false, "Task not found");
-            const names = await loadNames([row.dataValues.assignee_id, row.dataValues.created_by]);
+            const tagged = Array.isArray(row.dataValues.tagged_member_ids)
+                ? row.dataValues.tagged_member_ids.map(Number)
+                : [];
+            const names = await loadNames([row.dataValues.assignee_id, row.dataValues.created_by, ...tagged]);
             const task = serialize(row, names);
             task.related_label = await resolveRelatedLabel(a.agencyUuid, task.related_type, task.related_id);
             return returnHelper(res, 200, true, "Task", { task });
@@ -258,6 +331,9 @@ class TaskController {
                 if (!ok) return returnHelper(res, 200, false, "Linked case not found");
             }
 
+            const members = await agencyMemberIdSet(a.agencyUuid);
+            const tagged_member_ids = parseTaggedIds(req.body.tagged_member_ids, members, assignee_id);
+
             const due_at = req.body.due_at ? new Date(req.body.due_at) : null;
             const row: any = await AgencyTask.create({
                 agency_uuid: a.agencyUuid,
@@ -270,23 +346,19 @@ class TaskController {
                 due_at: due_at && !Number.isNaN(due_at.getTime()) ? due_at : null,
                 related_type,
                 related_id,
+                tagged_member_ids,
                 completed_at: status === "done" ? new Date() : null,
             });
 
+            const taskId = row.dataValues.id;
             if (assignee_id !== a.userId) {
-                notifyLater({
-                    agencyUuid: a.agencyUuid,
-                    recipientIds: [assignee_id],
-                    type: "task_assigned",
-                    title: "New task assigned to you",
-                    body: title,
-                    link: `/crm/tasks?task=${row.dataValues.id}`,
-                    skipUserId: a.userId,
-                    email: true,
-                });
+                notifyTagged(a.agencyUuid, a.userId, [assignee_id], "New task assigned to you", title, taskId);
+            }
+            if (tagged_member_ids.length) {
+                notifyTagged(a.agencyUuid, a.userId, tagged_member_ids, "You were tagged on a task", title, taskId);
             }
 
-            const names = await loadNames([assignee_id, a.userId]);
+            const names = await loadNames([assignee_id, a.userId, ...tagged_member_ids]);
             const task = serialize(row, names);
             task.related_label = await resolveRelatedLabel(a.agencyUuid, related_type, related_id);
             return returnHelper(res, 200, true, "Task created", { task });
@@ -318,6 +390,13 @@ class TaskController {
                 const priority = String(req.body.priority);
                 if ((PRIORITIES as readonly string[]).includes(priority)) patch.priority = priority;
             }
+            if (req.body.status !== undefined) {
+                const status = String(req.body.status);
+                if ((STATUSES as readonly string[]).includes(status)) {
+                    patch.status = status;
+                    patch.completed_at = status === "done" ? (row.dataValues.completed_at || new Date()) : null;
+                }
+            }
             if (req.body.due_at !== undefined) {
                 if (!req.body.due_at) patch.due_at = null;
                 else {
@@ -343,33 +422,56 @@ class TaskController {
             }
 
             let reassigned = false;
+            let assignee_id = Number(row.dataValues.assignee_id);
             if (req.body.assignee_id !== undefined) {
-                const assignee_id = Number(req.body.assignee_id);
-                if (!assignee_id || !canSetAssignee(req, assignee_id)) {
+                const next = Number(req.body.assignee_id);
+                if (!next || !canSetAssignee(req, next)) {
                     return returnHelper(res, 200, false, "You cannot assign to that person");
                 }
-                if (assignee_id !== Number(row.dataValues.assignee_id)) {
-                    patch.assignee_id = assignee_id;
+                if (next !== assignee_id) {
+                    patch.assignee_id = next;
+                    assignee_id = next;
                     reassigned = true;
+                }
+            }
+
+            if (req.body.tagged_member_ids !== undefined) {
+                const members = await agencyMemberIdSet(a.agencyUuid);
+                const prev = Array.isArray(row.dataValues.tagged_member_ids)
+                    ? row.dataValues.tagged_member_ids.map(Number)
+                    : [];
+                const next = parseTaggedIds(req.body.tagged_member_ids, members, assignee_id);
+                patch.tagged_member_ids = next;
+                const newlyTagged = next.filter((id) => !prev.includes(id));
+                if (newlyTagged.length) {
+                    notifyTagged(
+                        a.agencyUuid,
+                        a.userId,
+                        newlyTagged,
+                        "You were tagged on a task",
+                        row.dataValues.title,
+                        row.dataValues.id,
+                    );
                 }
             }
 
             await row.update(patch);
 
             if (reassigned && patch.assignee_id !== a.userId) {
-                notifyLater({
-                    agencyUuid: a.agencyUuid,
-                    recipientIds: [patch.assignee_id],
-                    type: "task_assigned",
-                    title: "Task assigned to you",
-                    body: row.dataValues.title,
-                    link: `/crm/tasks?task=${row.dataValues.id}`,
-                    skipUserId: a.userId,
-                    email: true,
-                });
+                notifyTagged(
+                    a.agencyUuid,
+                    a.userId,
+                    [patch.assignee_id],
+                    "Task assigned to you",
+                    row.dataValues.title,
+                    row.dataValues.id,
+                );
             }
 
-            const names = await loadNames([row.dataValues.assignee_id, row.dataValues.created_by]);
+            const tagged = Array.isArray(row.dataValues.tagged_member_ids)
+                ? row.dataValues.tagged_member_ids.map(Number)
+                : [];
+            const names = await loadNames([row.dataValues.assignee_id, row.dataValues.created_by, ...tagged]);
             const task = serialize(row, names);
             task.related_label = await resolveRelatedLabel(a.agencyUuid, task.related_type, task.related_id);
             return returnHelper(res, 200, true, "Task updated", { task });
@@ -382,6 +484,7 @@ class TaskController {
     // POST /crm/tasks/:id/status  { status }
     async setStatus(req: RequestWithUser, res: Response) {
         try {
+            const a = accessOf(req);
             const id = Number(req.params.id);
             const status = String(req.body.status || "");
             if (!(STATUSES as readonly string[]).includes(status)) {
@@ -391,12 +494,32 @@ class TaskController {
             if (!row) return returnHelper(res, 200, false, "Task not found");
             if (!canEditTask(req, row.dataValues)) return returnHelper(res, 200, false, "You cannot update this task");
 
+            const prev = row.dataValues.status;
             await row.update({
                 status,
                 completed_at: status === "done" ? (row.dataValues.completed_at || new Date()) : null,
             });
 
-            const names = await loadNames([row.dataValues.assignee_id, row.dataValues.created_by]);
+            // Notify assignee + tagged when marked Ready or Completed
+            if (status !== prev && (status === "ready_for_review" || status === "done")) {
+                const tagged = Array.isArray(row.dataValues.tagged_member_ids)
+                    ? row.dataValues.tagged_member_ids.map(Number)
+                    : [];
+                const label = STATUS_LABEL[status] || status;
+                notifyTagged(
+                    a.agencyUuid,
+                    a.userId,
+                    [Number(row.dataValues.assignee_id), Number(row.dataValues.created_by), ...tagged],
+                    `Task marked ${label}`,
+                    row.dataValues.title,
+                    row.dataValues.id,
+                );
+            }
+
+            const tagged = Array.isArray(row.dataValues.tagged_member_ids)
+                ? row.dataValues.tagged_member_ids.map(Number)
+                : [];
+            const names = await loadNames([row.dataValues.assignee_id, row.dataValues.created_by, ...tagged]);
             return returnHelper(res, 200, true, "Status updated", { task: serialize(row, names) });
         } catch (error: any) {
             return returnHelper(res, 500, false, error.message || "Failed");

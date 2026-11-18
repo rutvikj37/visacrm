@@ -152,7 +152,7 @@ class TodayController {
             ]);
             const CASE_STATUS: Record<string, string> = { visa_progress: "In progress", visa_completed: "Approved", visa_rejected: "Rejected", withdrawn: "Withdrawn" };
             const UNI: Record<string, string> = { shortlisted: "Shortlisted", applied: "Applied", offer: "Offer", conditional: "Conditional offer", unconditional: "Unconditional offer", cas: "CAS / I-20", deposit_paid: "Deposit paid", rejected: "Rejected", withdrawn: "Withdrawn" };
-            const TASK: Record<string, string> = { todo: "To do", in_progress: "In progress", done: "Done" };
+            const TASK: Record<string, string> = { todo: "Pending", in_progress: "In progress", ready_for_review: "Ready", done: "Completed" };
             const results = [
                 ...byNumber.map((c: any) => { const x = c.toJSON(); return { type: "case", title: `Case #${x.id} · ${x.user_of?.username || "Student"}`, subtitle: [x.selected_country, x.university, CASE_STATUS[x.status]].filter(Boolean).join(" · "), link: `/leads/progress/${x.id}` }; }),
                 ...leads.map((l: any) => ({ type: "lead", title: l.dataValues.name || "Unnamed lead", subtitle: [phoneOf(l.dataValues), l.dataValues.interested_country, l.dataValues.status].filter(Boolean).join(" · "), link: `/crm/leads/${l.dataValues.uuid}` })),
