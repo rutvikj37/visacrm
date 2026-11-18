@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    Button, Chip, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow,
+    Button, Chip, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow,
 } from "@nextui-org/react";
 import { Activity, AlertTriangle, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
@@ -41,13 +41,19 @@ const SaasMonitoring = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [tick, setTick] = useState(0);
-    const [filter, setFilter] = useState<"all" | "critical" | "agency" | "student">("all");
+    const [sourceFilter, setSourceFilter] = useState<"all" | "critical" | "agency" | "student">("all");
+    const [agencyUuid, setAgencyUuid] = useState<string>("");
 
     const load = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         else setRefreshing(true);
         try {
-            const { success, data: d } = await commonGetAPICalls("/saas_admin/monitoring");
+            const params = new URLSearchParams();
+            if (agencyUuid) params.set("agency_uuid", agencyUuid);
+            if (sourceFilter === "critical") params.set("severity", "critical");
+            else if (sourceFilter === "agency" || sourceFilter === "student") params.set("source", sourceFilter);
+            const qs = params.toString();
+            const { success, data: d } = await commonGetAPICalls(`/saas_admin/monitoring${qs ? `?${qs}` : ""}`);
             if (success) {
                 setData(d);
                 setLastUpdated(new Date());
@@ -57,7 +63,7 @@ const SaasMonitoring = () => {
             setRefreshing(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [agencyUuid, sourceFilter]);
 
     useEffect(() => {
         void load(false);
@@ -73,13 +79,8 @@ const SaasMonitoring = () => {
     const refreshSeconds = data?.refresh_hint_seconds || 30;
     const overall = STATUS_META[data?.overall_status] || STATUS_META.unknown;
 
-    const errors = useMemo(() => {
-        const rows = data?.recent_errors || [];
-        if (filter === "critical") return rows.filter((r: any) => r.severity === "critical");
-        if (filter === "agency") return rows.filter((r: any) => r.source === "agency");
-        if (filter === "student") return rows.filter((r: any) => r.source === "student");
-        return rows;
-    }, [data, filter]);
+    const agencies = useMemo(() => data?.agencies_in_errors || [], [data]);
+    const errors = data?.recent_errors || [];
 
     // keep relative clock fresh
     void tick;
@@ -141,7 +142,7 @@ const SaasMonitoring = () => {
                 <Table aria-label="API probes" removeWrapper>
                     <TableHeader>
                         <TableColumn>Check</TableColumn>
-                        <TableColumn>Critical</TableColumn>
+                        <TableColumn>Priority</TableColumn>
                         <TableColumn>Status</TableColumn>
                         <TableColumn>Latency</TableColumn>
                         <TableColumn>Detail</TableColumn>
@@ -149,10 +150,20 @@ const SaasMonitoring = () => {
                     <TableBody emptyContent="No probes">
                         {(data?.probes || []).map((p: any) => {
                             const st = STATUS_META[p.status] || STATUS_META.unknown;
+                            const bad = p.status === "down" || p.status === "degraded";
                             return (
                                 <TableRow key={p.id}>
                                     <TableCell className="font-medium">{p.name}</TableCell>
-                                    <TableCell>{p.critical ? <Chip size="sm" color="danger" variant="flat">Critical</Chip> : <Chip size="sm" variant="flat">Normal</Chip>}</TableCell>
+                                    <TableCell>
+                                        {p.critical ? (
+                                            // Priority ≠ Status — danger only when the check is failing
+                                            <Chip size="sm" color={bad ? "danger" : "default"} variant="flat">
+                                                Critical
+                                            </Chip>
+                                        ) : (
+                                            <Chip size="sm" variant="bordered" color="default">Normal</Chip>
+                                        )}
+                                    </TableCell>
                                     <TableCell><Chip size="sm" color={st.color} variant="flat">{st.label}</Chip></TableCell>
                                     <TableCell>{p.latency_ms == null ? "—" : `${p.latency_ms} ms`}</TableCell>
                                     <TableCell className="text-default-500 max-w-md truncate">{p.detail || "—"}</TableCell>
@@ -164,25 +175,48 @@ const SaasMonitoring = () => {
             </section>
 
             <section className="flex flex-col gap-2">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                     <h2 className="text-lg font-semibold">Recent errors</h2>
-                    <div className="flex flex-wrap gap-1">
-                        {([
-                            ["all", "All"],
-                            ["critical", "Critical"],
-                            ["agency", "Agency"],
-                            ["student", "Student"],
-                        ] as const).map(([k, label]) => (
-                            <Button key={k} size="sm" variant={filter === k ? "solid" : "flat"} color={filter === k ? "primary" : "default"} onPress={() => setFilter(k)}>
-                                {label}
-                            </Button>
-                        ))}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                            aria-label="Filter by agency"
+                            size="sm"
+                            className="min-w-[220px] max-w-xs"
+                            placeholder="All agencies"
+                            selectedKeys={new Set([agencyUuid || "__all__"])}
+                            onSelectionChange={(keys) => {
+                                const v = Array.from(keys as Set<string>)[0] || "__all__";
+                                setAgencyUuid(v === "__all__" ? "" : v);
+                            }}
+                        >
+                            <SelectItem key="__all__" textValue="All agencies">All agencies</SelectItem>
+                            {agencies.map((a: any) => (
+                                <SelectItem
+                                    key={a.uuid}
+                                    textValue={`${a.name}${a.subdomain ? ` (${a.subdomain})` : ""}`}
+                                >
+                                    {a.name}{a.subdomain ? ` · ${a.subdomain}` : ""}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                        <div className="flex flex-wrap gap-1">
+                            {([
+                                ["all", "All"],
+                                ["critical", "Critical"],
+                                ["agency", "Agency"],
+                                ["student", "Student"],
+                            ] as const).map(([k, label]) => (
+                                <Button key={k} size="sm" variant={sourceFilter === k ? "solid" : "flat"} color={sourceFilter === k ? "primary" : "default"} onPress={() => setSourceFilter(k)}>
+                                    {label}
+                                </Button>
+                            ))}
+                        </div>
                     </div>
                 </div>
                 <Table aria-label="Recent errors" removeWrapper>
                     <TableHeader>
                         <TableColumn>When</TableColumn>
-                        <TableColumn>Who</TableColumn>
+                        <TableColumn>Agency / who</TableColumn>
                         <TableColumn>Path</TableColumn>
                         <TableColumn>Status</TableColumn>
                         <TableColumn>Severity</TableColumn>
@@ -191,15 +225,24 @@ const SaasMonitoring = () => {
                     <TableBody emptyContent="No recent API errors">
                         {errors.map((e: any) => {
                             const sev = STATUS_META[e.severity] || STATUS_META.error;
-                            const who = e.agency_name
-                                ? `${e.agency_name} (${e.source})`
-                                : e.source === "student"
-                                    ? `Student${e.actor_id ? ` #${e.actor_id}` : ""}`
-                                    : e.source;
+                            const who = e.who_label
+                                || (e.agency_name
+                                    ? `${e.agency_name}${e.agency_subdomain ? ` (${e.agency_subdomain})` : ""}`
+                                    : e.source_label || e.source || "Unknown");
+                            const whoDetail = e.agency_uuid && e.source
+                                ? `${who} · ${e.source_label || e.source}`
+                                : who;
                             return (
                                 <TableRow key={e.id}>
                                     <TableCell className="whitespace-nowrap text-xs">{fmtTime(e.occurred_at)}{e.count > 1 ? ` ×${e.count}` : ""}</TableCell>
-                                    <TableCell className="text-sm">{who}</TableCell>
+                                    <TableCell className="text-sm max-w-[240px]">
+                                        <div className="font-medium truncate" title={whoDetail}>{who}</div>
+                                        {(e.agency_subdomain || e.source_label) && (
+                                            <div className="text-xs text-default-400 truncate">
+                                                {[e.agency_subdomain, e.source_label].filter(Boolean).join(" · ")}
+                                            </div>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="font-mono text-xs max-w-[220px] truncate">{e.method} {e.path}</TableCell>
                                     <TableCell>{e.status_code}</TableCell>
                                     <TableCell><Chip size="sm" color={sev.color} variant="flat">{sev.label}</Chip></TableCell>

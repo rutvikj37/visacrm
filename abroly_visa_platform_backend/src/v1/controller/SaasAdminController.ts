@@ -845,9 +845,15 @@ class SaasAdminController {
     }
 
     // GET /saas_admin/monitoring — application/platform health (API probes, live errors, scheduler jobs)
+    // Query: agency_uuid, source, severity — filter recent_errors (summary stays global)
     async monitoring(req: RequestWithUser, res: Response) {
         try {
-            const data = await buildMonitoringPayload();
+            const q = req.query || {};
+            const data = await buildMonitoringPayload({
+                agency_uuid: typeof q.agency_uuid === 'string' ? q.agency_uuid : null,
+                source: typeof q.source === 'string' ? q.source : null,
+                severity: typeof q.severity === 'string' ? q.severity : null,
+            });
             return returnHelper(res, 200, true, "Monitoring", data);
         } catch (error) {
             return fail(res, error, "monitoring");

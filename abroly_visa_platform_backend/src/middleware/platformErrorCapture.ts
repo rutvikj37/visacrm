@@ -41,6 +41,15 @@ const actorFromReq = (req: any) => {
     };
 };
 
+export const isPlatformMonitorRequest = (req: Request | any): boolean => {
+    if (!req?.headers) return false;
+    const header = req.headers['x-platform-monitor'];
+    if (header === '1' || header === 'true') return true;
+    const ua = String(req.headers['user-agent'] || '');
+    if (/VisaCRM-PlatformMonitor/i.test(ua)) return true;
+    return false;
+};
+
 /** Persist one ops-interesting API failure (fire-and-forget). */
 export const recordPlatformError = async (opts: {
     req?: any;
@@ -52,6 +61,7 @@ export const recordPlatformError = async (opts: {
     source?: 'agency' | 'student' | 'public' | 'admin' | 'system';
 }) => {
     try {
+        if (opts.req && isPlatformMonitorRequest(opts.req)) return;
         const path = opts.path || opts.req?.originalUrl?.split('?')[0] || opts.req?.path || '/unknown';
         const status = opts.status_code;
         if (!shouldCapture(status, path)) return;
@@ -106,8 +116,9 @@ export const recordPlatformError = async (opts: {
 export const platformErrorCaptureMiddleware = (req: Request, res: Response, next: NextFunction) => {
     const started = Date.now();
     res.on('finish', () => {
-        // Avoid logging our own monitoring reads as errors
+        // Avoid logging our own monitoring reads / synthetic probes as errors
         if (req.path?.includes('/saas_admin/monitoring')) return;
+        if (isPlatformMonitorRequest(req)) return;
         void recordPlatformError({
             req,
             status_code: res.statusCode,
@@ -121,6 +132,7 @@ export const platformErrorCaptureMiddleware = (req: Request, res: Response, next
 
 /** Use from the Express global error handler. */
 export const captureUnhandledError = (err: any, req: Request, statusCode = 500) => {
+    if (isPlatformMonitorRequest(req)) return;
     void recordPlatformError({
         req,
         status_code: statusCode,

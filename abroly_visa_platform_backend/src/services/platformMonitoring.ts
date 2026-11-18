@@ -6,6 +6,10 @@ import PlatformSchedulerHeartbeat from '../model/PlatformSchedulerHeartbeat';
 
 export const MONITORING_REFRESH_SECONDS = 30;
 
+/** Sent on every synthetic probe so error middleware can ignore probe traffic. */
+export const PLATFORM_MONITOR_HEADER = 'X-Platform-Monitor';
+export const PLATFORM_MONITOR_UA = 'VisaCRM-PlatformMonitor/1.0';
+
 type ProbeStatus = 'healthy' | 'degraded' | 'down';
 
 export type ProbeResult = {
@@ -16,6 +20,13 @@ export type ProbeResult = {
     latency_ms: number | null;
     detail: string | null;
     checked_at: string;
+};
+
+type ProbeHttpOpts = {
+    method?: 'GET' | 'POST' | 'OPTIONS';
+    body?: string | null;
+    contentType?: string;
+    expectOk: (status: number, body: string) => boolean;
 };
 
 const baseUrl = () => {
@@ -33,12 +44,28 @@ const timed = async <T>(fn: () => Promise<T>): Promise<{ ok: true; value: T; ms:
     }
 };
 
-const probeHttp = async (id: string, name: string, critical: boolean, path: string, expectOk: (status: number, body: string) => boolean): Promise<ProbeResult> => {
+const probeHttp = async (
+    id: string,
+    name: string,
+    critical: boolean,
+    path: string,
+    opts: ProbeHttpOpts,
+): Promise<ProbeResult> => {
     const checked_at = new Date().toISOString();
+    const method = opts.method || 'GET';
     const result = await timed(async () => {
+        const headers: Record<string, string> = {
+            Accept: 'application/json',
+            [PLATFORM_MONITOR_HEADER]: '1',
+            'User-Agent': PLATFORM_MONITOR_UA,
+        };
+        if (opts.body != null) {
+            headers['Content-Type'] = opts.contentType || 'application/json';
+        }
         const res = await fetch(`${baseUrl()}${path}`, {
-            method: 'GET',
-            headers: { Accept: 'application/json' },
+            method,
+            headers,
+            body: opts.body ?? undefined,
             signal: AbortSignal.timeout(8000),
         });
         const body = await res.text();
@@ -47,16 +74,39 @@ const probeHttp = async (id: string, name: string, critical: boolean, path: stri
     if (result.ok === false) {
         return { id, name, critical, status: 'down', latency_ms: result.ms, detail: result.error, checked_at };
     }
-    const pass = expectOk(result.value.status, result.value.body);
+    const pass = opts.expectOk(result.value.status, result.value.body);
+    const snippet = result.value.body.replace(/\s+/g, ' ').slice(0, 120);
     return {
         id,
         name,
         critical,
         status: pass ? 'healthy' : 'down',
         latency_ms: result.ms,
-        detail: pass ? `HTTP ${result.value.status}` : `HTTP ${result.value.status}: ${result.value.body.slice(0, 120)}`,
+        detail: `HTTP ${result.value.status}${snippet ? `: ${snippet}` : ''}`,
         checked_at,
     };
+};
+
+/** Login routes are POST-only; empty body should hit validation (route up), not 404. */
+const loginSurfaceHealthy = (status: number, body: string): boolean => {
+    if (status === 404 || status === 502 || status >= 500) return false;
+    if (status === 400 || status === 422) return true;
+    if (status === 200) {
+        try {
+            const parsed = JSON.parse(body);
+            // Validation middleware returns 200 + success:false for missing fields
+            if (parsed && typeof parsed === 'object' && parsed.success === false) return true;
+            // Unexpected success:true with empty body would be odd; still means route is up
+            if (parsed && typeof parsed === 'object' && 'success' in parsed) return true;
+        } catch {
+            // non-JSON 200 — treat as reachable if not an obvious error page
+            return body.length < 500;
+        }
+        return true;
+    }
+    // Auth / method quirks still mean the process answered on that path
+    if (status === 401 || status === 403 || status === 405) return true;
+    return false;
 };
 
 const probeMysql = async (): Promise<ProbeResult> => {
@@ -90,13 +140,26 @@ const probeMysql = async (): Promise<ProbeResult> => {
 
 /** Application route / dependency probes only (no host/CPU/RAM/disk/PM2). */
 export const runProbes = async (): Promise<ProbeResult[]> => {
+    const emptyLoginBody = JSON.stringify({});
     const [mysql, health, plans, agentLogin, studentLogin] = await Promise.all([
         probeMysql(),
-        probeHttp('process_health', 'API process (/health)', true, '/health', (s, b) => s === 200 && /Good/i.test(b)),
-        probeHttp('public_plans', 'Public SaaS plans', true, '/api/v1/public/saas/plans', (s) => s === 200),
-        // Login endpoints are POST-only; GET should reach the route layer (not 502/timeout). 404/405/401 still = app up.
-        probeHttp('agent_login_surface', 'Agency login surface', true, '/api/v1/agent/login_with_number', (s) => s !== 502 && s < 500),
-        probeHttp('student_login_surface', 'Student login surface', true, '/api/v1/user/student/login_with_number', (s) => s !== 502 && s < 500),
+        probeHttp('process_health', 'API process (/health)', true, '/health', {
+            expectOk: (s, b) => s === 200 && /Good/i.test(b),
+        }),
+        probeHttp('public_plans', 'Public SaaS plans', true, '/api/v1/public/saas/plans', {
+            expectOk: (s) => s === 200,
+        }),
+        // POST with invalid body → validation error = route reachable (GET 404 is NOT healthy)
+        probeHttp('agent_login_surface', 'Agency login surface', true, '/api/v1/agent/login_with_number', {
+            method: 'POST',
+            body: emptyLoginBody,
+            expectOk: loginSurfaceHealthy,
+        }),
+        probeHttp('student_login_surface', 'Student login surface', true, '/api/v1/user/student/login_with_number', {
+            method: 'POST',
+            body: emptyLoginBody,
+            expectOk: loginSurfaceHealthy,
+        }),
     ]);
 
     // CRM is authenticated — surface as traffic-based status from recent errors, not a synthetic JWT probe
@@ -170,10 +233,51 @@ export const listSchedulerHeartbeats = async () => {
     });
 };
 
-const countErrorsSince = async (since: Date, extra: any = {}) =>
-    PlatformErrorLog.count({ where: { occurred_at: { [Op.gte]: since }, ...extra } });
+/** Exclude historical GET 404s from login surface probes (POST-only routes). */
+const excludeProbeNoise = () => ({
+    [Op.not]: {
+        [Op.and]: [
+            { method: 'GET' },
+            { status_code: 404 },
+            {
+                path: {
+                    [Op.or]: [
+                        { [Op.like]: '%/agent/login_with_number%' },
+                        { [Op.like]: '%/user/student/login_with_number%' },
+                    ],
+                },
+            },
+        ],
+    },
+});
 
-export const buildMonitoringPayload = async () => {
+const countErrorsSince = async (since: Date, extra: any = {}) =>
+    PlatformErrorLog.count({
+        where: {
+            occurred_at: { [Op.gte]: since },
+            ...excludeProbeNoise(),
+            ...extra,
+        },
+    });
+
+export type MonitoringErrorFilters = {
+    agency_uuid?: string | null;
+    source?: string | null;
+    severity?: string | null;
+};
+
+const sourceLabel = (source: string | null | undefined): string => {
+    switch (source) {
+        case 'agency': return 'Agency';
+        case 'student': return 'Student';
+        case 'public': return 'Public';
+        case 'admin': return 'Platform admin';
+        case 'system': return 'System';
+        default: return source || 'Unknown';
+    }
+};
+
+export const buildMonitoringPayload = async (filters: MonitoringErrorFilters = {}) => {
     const now = Date.now();
     const probes = await runProbes();
     const scheduler = await listSchedulerHeartbeats();
@@ -182,6 +286,21 @@ export const buildMonitoringPayload = async () => {
     const h1 = new Date(now - 60 * 60 * 1000);
     const d1 = new Date(now - 24 * 60 * 60 * 1000);
 
+    const agencyFilter = filters.agency_uuid?.trim() || null;
+    const sourceFilter = filters.source?.trim() || null;
+    const severityFilter = filters.severity?.trim() || null;
+
+    const recentWhere: any = {
+        ...excludeProbeNoise(),
+    };
+    if (agencyFilter) recentWhere.agency_uuid = agencyFilter;
+    if (sourceFilter && sourceFilter !== 'all') recentWhere.source = sourceFilter;
+    if (severityFilter && severityFilter !== 'all' && severityFilter !== 'critical') {
+        recentWhere.severity = severityFilter;
+    } else if (severityFilter === 'critical') {
+        recentWhere.severity = 'critical';
+    }
+
     const [
         errors_15m,
         errors_1h,
@@ -189,7 +308,8 @@ export const buildMonitoringPayload = async () => {
         critical_15m,
         agency_15m,
         student_15m,
-        recent,
+        recent_raw,
+        agencyUuidRows,
     ] = await Promise.all([
         countErrorsSince(m15),
         countErrorsSince(h1),
@@ -198,29 +318,73 @@ export const buildMonitoringPayload = async () => {
         countErrorsSince(m15, { source: 'agency' }),
         countErrorsSince(m15, { source: 'student' }),
         PlatformErrorLog.findAll({
+            where: recentWhere,
             order: [['occurred_at', 'DESC']],
             limit: 50,
         }),
+        // Agencies that appear in recent errors — for the UI dropdown (distinct in JS; avoid GROUP BY)
+        PlatformErrorLog.findAll({
+            where: {
+                ...excludeProbeNoise(),
+                agency_uuid: { [Op.ne]: null },
+                occurred_at: { [Op.gte]: d1 },
+            },
+            attributes: ['agency_uuid'],
+            order: [['occurred_at', 'DESC']],
+            limit: 300,
+        }),
     ]);
 
-    const agencyUuids = [...new Set(recent.map((r: any) => r.dataValues.agency_uuid).filter(Boolean))];
-    const agencies: any[] = agencyUuids.length
+    const filterAgencyUuids = agencyFilter ? [agencyFilter] : [];
+    const recentAgencyUuids = recent_raw.map((r: any) => r.dataValues.agency_uuid).filter(Boolean);
+    const dropdownUuids = [
+        ...new Set([
+            ...agencyUuidRows.map((r: any) => r.dataValues.agency_uuid).filter(Boolean),
+            ...recentAgencyUuids,
+            ...filterAgencyUuids,
+        ]),
+    ];
+
+    const agencies: any[] = dropdownUuids.length
         ? await Agent.findAll({
-            where: { uuid: agencyUuids, role: 'agent' },
+            where: { uuid: dropdownUuids, role: 'agent' },
             attributes: ['uuid', 'app_name', 'username', 'sudomain'],
         })
         : [];
-    const agencyName = new Map(agencies.map((a) => [a.dataValues.uuid, a.dataValues.app_name || a.dataValues.username || a.dataValues.sudomain]));
 
-    const recent_errors = recent.map((r: any) => {
+    type AgencyInfo = { uuid: string; name: string; subdomain: string | null; username: string | null };
+    const agencyMap = new Map<string, AgencyInfo>();
+    for (const a of agencies) {
+        const d = a.dataValues;
+        const name = d.app_name || d.username || d.sudomain || 'Unnamed agency';
+        agencyMap.set(d.uuid, {
+            uuid: d.uuid,
+            name,
+            subdomain: d.sudomain || null,
+            username: d.username || null,
+        });
+    }
+
+    const recent_errors = recent_raw.map((r: any) => {
         const d = r.dataValues;
+        const info = d.agency_uuid ? agencyMap.get(d.agency_uuid) : null;
+        const who_label = info
+            ? `${info.name}${info.subdomain ? ` (${info.subdomain})` : ''}`
+            : d.agency_uuid
+                ? `Unknown agency (${String(d.agency_uuid).slice(0, 8)}…)`
+                : sourceLabel(d.source);
+
         return {
             id: d.id,
             occurred_at: d.occurred_at,
             severity: d.severity,
             source: d.source,
+            source_label: sourceLabel(d.source),
             agency_uuid: d.agency_uuid,
-            agency_name: d.agency_uuid ? agencyName.get(d.agency_uuid) || null : null,
+            agency_name: info?.name || null,
+            agency_subdomain: info?.subdomain || null,
+            agency_username: info?.username || null,
+            who_label,
             actor_id: d.actor_id,
             actor_role: d.actor_role,
             method: d.method,
@@ -231,6 +395,8 @@ export const buildMonitoringPayload = async () => {
         };
     });
 
+    const agencies_in_errors = [...agencyMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
     const overall_status = overallStatus(probes, Number(critical_15m) || 0);
 
     return {
@@ -239,6 +405,12 @@ export const buildMonitoringPayload = async () => {
         refresh_hint_seconds: MONITORING_REFRESH_SECONDS,
         probes,
         scheduler,
+        filters: {
+            agency_uuid: agencyFilter,
+            source: sourceFilter || 'all',
+            severity: severityFilter || 'all',
+        },
+        agencies_in_errors,
         error_summary: {
             last_15m: Number(errors_15m) || 0,
             last_1h: Number(errors_1h) || 0,
@@ -249,4 +421,20 @@ export const buildMonitoringPayload = async () => {
         },
         recent_errors,
     };
+};
+
+/** One-shot cleanup of probe GET 404 noise already written to the log table. */
+export const purgeProbeNoiseLogs = async () => {
+    return PlatformErrorLog.destroy({
+        where: {
+            method: 'GET',
+            status_code: 404,
+            path: {
+                [Op.or]: [
+                    { [Op.like]: '%/agent/login_with_number%' },
+                    { [Op.like]: '%/user/student/login_with_number%' },
+                ],
+            },
+        },
+    });
 };
