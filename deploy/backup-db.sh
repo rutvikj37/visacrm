@@ -22,4 +22,4 @@ echo "backup written: $FILE ($(du -h "$FILE" | cut -f1))"
 find "$OUT_DIR" -name "*.sql.gz" -mtime +7 -delete
 
 # copy to S3 when the bucket is configured
-cd "$BACKEND" && node dist/scripts/uploadBackup.js "$FILE"
+cd "$BACKEND" && node dist/scripts/uploadBackup.js "$FILE" || echo "WARNING: S3 upload failed - local copy kept in $OUT_DIR"
