@@ -5,16 +5,16 @@ import { commonGetAPICalls } from "@/utils/ApiCallUtils";
 import { AlertCircle, CalendarDays, CheckCircle2, ChevronRight, Clock, FileText, FileUp, GraduationCap, IndianRupee, PencilLine, Star } from "lucide-react";
 import { PRIMARY_COLOR } from "@/lib/theme";
 
-const fmt = (v?: string | null) => {
+export const fmt = (v?: string | null) => {
     if (!v) return "";
     const d = new Date(v);
     return isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 };
-const overdue = (v?: string | null) => Boolean(v) && String(v).slice(0, 10) < new Date().toISOString().slice(0, 10);
+export const overdue = (v?: string | null) => Boolean(v) && String(v).slice(0, 10) < new Date().toISOString().slice(0, 10);
 
 /** The case's journey, so students see where they are (same stages as the agency's case board). */
-const STAGES = ["documents", "application", "offer", "funds", "visa_filed", "decision"].map((key) => ({ key, label: `stage_${key}` }));
-const stageIndex = (stage?: string | null) => {
+export const STAGES = ["documents", "application", "offer", "funds", "visa_filed", "decision"].map((key) => ({ key, label: `stage_${key}` }));
+export const stageIndex = (stage?: string | null) => {
     if (stage === "biometrics") return 4; // shown together with "Visa filed"
     const i = STAGES.findIndex((s) => s.key === stage);
     return i >= 0 ? i : 0;

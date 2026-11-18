@@ -33,7 +33,7 @@ const ProgressTracker = lazy(() => import("@/modules/VisaConsultation/ProgressTr
 const MyFees = lazy(() => import("@/modules/Fees/MyFees"))
 const ServicesStore = lazy(() => import("@/modules/Services/ServicesStore"))
 const ServiceOrder = lazy(() => import("@/modules/Services/ServiceOrder"))
-const HomeWithProgress = lazy(() => import("@/modules/VisaConsultation/HomeWithProgress"))
+const StudentHome = lazy(() => import("@/modules/Dashboard/StudentHome"))
 const AgnetProfile = lazy(()=> import("@/modules/VisaConsultation/AgnetProfile"))
 // const CoinHistory = lazy(()=> import("@/modules/Coins/CoinHistory"))
 const OfflinePrep =  lazy(()=> import("@/modules/LanguagePrep/OfflinePrep"))
@@ -98,7 +98,7 @@ export const StudentRoutes = [
 
     {
         path: "/",
-        element: HomeWithProgress
+        element: StudentHome
     },
     {
         path: "/contact_us",
