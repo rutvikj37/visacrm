@@ -87,28 +87,6 @@ const probeHttp = async (
     };
 };
 
-/** Login routes are POST-only; empty body should hit validation (route up), not 404. */
-const loginSurfaceHealthy = (status: number, body: string): boolean => {
-    if (status === 404 || status === 502 || status >= 500) return false;
-    if (status === 400 || status === 422) return true;
-    if (status === 200) {
-        try {
-            const parsed = JSON.parse(body);
-            // Validation middleware returns 200 + success:false for missing fields
-            if (parsed && typeof parsed === 'object' && parsed.success === false) return true;
-            // Unexpected success:true with empty body would be odd; still means route is up
-            if (parsed && typeof parsed === 'object' && 'success' in parsed) return true;
-        } catch {
-            // non-JSON 200 — treat as reachable if not an obvious error page
-            return body.length < 500;
-        }
-        return true;
-    }
-    // Auth / method quirks still mean the process answered on that path
-    if (status === 401 || status === 403 || status === 405) return true;
-    return false;
-};
-
 const probeMysql = async (): Promise<ProbeResult> => {
     const checked_at = new Date().toISOString();
     const result = await timed(async () => {
@@ -138,9 +116,12 @@ const probeMysql = async (): Promise<ProbeResult> => {
     };
 };
 
+/** Login routes are POST-only; OPTIONS must reach CORS (not 404) without touching auth/OTP. */
+const loginOptionsHealthy = (status: number): boolean =>
+    status === 204 || status === 200 || status === 405;
+
 /** Application route / dependency probes only (no host/CPU/RAM/disk/PM2). */
 export const runProbes = async (): Promise<ProbeResult[]> => {
-    const emptyLoginBody = JSON.stringify({});
     const [mysql, health, plans, agentLogin, studentLogin] = await Promise.all([
         probeMysql(),
         probeHttp('process_health', 'API process (/health)', true, '/health', {
@@ -149,16 +130,14 @@ export const runProbes = async (): Promise<ProbeResult[]> => {
         probeHttp('public_plans', 'Public SaaS plans', true, '/api/v1/public/saas/plans', {
             expectOk: (s) => s === 200,
         }),
-        // POST with invalid body → validation error = route reachable (GET 404 is NOT healthy)
+        // OPTIONS only — never POST into login (avoids validation noise / lock interaction)
         probeHttp('agent_login_surface', 'Agency login surface', true, '/api/v1/agent/login_with_number', {
-            method: 'POST',
-            body: emptyLoginBody,
-            expectOk: loginSurfaceHealthy,
+            method: 'OPTIONS',
+            expectOk: (s) => loginOptionsHealthy(s),
         }),
         probeHttp('student_login_surface', 'Student login surface', true, '/api/v1/user/student/login_with_number', {
-            method: 'POST',
-            body: emptyLoginBody,
-            expectOk: loginSurfaceHealthy,
+            method: 'OPTIONS',
+            expectOk: (s) => loginOptionsHealthy(s),
         }),
     ]);
 

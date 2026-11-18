@@ -29,8 +29,6 @@ export const LOGIN_CODE_MARKER = "LOGIN_CODE";
 export const PASSCODE_MARKER = "PASSCODE";
 /** Platform admin always uses this fixed 6-digit OTP (no SMS / CLI rotation required). */
 export const ADMIN_FIXED_OTP = "111111";
-const MAX_ATTEMPTS = 5;
-const LOCK_MINUTES = 15;
 const RESET_MINUTES = 15;
 const SETUP_TOKEN_MINUTES = 30;
 
@@ -80,7 +78,7 @@ const hasPasscodeOn = async (model: CodeModel, id: number) => {
  * Check a code typed at login.
  * - { applies: false }               the account has no fixed code: use the normal OTP flow
  * - { applies: true, ok: true, passcodeSet }  correct
- * - { applies: true, ok: false, message }  wrong / locked
+ * - { applies: true, ok: false, message }  wrong code (no account lockout)
  */
 const checkCodeOn = async (model: CodeModel, id: number, code: unknown) => {
     const attrs = ["id", "login_pin", "login_pin_attempts", "login_pin_locked_until"];
@@ -91,46 +89,25 @@ const checkCodeOn = async (model: CodeModel, id: number, code: unknown) => {
 
     // Admin CLI codes stay invite-style (always 6 digits). Agency/student: personal passcode once set.
     const passcodeSet = supportsPasscodeFlow(model) ? Boolean(row.dataValues.passcode_set) : false;
-    const lockedUntil = row.dataValues.login_pin_locked_until ? new Date(row.dataValues.login_pin_locked_until) : null;
-    if (lockedUntil && lockedUntil > new Date()) {
-        const mins = Math.ceil((lockedUntil.getTime() - Date.now()) / 60000);
-        return {
-            applies: true as const,
-            ok: false,
-            passcodeSet,
-            message: `Too many wrong codes. Try again in ${mins} minute(s), or use Forgot passcode.`,
-        };
-    }
-
     const typed = String(code ?? "").replace(/\D/g, "");
     const lenOk = passcodeSet
         ? typed.length >= PASSCODE_MIN && typed.length <= PASSCODE_MAX
         : typed.length === LOGIN_CODE_LENGTH;
 
     if (lenOk && (await bcrypt.compare(typed, hash))) {
-        if (row.dataValues.login_pin_attempts || lockedUntil) {
+        // Clear any legacy lock fields left from the old 5-attempt lockout.
+        if (row.dataValues.login_pin_attempts || row.dataValues.login_pin_locked_until) {
             await (model as any).update({ login_pin_attempts: 0, login_pin_locked_until: null }, { where: { id } });
         }
         return { applies: true as const, ok: true, passcodeSet };
     }
 
-    const attempts = Number(row.dataValues.login_pin_attempts || 0) + 1;
-    const lock = attempts >= MAX_ATTEMPTS;
-    await (model as any).update(
-        {
-            login_pin_attempts: lock ? 0 : attempts,
-            login_pin_locked_until: lock ? new Date(Date.now() + LOCK_MINUTES * 60000) : null,
-        },
-        { where: { id } },
-    );
     const label = passcodeSet ? "passcode" : "login code";
     return {
         applies: true as const,
         ok: false,
         passcodeSet,
-        message: lock
-            ? `Too many wrong ${label}s. Login is locked for ${LOCK_MINUTES} minutes.`
-            : `Wrong ${label}. ${MAX_ATTEMPTS - attempts} attempt(s) left.`,
+        message: `Wrong ${label}.`,
     };
 };
 
