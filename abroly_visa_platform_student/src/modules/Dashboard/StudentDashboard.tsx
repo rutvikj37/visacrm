@@ -43,6 +43,7 @@ import { Avatar, useDisclosure } from "@nextui-org/react"
 import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { StudentRoutes } from "@/routes/AuthRoutes"
 import CommonConfirmation from "@/components/CommonConfirmation"
+import LogoutAllDevicesItem from "@/components/LogoutAllDevicesItem"
 import { handleLogout } from "@/utils/LogoutUtils"
 import { useSelector } from "react-redux"
 import { getAppName, getConfig } from "@/utils/config"
@@ -215,6 +216,7 @@ const StudentDashboard = () => {
                       <LogOut />
                       Log out
                     </DropdownMenuItem>
+                    <LogoutAllDevicesItem />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </SidebarMenuItem>

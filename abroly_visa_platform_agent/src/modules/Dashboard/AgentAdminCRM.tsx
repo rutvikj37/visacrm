@@ -34,6 +34,7 @@ import {
 import { Avatar, Spinner, useDisclosure } from "@heroui/react"
 import { Route, Routes, useNavigate } from "react-router-dom"
 import CommonConfirmation from "@/components/CommonConfirmation"
+import LogoutAllDevicesItem from "@/components/LogoutAllDevicesItem"
 import { handleLogout } from "@/utils/LogoutUtils"
 import { AgentAdminRoutes } from "@/routes/AuthRoutes"
 import { useSelector } from "react-redux"
@@ -255,6 +256,7 @@ const AgentCRM = () => {
                       <LogOut />
                       Log out
                     </DropdownMenuItem>
+                    <LogoutAllDevicesItem />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </SidebarMenuItem>

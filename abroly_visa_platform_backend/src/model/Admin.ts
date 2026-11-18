@@ -55,6 +55,8 @@ const Admin = sequelize.define(
     login_pin: { type: DataTypes.STRING, allowNull: true, defaultValue: null },
     login_pin_attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     login_pin_locked_until: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
+    // logins (JWTs) issued before this time are rejected - set on passcode change / "log out all devices"
+    tokens_valid_after: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
   },
   {
     tableName: 'admin',

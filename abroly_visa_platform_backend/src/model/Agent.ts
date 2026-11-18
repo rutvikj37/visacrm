@@ -74,6 +74,8 @@ const Agent = sequelize.define('Agent', {
         allowNull: true,
         defaultValue: null
     },
+    // logins (JWTs) issued before this time are rejected - set on passcode change / "log out all devices"
+    tokens_valid_after: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
     // false = login_pin is the emailed invite code; true = user-set daily passcode
     passcode_set: {
         type: DataTypes.BOOLEAN,

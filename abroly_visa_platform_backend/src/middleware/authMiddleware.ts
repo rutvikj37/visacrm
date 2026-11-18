@@ -11,6 +11,14 @@ import { returnHelper } from '../helpers/returnHelper';
 
 const secretTokenForJWT: string | any = process.env.ACCESS_TOKEN_SECRET
 
+/** A login issued before the account's tokens_valid_after was signed out ("log out all devices" / passcode changed). */
+const tokenRevoked = (decoded: any, row: any) => {
+    const after = row?.dataValues?.tokens_valid_after
+    if (!after || !decoded?.iat) return false
+    return Number(decoded.iat) < Math.floor(new Date(after).getTime() / 1000)
+}
+const SIGNED_OUT = "You were signed out. Please log in again."
+
 const validateUser = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     await commmonValidate(req, res, next, ["user"])
 }
@@ -35,13 +43,14 @@ const validateAdmin = async (req: RequestWithUser, res: Response, next: NextFunc
                     id: user.user.id,
                     user_type: "admin"
                 },
-                attributes: ["uuid"]
+                attributes: ["uuid", "tokens_valid_after"]
             })
             // console.log(findUser,"THE USER ")
             if (findUser) {
                 if(findUser?.dataValues?.uuid !== user.user.uuid){
                     return res.status(401).json({ success: false, message: 'Unauthorized' });
                 }
+                if (tokenRevoked(decoded, findUser)) return res.status(401).json({ success: false, message: SIGNED_OUT });
                 req.user = user;
                 req.uuid = user.user.uuid
                 req.id = user.user.id
@@ -97,13 +106,14 @@ const commmonValidate = async (req: RequestWithUser, res: Response, next: NextFu
                     id: user.user.id,
                     user_type: user_type
                 },
-                attributes: ["uuid"]
+                attributes: ["uuid", "tokens_valid_after"]
             })
             // console.log(findUser,"THE USER ")
             if (findUser) {
                 if(findUser?.dataValues?.uuid !== user.user.uuid){
                     return res.status(401).json({ success: false, message: 'Unauthorized' });
                 }
+                if (tokenRevoked(decoded, findUser)) return res.status(401).json({ success: false, message: SIGNED_OUT });
                 req.user = user;
                 req.uuid = user.user.uuid
                 req.id = user.user.id
@@ -164,13 +174,14 @@ const agentValidate = async (req: RequestWithUser, res: Response, next: NextFunc
                     id: user.user.id,
                     status: "active"
                 },
-                attributes: ["uuid", "parent_id", "role", "expires_at", "team_role", "branch_id"]
+                attributes: ["uuid", "parent_id", "role", "expires_at", "team_role", "branch_id", "tokens_valid_after"]
             })
             if (findUser) {
                 
                 if(findUser?.dataValues?.uuid !== user.user.uuid){
                     return res.status(401).json({ success: false, message: 'Unauthorized' });
                 }
+                if (tokenRevoked(decoded, findUser)) return res.status(401).json({ success: false, message: SIGNED_OUT });
                 touchLastActive(user.user.id)
 
                 // console.warn(findUser?.dataValues?.expires_at, new Date(), "EXPIRES AT")

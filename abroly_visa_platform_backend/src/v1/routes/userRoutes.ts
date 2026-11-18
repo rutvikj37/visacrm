@@ -5,6 +5,7 @@ import UserController from '../controller/UserController'
 import { validateAdmin, validateAdminOrManager, validateGeneral } from '../../middleware/authMiddleware'
 import { loginWithNumberValidation, otpValidation, sinupWithNumberValidation } from '../validations/userValidations'
 import validationBodyMw from '../../middleware/validateBody'
+import { signOutEverywhere } from '../../services/agencyLogin'
 import { numberExistMw } from '../../middleware/validateExistMiddleware'
 
 const userRoutes = express.Router()
@@ -36,6 +37,11 @@ studentRoutes.route("/validate_otp_custom").post(localOnly, UserController.stude
 studentRoutes.route("/request_passcode_reset").post(loginRateLimit("student"), validationBodyMw(loginWithNumberValidation), UserController.studentRequestPasscodeReset)
 studentRoutes.route("/verify_passcode_reset").post(loginRateLimit("student"), UserController.studentVerifyPasscodeReset)
 studentRoutes.route("/set_passcode").post(loginRateLimit("student"), UserController.studentSetPasscode)
+// "Log out all devices" for a student
+studentRoutes.route("/logout_all").post(validateGeneral, async (req: any, res) => {
+    await signOutEverywhere("student", Number(req.user?.user?.id))
+    return res.status(200).json({ success: true, message: "Signed out on all devices." })
+})
 
 userRoutes.use("/student",studentRoutes)
 

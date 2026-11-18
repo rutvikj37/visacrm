@@ -7,6 +7,7 @@ import { loginWithNumberValidation, otpValidation, sinupWithNumberValidation } f
 import { AgentNumberExistMw, numberExistMw } from '../../middleware/validateExistMiddleware';
 import { validateAdmin, validateAgent } from '../../middleware/authMiddleware';
 import { uploadImage } from '../../middleware/fileUpload';
+import { signOutEverywhere } from '../../services/agencyLogin';
 
 const agentRoutes = express.Router();
 
@@ -22,6 +23,11 @@ agentRoutes.route("/set_passcode").post(loginRateLimit("agency"), AgentControlle
 
 
 agentRoutes.route("/kyc").post(validateAgent, AgentController.kycTokenType)
+// "Log out all devices" - every login issued before now (this one too) stops working
+agentRoutes.route("/logout_all").post(validateAgent, async (req: any, res) => {
+    await signOutEverywhere("agent", Number(req.user?.user?.id))
+    return res.status(200).json({ success: true, message: "Signed out on all devices." })
+})
 
 // agent listing in admin 
 agentRoutes.route("/create_account").post(

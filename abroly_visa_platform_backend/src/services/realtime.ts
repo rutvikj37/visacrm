@@ -1,5 +1,7 @@
 import http from "http";
 import Jwt from "jsonwebtoken";
+import Agent from "../model/Agent";
+import User from "../model/User";
 import { Server } from "socket.io";
 import { createAdapter, setupPrimary } from "@socket.io/cluster-adapter";
 
@@ -37,13 +39,20 @@ export const startRealtime = (server: http.Server) => {
         console.warn("Realtime: cluster adapter unavailable, events stay inside this worker", error);
     }
 
-    io.use((socket, next) => {
+    io.use(async (socket, next) => {
         try {
             const token = String(socket.handshake.auth?.token || "").replace(/^Bearer\s+/i, "");
             if (!token) return next(new Error("unauthorized"));
             const decoded: any = Jwt.verify(token, String(process.env.ACCESS_TOKEN_SECRET || ""));
             const u: any = decoded?.user?.user || {};
             if (!u.id) return next(new Error("unauthorized"));
+            // same rules as the API: account still exists / active, login not signed out since
+            const row: any = u.agent_uuid
+                ? await Agent.findOne({ where: { id: u.id, status: "active" }, attributes: ["uuid", "tokens_valid_after"] })
+                : await User.findOne({ where: { id: u.id }, attributes: ["uuid", "tokens_valid_after"] });
+            if (!row || row.dataValues.uuid !== u.uuid) return next(new Error("unauthorized"));
+            const after = row.dataValues.tokens_valid_after;
+            if (after && Number(decoded.iat) < Math.floor(new Date(after).getTime() / 1000)) return next(new Error("unauthorized"));
             if (u.agent_uuid) socket.data.room = `agency:${u.agent_uuid}`; // agency owner / staff
             else socket.data.room = `student:${Number(u.id)}`; // student
             next();

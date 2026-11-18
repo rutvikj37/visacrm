@@ -203,10 +203,16 @@ const setPersonalPasscodeOn = async (model: CodeModel, id: number, pin: string) 
             passcode_set: true,
             login_reset_code: null,
             login_reset_expires: null,
+            // new passcode: every device logged in with the old one is signed out
+            tokens_valid_after: new Date(),
         },
         { where: { id } },
     );
 };
+
+/** "Log out all devices": every login issued before now stops working. */
+export const signOutEverywhere = (audience: PasscodeAudience, id: number) =>
+    ((audience === "agent" ? Agent : User) as any).update({ tokens_valid_after: new Date() }, { where: { id } });
 
 export const setAgentPasscode = (id: number, pin: string) => setPersonalPasscodeOn(Agent, id, pin);
 export const setStudentPasscode = (id: number, pin: string) => setPersonalPasscodeOn(User, id, pin);
