@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from 'express';
 import bodyParser from 'body-parser';
 import cors from "cors"
+import { corsOptionsDelegate } from "./middleware/corsPolicy"
 import http from 'http'
 import path from 'path';
 import fs from 'fs'
@@ -47,66 +48,8 @@ if (cluster.isPrimary) {
   // ✅ Initialize connections per worker
   const startServer = async () => {
     try {
-      // Configure CORS based on environment
-      const corsOptions = {
-        origin: function (origin: string | undefined, callback: (err: Error | null, allow: boolean) => void) {
-          // Allow requests with no origin (like mobile apps, curl requests)
-          if (!origin) return callback(null, true);
-
-          const allowedOrigins = 
-          [
-              "http://localhost:5173",
-              "http://localhost:5174",
-              "http://localhost:5175",
-          ];
-
-          // Check if origin is in allowed list
-          if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-          } 
-          // Agency portals + shared panels on our production domains
-          else {
-            try {
-              const url = new URL(origin);
-              const hostname = url.hostname;
-              const allowedHost =
-                hostname === "techxuniverse.com" || hostname.endsWith(".techxuniverse.com") ||
-                hostname === "techxsolutions.io" || hostname.endsWith(".techxsolutions.io") ||
-                hostname === "visacrm.in" || hostname.endsWith(".visacrm.in");
-              if (allowedHost) {
-                callback(null, true);
-              } else {
-                console.log("CORS blocked for origin:", origin);
-                callback(null, true); // Temporarily allow all origins for debugging
-              }
-            } catch (e) {
-              console.log("Invalid origin format:", origin);
-              callback(null, true); // Temporarily allow all origins for debugging
-            }
-          }
-        },
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allowedHeaders: [
-          "Content-Type",
-          "Authorization",
-          "X-Requested-With",
-          "Accept",
-          "Origin",
-          "X-HTTP-Method-Override",
-          "X-Forwarded-For",
-          "X-Forwarded-Proto",
-          "X-Forwarded-Host",
-          "X-Agency-UUID"
-        ],
-        exposedHeaders: [
-          "Access-Control-Allow-Origin",
-          "Access-Control-Allow-Methods",
-          "Access-Control-Allow-Headers"
-        ],
-      };
-
-      app.use(cors(corsOptions));
+      // CORS: our domains, agencies' custom domains, localhost; /api/v1/public/* open (see middleware/corsPolicy.ts)
+      app.use(cors(corsOptionsDelegate));
 
       // keep the raw body: Meta webhooks are verified with an HMAC of the exact bytes
       app.use(express.json({
