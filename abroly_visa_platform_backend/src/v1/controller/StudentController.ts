@@ -96,6 +96,15 @@ class StudentController {
 
 
         try {
+            // Student profile form posts every section with all fields; unset selects arrive as "".
+            // Empty string is invalid for ENUM/strict columns — store NULL instead.
+            const blankToNull = (v: unknown) => {
+                if (v === undefined) return undefined;
+                if (v === null) return null;
+                if (typeof v === "string" && v.trim() === "") return null;
+                return v;
+            };
+            const visaTypeNorm = blankToNull(visa_type);
 
             const findStudentDetails = await StudentBasicDetails.findOne({
                 where: {
@@ -113,7 +122,7 @@ class StudentController {
 
                 // create one 
                 await StudentBasicDetails.create({
-                    study_abroad_intentions,
+                    study_abroad_intentions: blankToNull(study_abroad_intentions),
                     study_abroad_reasons,
                     field_of_study,
                     degree_level,
@@ -134,7 +143,7 @@ class StudentController {
                     work_experience_details,
                     interested_in_internships,
                     preferred_internship_roles,
-                    visa_type,
+                    visa_type: visaTypeNorm,
                     accommodation_needs,
                     accommodation_preferences,
                     health_insurance_needs,
@@ -153,7 +162,7 @@ class StudentController {
             // update
 
             const updateParams = {
-                ...(study_abroad_intentions !== undefined && { study_abroad_intentions }),
+                ...(study_abroad_intentions !== undefined && { study_abroad_intentions: blankToNull(study_abroad_intentions) }),
                 ...(study_abroad_reasons !== undefined && { study_abroad_reasons }),
                 ...(field_of_study !== undefined && { field_of_study }),
                 ...(degree_level !== undefined && { degree_level }),
@@ -174,7 +183,7 @@ class StudentController {
                 ...(work_experience_details !== undefined && { work_experience_details }),
                 ...(interested_in_internships !== undefined && { interested_in_internships }),
                 ...(preferred_internship_roles !== undefined && { preferred_internship_roles }),
-                ...(visa_type !== undefined && { visa_type }),
+                ...(visa_type !== undefined && { visa_type: visaTypeNorm }),
                 ...(accommodation_needs !== undefined && { accommodation_needs }),
                 ...(accommodation_preferences !== undefined && { accommodation_preferences }),
                 ...(health_insurance_needs !== undefined && { health_insurance_needs }),

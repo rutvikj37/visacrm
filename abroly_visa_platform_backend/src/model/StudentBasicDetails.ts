@@ -83,7 +83,10 @@ const StudentBasicDetails = sequelize.define(
       type: DataTypes.TEXT,
     },
     visa_type: {
-      type: DataTypes.ENUM('Student Visa', 'Work Visa'),
+      // VARCHAR (was ENUM Student/Work) — empty string from section saves and CRM-aligned
+      // values like Tourist/Dependent were truncating under STRICT mode.
+      type: DataTypes.STRING(64),
+      allowNull: true,
     },
     accommodation_needs: {
       type: DataTypes.BOOLEAN,
