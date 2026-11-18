@@ -1,63 +1,26 @@
-// import { Avatar, Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Link, Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle, useDisclosure } from '@nextui-org/react';
-// import React from 'react'
-// import { Route, Routes, useNavigate } from 'react-router-dom';
-// import { PublicRoutes, StudentRoutes } from '../../routes/AuthRoutes';
-// import ThemeToggle from '../../components/ThemeToggle';
-// import Footer from '../../components/Footer';
-// import CommonConfirmation from '../../components/CommonConfirmation';
-// import { handleLogout } from '../../utils/LogoutUtils';
 import {
-  BadgeCheck,
-  BadgeIndianRupee,
-  Bell,
-  BookOpen,
-  Bot,
   Briefcase,
-  ChevronRight,
   ChevronsUpDown,
-  Command,
   Contact,
-  CreditCard,
-  Currency,
-  Dock,
-  Folder,
-  Forward,
-  Frame,
+  FileCheck2,
   Home,
-  Languages,
-  LifeBuoy,
+  IndianRupee,
   LogOut,
-  Map,
-  MapPin,
   MessageCircleQuestion,
-  MoreHorizontal,
-  PieChart,
-  ScrollText,
-  Send,
-  Settings2,
-  Share,
-  Sparkles,
-  SquareTerminal,
-  Trash2,
-  UserCogIcon,
+  MessagesSquare,
+  Route,
+  Store,
+  UserRound,
 } from "lucide-react"
 
-
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
 import {
   Sidebar,
   SidebarContent,
@@ -68,332 +31,153 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
-import { Suspense, useEffect, useState } from "react"
-import { Avatar, Button, Spinner, useDisclosure } from "@nextui-org/react"
-import { Link, Route, Routes, useNavigate } from "react-router-dom"
+import { Suspense, useMemo, type ComponentType } from "react"
+import { Avatar, useDisclosure } from "@nextui-org/react"
+import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { StudentRoutes } from "@/routes/AuthRoutes"
 import CommonConfirmation from "@/components/CommonConfirmation"
 import { handleLogout } from "@/utils/LogoutUtils"
-import { useDispatch, useSelector } from "react-redux"
-import CommonLocationSelector from "@/components/CommonLocationSelector"
-import { setArea, setLatitude, setLongitude } from "@/redux/slices/userLocationSlice"
-import { ErrorToast } from "@/utils/Toaster"
-import { addToLocal } from "@/utils/localstorage"
-import useApiCallUtils from "@/hooks/useApiCallUtils"
-import { useQuery } from "@tanstack/react-query"
-import aborlyIcon from "../../assets/logo.png"
+import { useSelector } from "react-redux"
 import { getAppName, getConfig } from "@/utils/config"
 import { AgencyLogo, StudentTopBar } from "@/components/AgencyBrand"
-import { PRIMARY_COLOR, PRIMARY_COLOR_50, PRIMARY_COLOR_100, PRIMARY_COLOR_200, PRIMARY_COLOR_800, PRIMARY_COLOR_900 } from '@/lib/theme';
+import StudentBottomNav from "@/components/StudentBottomNav"
+import { PRIMARY_COLOR, PRIMARY_COLOR_FOREGROUND } from "@/lib/theme"
 
-const data = {
-  navMain: [
-    {
-      title: "Introduction",
-      url: "#",
-      icon: Home,
-      isActive: true,
-      items: [
-        {
-          title: "Home",
-          url: "/",
-        },
-        // {
-        //   title: "Events",
-        //   url: "/event_banners",
-        // },
-      ],
-    },
-    {
-      title: "Visa & Course Consultation",
-      url: "#",
-      icon: Dock,
-      isActive: true,
-      items: [
-        {
-          title: "My progress",
-          url: "/my_progress",
-        },
-        {
-          title: "Chat with counsellor",
-          url: "/chat",
-        },
-        {
-          title: "My fees",
-          url: "/my_fees",
-        },
-        {
-          title: "Services",
-          url: "/services",
-        },
-        {
-          title: "Raise an application",
-          url: "/services/visa_consultation",
-        },
-        {
-          title: "Accepted Applications",
-          url: "/accepted_applications",
-        },
-      ],
-    },
-    // {
-    //   title: "Language Preparation",
-    //   url: "#",
-    //   icon: Languages,
-    //   isActive: true,
-    //   items: [
-    //     {
-    //       title: "View All",
-    //       url: "/services/language",
-    //     },
-    //     {
-    //       title: "In Progress",
-    //       url: "/purchased_language_prep",
-    //     },
-    //     {
-    //       title: "Offline",
-    //       url: "/offline_language_prep",
-    //     },
-    //   ],
-    // },
-    {
-      title: "Career",
-      addon: "jobs",
-      url: "#",
-      icon: Briefcase,
-      isActive: true,
-      items: [
-        {
-          title: "Current Openings",
-          url: "/career/1",
-        },
-        {
-          title: "Applications",
-          url: "/career/history/list",
-        },
-      ],
-    },
-
-  ],
-  navSecondary: [
-    {
-      title: "FAQs",
-      url: "/faq",
-      icon: MessageCircleQuestion,
-    },
-    {
-      title: "Contact Us",
-      url: "/contact_us",
-      icon: Contact,
-    },
-  ],
-  profile: [
-    {
-      title: "Your Profile",
-      url: "#",
-      icon: UserCogIcon,
-      isActive: true,
-      items: [
-        {
-          title: "Student Profile",
-          url: "/student_profile",
-        },
-      ],
-    },
-  ],
+type NavLink = {
+  title: string
+  url: string
+  icon: ComponentType<{ className?: string }>
+  addon?: string
+  match?: (pathname: string) => boolean
 }
 
+const MAIN_LINKS: NavLink[] = [
+  { title: "Home", url: "/", icon: Home, match: (p) => p === "/" },
+  {
+    title: "My progress",
+    url: "/my_progress",
+    icon: Route,
+    match: (p) => p.startsWith("/my_progress"),
+  },
+  { title: "Chat with counsellor", url: "/chat", icon: MessagesSquare, match: (p) => p.startsWith("/chat") },
+  { title: "My fees", url: "/my_fees", icon: IndianRupee, match: (p) => p.startsWith("/my_fees") },
+  { title: "Services", url: "/services", icon: Store, match: (p) => p === "/services" || p.startsWith("/services/orders") },
+  {
+    title: "My applications",
+    url: "/accepted_applications",
+    icon: FileCheck2,
+    match: (p) => p.startsWith("/accepted_applications"),
+  },
+  {
+    title: "Jobs",
+    url: "/career/1",
+    icon: Briefcase,
+    addon: "jobs",
+    match: (p) => p.startsWith("/career"),
+  },
+]
 
-const placesApiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+const ACCOUNT_LINKS: NavLink[] = [
+  { title: "Student profile", url: "/student_profile", icon: UserRound, match: (p) => p.startsWith("/student_profile") },
+  { title: "FAQs", url: "/faq", icon: MessageCircleQuestion, match: (p) => p.startsWith("/faq") },
+  { title: "Contact us", url: "/contact_us", icon: Contact, match: (p) => p.startsWith("/contact") },
+]
+
+const isActiveLink = (item: NavLink, pathname: string) =>
+  item.match ? item.match(pathname) : pathname === item.url || (item.url !== "/" && pathname.startsWith(item.url))
+
+const NavLinkButton = ({ item }: { item: NavLink }) => {
+  const { pathname } = useLocation()
+  const { isMobile, setOpenMobile } = useSidebar()
+  const active = isActiveLink(item, pathname)
+  const Icon = item.icon
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild tooltip={item.title} isActive={active}>
+        <Link
+          to={item.url}
+          onClick={() => { if (isMobile) setOpenMobile(false) }}
+          className="no-underline"
+          style={
+            active
+              ? { backgroundColor: PRIMARY_COLOR, color: PRIMARY_COLOR_FOREGROUND, textDecoration: "none" }
+              : { textDecoration: "none" }
+          }
+        >
+          <Icon />
+          <span className="font-medium">{item.title}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
+}
 
 const StudentDashboard = () => {
-  // SaaS: only show optional modules included in the agency's plan (null = all)
   const planAddons: string[] | null = (() => {
-    try { return JSON.parse(getConfig('ADDONS') || 'null') } catch { return null }
+    try { return JSON.parse(getConfig("ADDONS") || "null") } catch { return null }
   })()
 
-  // for logout
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
-  const { isOpen: isLocationOpen, onOpenChange: onLocationOpenChange } = useDisclosure();
-  const {commonGetAPICalls} = useApiCallUtils()
-
+  const { isOpen, onOpenChange } = useDisclosure()
   const navigate = useNavigate()
+  const { phone, profileimage, user_name } = useSelector((state: any) => state.login)
 
-  const dispatch = useDispatch();
+  const mainLinks = MAIN_LINKS.filter((item) => !item.addon || !planAddons || planAddons.includes(item.addon))
 
-  const { phone, email, profileimage, user_name } = useSelector((state: any) => state.login);
+  const routeNodes = useMemo(
+    () => StudentRoutes.map((item: any) => (
+      <Route key={item.path} path={item.path} element={<item.element />} />
+    )),
+    []
+  )
 
   return (
     <>
-      <SidebarProvider className="bg-white">
-        <Sidebar 
-          collapsible="icon" 
-          className="bg-white md:bg-transparent"
-          style={{
-            background: `linear-gradient(135deg, ${PRIMARY_COLOR_50}40 0%, ${PRIMARY_COLOR_100}30 50%, ${PRIMARY_COLOR_50}40 100%)`
-          }}
-        >
+      <SidebarProvider>
+        <Sidebar collapsible="icon">
           <SidebarHeader>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
+                <SidebarMenuButton size="lg" className="pointer-events-none">
                   <AgencyLogo size={32} />
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">
-                      {getAppName()}
-                    </span>
-                    <span className="truncate text-xs">
-                      Student
-                    </span>
+                    <span className="truncate font-semibold">{getAppName()}</span>
+                    <span className="truncate text-xs text-default-500">Student portal</span>
                   </div>
                 </SidebarMenuButton>
-
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarHeader>
+
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SidebarGroupLabel>Menu</SidebarGroupLabel>
               <SidebarMenu>
-                {data?.navMain.filter((item: any) => !item.addon || !planAddons || planAddons.includes(item.addon)).map((item) => (
-                  <Collapsible
-                    key={item.title}
-                    asChild
-                    defaultOpen={item.isActive}
-                    className="group/collapsible"
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton tooltip={item.title}>
-                          {item.icon && <item.icon />}
-                          <span className="text-[12px] font-semibold">{item.title}</span>
-                          <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub className="gap-2">
-                          {item.items?.map((subItem) => {
-                            const isActive = window.location.pathname === subItem.url;
-                            return (
-                              <SidebarMenuSubItem key={subItem.title} className="mb-1">
-                                <SidebarMenuSubButton 
-                                  asChild
-                                  isActive={isActive}
-                                  className={`w-full h-10 no-underline ${isActive ? `!bg-[${PRIMARY_COLOR}] !text-white [&>span]:!text-white [&>svg]:!text-white [&>a]:!no-underline data-[active=true]:!bg-[${PRIMARY_COLOR}] data-[active=true]:!text-white` : ''}`}
-                                  style={isActive ? { backgroundColor: PRIMARY_COLOR } : undefined}
-                                >
-                                  <Link
-                                    className={`w-full h-full text-sm py-2 transition-all no-underline ${
-                                      isActive 
-                                        ? '!text-white font-semibold !no-underline' 
-                                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground no-underline'
-                                    }`}
-                                    style={isActive ? { backgroundColor: PRIMARY_COLOR, textDecoration: 'none' } : { textDecoration: 'none' }}
-                                    to={subItem.url}
-                                  >{subItem.title}</Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
+                {mainLinks.map((item) => (
+                  <NavLinkButton key={item.url + item.title} item={item} />
                 ))}
               </SidebarMenu>
             </SidebarGroup>
-            <SidebarGroup>
-              <SidebarGroupLabel>Personal Details</SidebarGroupLabel>
-              <SidebarMenu>
-                {data.profile.map((item) => (
-                  <Collapsible
-                    key={item.title}
-                    asChild
-                    defaultOpen={item.isActive}
-                    className="group/collapsible"
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton tooltip={item.title}>
-                          {item.icon && <item.icon />}
-                          <span className="text-[12px] font-semibold">{item.title}</span>
-                          <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub className="gap-2">
-                          {item.items?.map((subItem) => {
-                            const isActive = window.location.pathname === subItem.url;
-                            return (
-                              <SidebarMenuSubItem key={subItem.title} className="mb-1">
-                                <SidebarMenuSubButton 
-                                  asChild
-                                  isActive={isActive}
-                                  className={`w-full h-10 no-underline ${isActive ? `!bg-[${PRIMARY_COLOR}] !text-white [&>span]:!text-white [&>svg]:!text-white [&>a]:!no-underline data-[active=true]:!bg-[${PRIMARY_COLOR}] data-[active=true]:!text-white` : ''}`}
-                                  style={isActive ? { backgroundColor: PRIMARY_COLOR } : undefined}
-                                >
-                                  <Link
-                                    className={`w-full h-full text-sm py-2 transition-all no-underline ${
-                                      isActive 
-                                        ? '!text-white font-semibold !no-underline' 
-                                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground no-underline'
-                                    }`}
-                                    style={isActive ? { backgroundColor: PRIMARY_COLOR, textDecoration: 'none' } : { textDecoration: 'none' }}
-                                    to={subItem.url}
-                                  >{subItem.title}</Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                ))}
-              </SidebarMenu>
-            </SidebarGroup>
+
             <SidebarGroup className="mt-auto">
+              <SidebarGroupLabel>Account</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {data.navSecondary.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        size="sm"
-                        isActive={window.location.pathname === item.url}
-                      >
-                        <Link
-                          className={`w-full h-full no-underline ${
-                            window.location.pathname === item.url 
-                              ? 'text-white' 
-                              : ''
-                          }`}
-                          style={window.location.pathname === item.url ? { backgroundColor: PRIMARY_COLOR, textDecoration: 'none' } : { textDecoration: 'none' }}
-                          to={item.url}
-                        >
-                          <item.icon />
-                          <span className="text-[12px] font-semibold">{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                  {ACCOUNT_LINKS.map((item) => (
+                    <NavLinkButton key={item.url} item={item} />
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
+
           <SidebarFooter>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -403,46 +187,29 @@ const StudentDashboard = () => {
                       size="lg"
                       className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                     >
-                      <Avatar
-                        src={profileimage}
-                        showFallback
-                        className="h-8 w-8 rounded-lg"
-                      />
+                      <Avatar src={profileimage} showFallback className="h-8 w-8 rounded-lg" />
                       <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold">
-                          {user_name}
-                        </span>
-                        <span className="truncate text-xs">
-                          {phone}
-                        </span>
+                        <span className="truncate font-semibold">{user_name}</span>
+                        <span className="truncate text-xs">{phone}</span>
                       </div>
                       <ChevronsUpDown className="ml-auto size-4" />
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
-                    className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-white"
+                    className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-content1"
                     side="bottom"
                     align="end"
                     sideOffset={4}
                   >
                     <DropdownMenuLabel className="p-0 font-normal">
                       <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                        <Avatar
-                          src={profileimage}
-                          showFallback
-                          className="h-8 w-8 rounded-lg"
-                        />
+                        <Avatar src={profileimage} showFallback className="h-8 w-8 rounded-lg" />
                         <div className="grid flex-1 text-left text-sm leading-tight">
-                          <span className="truncate font-semibold">
-                            {user_name}
-                          </span>
-                          <span className="truncate text-xs">
-                            {phone}
-                          </span>
+                          <span className="truncate font-semibold">{user_name}</span>
+                          <span className="truncate text-xs">{phone}</span>
                         </div>
                       </div>
                     </DropdownMenuLabel>
-
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={onOpenChange}>
                       <LogOut />
@@ -455,37 +222,22 @@ const StudentDashboard = () => {
           </SidebarFooter>
           <SidebarRail />
         </Sidebar>
+
         <SidebarInset className="min-w-0">
-          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-default-100 bg-background/90 backdrop-blur">
-            <div className="flex items-center gap-2 px-4 w-full">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-1 h-4" />
-              <StudentTopBar />
-              {/* <Button size="sm" variant="flat" className="ml-auto"
-              onPress={()=> {
-                navigate("/coin_history")
-              }}
-              startContent={<BadgeIndianRupee className="p-1" />} color="success"><p className="font-bold text-lg">{balance}</p></Button> */}
-            </div>
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-default-100 bg-background/90 backdrop-blur px-3 sm:px-4">
+            <SidebarTrigger className="-ml-1" />
+            <StudentTopBar />
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4 min-w-0">
-            <Suspense fallback={<div className="min-h-[50vh] w-full" aria-busy="true" aria-label="Loading page" />}>
-              <Routes>
-                {
-                  StudentRoutes.map(
-                    (item: any) => <Route key={item.path} path={item.path} element={<item.element />} />)
-                }
-              </Routes>
+
+          <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4 min-w-0 w-full pb-24 md:pb-4">
+            <Suspense fallback={<div className="min-h-[40vh] w-full" aria-busy="true" aria-label="Loading page" />}>
+              <Routes>{routeNodes}</Routes>
             </Suspense>
           </div>
+
+          <StudentBottomNav />
         </SidebarInset>
-
-        <CommonLocationSelector
-          isOpen={isLocationOpen}
-          onOpenChange={onLocationOpenChange}
-        />
-
-      </SidebarProvider >
+      </SidebarProvider>
 
       <CommonConfirmation
         isOpen={isOpen}
@@ -498,7 +250,6 @@ const StudentDashboard = () => {
         positiveTitle={"Yes"}
       />
     </>
-
   )
 }
 

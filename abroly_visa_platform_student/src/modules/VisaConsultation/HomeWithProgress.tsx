@@ -1,53 +1,66 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Briefcase, MapPin } from "lucide-react";
+import { ArrowRight, Briefcase, MessagesSquare, Store } from "lucide-react";
 import { Button } from "@nextui-org/react";
 import ProgressTracker from "./ProgressTracker";
 import InstallAppCard from "@/components/InstallAppCard";
 import AchievementBanner from "@/modules/AchievementBanner/AchievementBanner";
+import { getConfig } from "@/utils/config";
 
-const SERVICES = [
+const BASE_LINKS = [
   {
-    title: "Visa & Course Consultation",
-    description: "Expert visa support and personalised course selection.",
-    icon: MapPin,
-    navigateTo: "/services/visa_consultation",
+    title: "Chat with counsellor",
+    description: "Ask questions and get updates on your case.",
+    icon: MessagesSquare,
+    navigateTo: "/chat",
   },
   {
-    title: "Job Placement Support",
-    description: "Career guidance and exclusive job opportunities.",
-    icon: Briefcase,
-    navigateTo: "/career/1",
+    title: "Services",
+    description: "Browse extra help your agency offers.",
+    icon: Store,
+    navigateTo: "/services",
   },
 ];
 
-/** Slim services/links strip for logged-in home — replaces heavy PrivateIntroPage embed. */
+const JOBS_LINK = {
+  title: "Job openings",
+  description: "Career guidance and openings from your agency.",
+  icon: Briefcase,
+  navigateTo: "/career/1",
+};
+
+/** Slim quick-links strip for logged-in home — no “raise application” path. */
 const HomeServices = () => {
   const navigate = useNavigate();
+  const planAddons: string[] | null = (() => {
+    try { return JSON.parse(getConfig("ADDONS") || "null"); } catch { return null; }
+  })();
+  const showJobs = !planAddons || planAddons.includes("jobs");
+  const links = showJobs ? [...BASE_LINKS, JOBS_LINK] : BASE_LINKS;
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3 max-w-2xl mx-auto w-full">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Services</h2>
+        <h2 className="text-lg font-semibold text-foreground">Quick links</h2>
         <p className="text-sm text-default-500">
-          Quick links to support your study abroad journey
+          Support for your study abroad journey
         </p>
       </div>
       <div className="rounded-xl border border-default-200 bg-content1 divide-y divide-default-200">
-        {SERVICES.map((service) => {
-          const Icon = service.icon;
+        {links.map((item) => {
+          const Icon = item.icon;
           return (
             <button
-              key={service.navigateTo}
+              key={item.navigateTo}
               type="button"
-              onClick={() => navigate(service.navigateTo)}
+              onClick={() => navigate(item.navigateTo)}
               className="flex w-full items-start gap-3 p-4 text-left hover:bg-default-50 transition-colors"
             >
               <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary shrink-0">
                 <Icon size={18} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">{service.title}</p>
-                <p className="text-xs text-default-500 mt-0.5">{service.description}</p>
+                <p className="text-sm font-medium text-foreground">{item.title}</p>
+                <p className="text-xs text-default-500 mt-0.5">{item.description}</p>
               </div>
               <ArrowRight size={16} className="text-default-400 mt-1 shrink-0" />
             </button>
@@ -58,24 +71,24 @@ const HomeServices = () => {
         <div>
           <p className="text-sm font-medium text-foreground">Need more support?</p>
           <p className="text-xs text-default-500">
-            Profile assessment, university selection, and visa documentation help.
+            Reach your agency for profile assessment and documentation help.
           </p>
         </div>
         <Button
           color="primary"
           className="w-full sm:w-auto"
-          onPress={() => navigate("/contact")}
+          onPress={() => navigate("/contact_us")}
         >
-          Contact Us
+          Contact us
         </Button>
       </div>
     </section>
   );
 };
 
-/** Logged-in home: live campaign hero (if any), then progress + service links. */
+/** Logged-in home: campaign hero (if any), progress, then quick links. */
 const HomeWithProgress = () => (
-  <div className="flex flex-col gap-4">
+  <div className="flex flex-col gap-4 w-full min-w-0">
     <AchievementBanner target_type="home" />
     <InstallAppCard />
     <ProgressTracker compact />

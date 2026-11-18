@@ -358,16 +358,16 @@ const VisaConsultation = () => {
             // ) :
              (
                 <div className='max-w-[1800px] mx-auto'>
-                    {/* Header with Button */}
-                    <div className={`flex flex-col ${previous_applications.length == 0 ? 'items-center' : 'items-end'} mb-6`}>
-                        <Button
-                            className='w-full sm:w-auto'
-                            onPress={() => setRaiseApplicationFormOpen(true)}
-                            isDisabled={raiseApplicationFormOpen}
-                            color='primary'
-                        >
-                            + Application Raise
-                        </Button>
+                    {/* Raise-application CTA hidden — agency opens cases for students. */}
+                    <div className="mb-4 rounded-xl border border-default-200 bg-content1 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-foreground">Need a new application?</p>
+                            <p className="text-xs text-default-500">Your counsellor starts visa cases for you. Chat with them or check your progress.</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <Button className="w-full sm:w-auto" variant="flat" onPress={() => navigate("/chat")}>Chat</Button>
+                            <Button className="w-full sm:w-auto" color="primary" onPress={() => navigate("/my_progress")}>My progress</Button>
+                        </div>
                     </div>
 
                     {/* Side by Side Layout: Form (Left) and Listing (Right) */}
@@ -724,7 +724,7 @@ const VisaConsultation = () => {
                                         <GraduationCap className="w-16 h-16 text-gray-400" />
                                         <div>
                                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Applications Yet</h3>
-                                            <p className="text-gray-600 dark:text-gray-400">Click "Application Raise" to create your first application</p>
+                                            <p className="text-gray-600 dark:text-gray-400">Your counsellor will open your first application. Chat with them if you need help.</p>
                                         </div>
                                     </div>
                                 </Card>

@@ -6,6 +6,10 @@ import { setThemeColors } from './utils/setThemeColors'
 import { initializeMetaTags } from './utils/setMetaTags'
 import { registerAgencyHeader } from './utils/agencyHeader'
 import { brandManifest, setupInstall } from './utils/installApp'
+import { reloadOnStaleAssets } from './utils/reloadOnStaleAssets'
+
+// a deploy replaced the script files this open tab points at: reload once
+reloadOnStaleAssets()
 
 // Set theme colors from environment variables
 setThemeColors()

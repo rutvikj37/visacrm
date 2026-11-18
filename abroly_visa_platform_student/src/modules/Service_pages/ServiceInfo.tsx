@@ -3,7 +3,7 @@ import axios from 'axios';
 import { ArrowLeft, Edit, FileText, ImageIcon, Plus, Trash, Shield, Wifi, BookOpen, Briefcase, Home, MapPin, FileText as FileTextIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react'
 import ReactQuill from 'react-quill';
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import 'react-quill/dist/quill.bubble.css';
 import * as Yup from 'yup'
 import { SuccessToast } from '@/utils/Toaster';
@@ -16,7 +16,6 @@ import { getAuthToken } from '@/utils/localstorage';
 import CommonConfirmation from '@/components/CommonConfirmation';
 import AchievementBanner from '../AchievementBanner/AchievementBanner';
 import Career from '../Career/Career';
-import VisaConsultation from '../VisaConsultation/VisaConsultation';
 import Accommodation from '../Accommodation/Accommodation';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
 import { PRIMARY_COLOR } from '@/lib/theme';
@@ -283,10 +282,9 @@ const ServiceInfo = () => {
                     <Career />
                 </div>
             )}
+            {/* Students no longer raise new applications from the portal — counsellor starts cases. */}
             {!contentWritingServices.includes(service) && service == "visa_consultation" && getAuthToken() && (
-                <div className="min-w-0 w-full">
-                    <VisaConsultation />
-                </div>
+                <Navigate to="/my_progress" replace />
             )}
 
             {getAuthToken() == null && <section className='flex my-4 items-center justify-center'><Button

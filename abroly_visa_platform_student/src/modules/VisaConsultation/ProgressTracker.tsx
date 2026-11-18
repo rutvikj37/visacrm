@@ -148,7 +148,7 @@ const ProgressTracker = ({ compact = false }: { compact?: boolean }) => {
     const cases: any[] = Array.isArray(data) ? data : [];
     if (isLoading) {
         return (
-            <div className={`w-full max-w-2xl mx-auto flex flex-col gap-4 p-3 sm:p-4 ${compact ? "min-h-[6rem]" : "min-h-[10rem]"}`}>
+            <div className={`w-full max-w-2xl mx-auto flex flex-col gap-4 ${compact ? "min-h-[6rem]" : "min-h-[10rem]"}`}>
                 {!compact && <h1 className="text-xl font-bold">{t("my_progress")}</h1>}
                 <div className="h-24 rounded-2xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
             </div>
@@ -163,7 +163,7 @@ const ProgressTracker = ({ compact = false }: { compact?: boolean }) => {
     }
 
     return (
-        <div className="w-full max-w-2xl mx-auto flex flex-col gap-4 p-3 sm:p-4">
+        <div className="w-full max-w-2xl mx-auto flex flex-col gap-4">
             {!compact && <h1 className="text-xl font-bold">{t("my_progress")}</h1>}
             <FeesDue />
             {cases.map((c) => {

@@ -81,7 +81,7 @@ const services = [
             icon: <MapPin size={28} style={{ color: PRIMARY_COLOR }} />,
             tag: "Top Service",
             img: "https://images.pexels.com/photos/7009468/pexels-photo-7009468.jpeg",
-            navigateTo: "/services/visa_consultation",
+            navigateTo: "/my_progress",
         },
         {
             title: "Health Insurance",

@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { applyBrand } from './lib/theme'
+import { reloadOnStaleAssets } from './utils/reloadOnStaleAssets'
+
+// a deploy replaced the script files this open tab points at: reload once
+reloadOnStaleAssets()
 
 // platform colour for the admin panel
 applyBrand()

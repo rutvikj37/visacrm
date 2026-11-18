@@ -17,30 +17,48 @@ export const AgencyLogo = ({ size = 32 }: { size?: number }) => {
 };
 
 const TITLES: [string, string][] = [
-    ["/chat", "Chat with counsellor"], ["/my_progress", "@my_progress"], ["/my_fees", "@my_fees"], ["/services", "@services"], ["/profile", "My profile"], ["/visa", "Visa consultation"],
-    ["/accepted", "My applications"], ["/career", "Careers"], ["/health", "Health insurance"], ["/sim", "SIM cards"],
+    ["/chat", "Chat with counsellor"],
+    ["/my_progress", "@my_progress"],
+    ["/my_fees", "@my_fees"],
+    ["/services", "@services"],
+    ["/student_profile", "My profile"],
+    ["/accepted_applications", "My applications"],
+    ["/career", "Careers"],
+    ["/faq", "FAQs"],
+    ["/contact_us", "Contact us"],
+    ["/health", "Health insurance"],
+    ["/sim", "SIM cards"],
 ];
 
-/** Top bar of the student portal: agency logo + name, current page, in-app chat with counsellor. */
+/** Top bar: page title + agency name, language, chat shortcut. */
 export const StudentTopBar = () => {
     const { pathname } = useLocation();
     const { t, lang } = useT();
-    const raw = TITLES.find(([p]) => pathname.startsWith(p))?.[1] || "";
+    const hit = TITLES.filter(([p]) => pathname === p || pathname.startsWith(`${p}/`) || pathname.startsWith(p))
+        .sort((a, b) => b[0].length - a[0].length)[0];
+    const raw = hit?.[1] || "";
     const title = raw.startsWith("@") ? t(raw.slice(1)) : raw;
+    const agency = getAppName() || "Student portal";
     return (
         <div className="flex items-center gap-2 min-w-0 flex-1">
             <AgencyLogo size={28} />
             <div className="min-w-0 leading-tight">
-                <div className="text-sm font-semibold truncate">{title || getAppName() || "Student portal"}</div>
-                {title && <div className="text-[11px] text-default-500 truncate">{getAppName()}</div>}
+                <div className="text-sm font-semibold truncate">{title || agency}</div>
+                {title ? <div className="text-[11px] text-default-500 truncate">{agency}</div> : null}
             </div>
-            <select aria-label="Language" value={lang} onChange={(e) => setLang(e.target.value as Lang)}
-                className="ml-auto rounded-full border border-default-200 bg-transparent px-2 py-1 text-xs">
+            <select
+                aria-label="Language"
+                value={lang}
+                onChange={(e) => setLang(e.target.value as Lang)}
+                className="ml-auto rounded-lg border border-default-200 bg-transparent px-2 py-1 text-xs shrink-0"
+            >
                 {LANGUAGES.map((l) => <option key={l.key} value={l.key}>{l.short}</option>)}
             </select>
             {pathname !== "/chat" && (
-                <Link to="/chat"
-                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium shrink-0 no-underline">
+                <Link
+                    to="/chat"
+                    className="inline-flex items-center gap-1 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium shrink-0 no-underline"
+                >
                     <MessagesSquare size={14} /><span className="max-sm:hidden">Chat</span>
                 </Link>
             )}
