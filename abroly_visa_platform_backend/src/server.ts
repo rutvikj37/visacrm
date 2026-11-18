@@ -57,14 +57,16 @@ if (cluster.isPrimary) {
           if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
           } 
-          // Check if origin matches *.techxuniverse.com pattern (any subdomain)
+          // Agency portals + shared panels on our production domains
           else {
             try {
               const url = new URL(origin);
               const hostname = url.hostname;
-              
-              // Allow techxuniverse.com and all its subdomains (*.techxuniverse.com)
-              if (hostname === 'techxuniverse.com' || hostname.endsWith('.techxuniverse.com')) {
+              const allowedHost =
+                hostname === "techxuniverse.com" || hostname.endsWith(".techxuniverse.com") ||
+                hostname === "techxsolutions.io" || hostname.endsWith(".techxsolutions.io") ||
+                hostname === "visacrm.in" || hostname.endsWith(".visacrm.in");
+              if (allowedHost) {
                 callback(null, true);
               } else {
                 console.log("CORS blocked for origin:", origin);

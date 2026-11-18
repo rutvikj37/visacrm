@@ -371,7 +371,7 @@ const ChatInbox = () => {
                                             ? "You’re all caught up — new student replies will show here."
                                             : filter === "mine"
                                                 ? "When you’re the assigned counsellor, those threads appear under Mine."
-                                                : "When a lead is converted to a visa case, you can chat with that student here."
+                                                : "Convert a lead to a visa case first. Threads show for you when you’re assigned, or when the case is in your branch."
                                     }
                                 />
                             ) : (

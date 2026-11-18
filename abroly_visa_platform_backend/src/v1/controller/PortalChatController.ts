@@ -14,12 +14,29 @@ const MAX_BODY = 4000;
 
 const cleanBody = (raw: any) => String(raw || "").trim().slice(0, MAX_BODY);
 
-/** Students in the agent's case scope (assigned counsellor / branch / owner). */
+/**
+ * Who may see a student's portal chat.
+ * Owner / accounts: every case. Branch managers & document execs: caseScope (branch + people).
+ * Counsellors: cases assigned to them, plus other cases in their same branch
+ * (null branch = head office — so HQ teammates share HQ threads, matching the product help text).
+ */
+const chatCaseWhere = (req: RequestWithUser): Record<string, any> => {
+    const a = accessOf(req);
+    if (a.isOwner || a.teamRole === "accounts") return { agent_uuid: a.agencyUuid };
+    if (a.teamRole === "branch_manager" || a.teamRole === "documents") return caseScope(req);
+    return {
+        agent_uuid: a.agencyUuid,
+        [Op.and]: [{ [Op.or]: [{ assign_id: a.userId }, { branch_id: a.branchId }] }],
+    };
+};
+
+/** Distinct student ids the current agent may chat with. */
 const scopedStudentIds = async (req: RequestWithUser): Promise<number[]> => {
-    const where: any = { ...caseScope(req), ...branchFilter(req, "branch_id") };
+    const where: any = { ...chatCaseWhere(req), ...branchFilter(req, "branch_id") };
     const rows: any[] = await AgencyLeads.findAll({
         where,
-        attributes: [[Sequelize.fn("DISTINCT", Sequelize.col("user_id")), "user_id"]],
+        attributes: ["user_id"],
+        group: ["user_id"],
         raw: true,
     });
     return rows.map((r) => Number(r.user_id)).filter(Boolean);
@@ -85,7 +102,8 @@ class PortalChatController {
             if (filter === "mine" && !a.isOwner) {
                 const mine: any[] = await AgencyLeads.findAll({
                     where: { agent_uuid: a.agencyUuid, assign_id: a.userId, user_id: studentIds },
-                    attributes: [[Sequelize.fn("DISTINCT", Sequelize.col("user_id")), "user_id"]],
+                    attributes: ["user_id"],
+                    group: ["user_id"],
                     raw: true,
                 });
                 studentIds = mine.map((r) => Number(r.user_id)).filter(Boolean);
