@@ -91,6 +91,10 @@ const data = {
           url: "/saas/monitoring",
         },
         {
+          title: "API docs",
+          url: "/saas/api-docs",
+        },
+        {
           title: "Plans",
           url: "/saas/plans",
         },

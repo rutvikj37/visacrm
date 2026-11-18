@@ -36,21 +36,6 @@ class RaiseApplicationController {
         return returnHelper(res, 400, false, "User not found");
       }
 
-      console.log(req.body, "REQUEST BODY",
-
-        country ,
-        fieldOfStudy ,
-        intake ,
-        otherOption ,
-        programLevel ,
-        state ,
-        tuitionFees ,
-        university ,
-        universityType ,
-        // latitude ,
-        // longitude ,
-        agentUUID,
-      );
       
 
     //   if (!country ||

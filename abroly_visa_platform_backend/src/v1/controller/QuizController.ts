@@ -25,7 +25,6 @@ class QuizController {
                 !course_uuid ||
                 !leval
             ) {
-                console.log(req.body);
 
                 return returnHelper(res, 200, false, "Provide All Fields")
             }

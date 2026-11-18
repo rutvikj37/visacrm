@@ -545,7 +545,6 @@ class LeadsController {
             const parsedSuggestions = JSON.parse(details?.dataValues?.suggestions);
             const selectedOptions = selected_indexes.map(index => parsedSuggestions[index]);
 
-            console.log(selectedOptions, "selectedOptions");
 
             // Update original AgencyLeads with first selected index
             const firstSelectedOption = selectedOptions[0];

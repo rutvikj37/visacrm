@@ -206,7 +206,6 @@ if (cluster.isPrimary) {
           console.warn("Meta settings load skipped", error);
         }
         
-        // swaggerDocs(app)
         
         // ⚡ Socket should start only in one worker
         if (cluster.worker && cluster.worker.id === 1) {

@@ -1,4 +1,5 @@
-import express from "express"
+import express, { Request, Response } from "express"
+import { buildOpenApi } from "../../services/apiDocs"
 import SaasAdminController from "../controller/SaasAdminController"
 import AnnouncementController from "../controller/AnnouncementController"
 import { validateAdmin } from "../../middleware/authMiddleware"
@@ -15,6 +16,13 @@ saasAdminRoutes.route("/plans/:uuid/delete").post(validateAdmin, SaasAdminContro
 saasAdminRoutes.route("/agencies").get(validateAdmin, SaasAdminController.listAgencies)
 saasAdminRoutes.route("/usage").get(validateAdmin, SaasAdminController.usage)
 saasAdminRoutes.route("/monitoring").get(validateAdmin, SaasAdminController.monitoring)
+// API reference generated from the live routes (admin login only)
+saasAdminRoutes.route("/api_docs").get(validateAdmin, (_req: Request, res: Response) => {
+    // required here, not at the top: index.ts imports this file
+    const v1 = require("./index").default
+    res.setHeader("Cache-Control", "private, no-store")
+    return res.status(200).json({ success: true, message: "API docs", data: buildOpenApi(v1) })
+})
 saasAdminRoutes.route("/agencies").post(validateAdmin, SaasAdminController.createAgency)
 saasAdminRoutes.route("/agencies/bulk").post(validateAdmin, SaasAdminController.bulkAgencies)
 saasAdminRoutes.route("/agencies/:uuid").get(validateAdmin, SaasAdminController.agencyDetails)

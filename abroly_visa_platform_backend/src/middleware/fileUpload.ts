@@ -22,7 +22,6 @@ const uploadVideosAndImage = multer({
         if (allowedMimeTypes.has(file.mimetype)) {
             cb(null, true);
         } else {
-            console.log(file.mimetype, "file.mimetype");
             cb(new Error("invalid image or video format!"));
         }
     },
@@ -31,7 +30,6 @@ const uploadVideosAndImage = multer({
 const uploadImage = multer({
     storage: storagePdfAndImage,
     fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-        console.log(file);
         const allowedMimeTypes = new Set([
             "image/png",
             "image/jpg",

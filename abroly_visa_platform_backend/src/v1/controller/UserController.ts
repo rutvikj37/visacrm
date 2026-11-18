@@ -127,8 +127,6 @@ class UserController {
             // }
 
             // const createotp = generateOTP()
-            // console.log(createotp, "THE OTP");
-
             // const otp = await bcrypt.hash(createotp + "", 10)
 
 
@@ -233,7 +231,6 @@ class UserController {
             }
 
             const createotp = generateOTP()
-            console.log(createotp, "THE OTP");
 
             const otp = await bcrypt.hash(createotp + "", 10)
 
@@ -359,7 +356,6 @@ class UserController {
 
                 const createotp = generateOTP()
 
-                console.log(createotp, "THE OTP");
 
                 const otp = await bcrypt.hash(createotp + "", 10)
 
@@ -427,8 +423,6 @@ class UserController {
                 // }
 
                 // const createotp = generateOTP()
-
-                // console.log(createotp, "THE OTP");
 
                 // const otp = await bcrypt.hash(createotp + "", 10)
 
@@ -1362,8 +1356,6 @@ class UserController {
 
                 // const createotp = generateOTP()
 
-                // console.log(createotp, "THE OTP");
-
                 // const otp = await bcrypt.hash(createotp + "", 10)
 
                 // function generateExpiryTime() {
@@ -1568,7 +1560,6 @@ class UserController {
 
                 const createotp = generateOTP()
 
-                console.log(createotp, "THE OTP");
 
                 const otp = await bcrypt.hash(createotp + "", 10)
 

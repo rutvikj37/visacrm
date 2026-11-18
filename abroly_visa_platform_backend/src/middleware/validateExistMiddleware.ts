@@ -43,7 +43,6 @@ const AgentNumberExistMw = async (req: Request, res: Response, next: NextFunctio
     if (!phone_number) return res.status(200).json({ success: false, message: "Please provide phone number address" })
 
     const phoneNumberExistOrNot = await Agent.findOne({ where: { phone_number } })
-    console.log(phoneNumberExistOrNot,"phoneNumberExistOrNot");
     
     if (phoneNumberExistOrNot) {
         return res.status(200).json({

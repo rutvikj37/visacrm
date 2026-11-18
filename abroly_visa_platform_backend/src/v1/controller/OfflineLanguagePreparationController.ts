@@ -251,7 +251,6 @@ class OfflineLanguagePreparationController {
 
   async acceptOfflineLanguagePreps(req: RequestWithUser, res: Response) {
     try {
-      console.log(req.user?.user?.uuid, "req.user?.user?.uuid");
 
       const isExist = await AgentService.findOne({
         where: {

@@ -553,7 +553,6 @@ class AgentController {
 
                 const createotp = generateOTP()
 
-                console.log(createotp, "THE OTP");
 
                 const otp = await bcrypt.hash(createotp + "", 10)
 
@@ -707,8 +706,6 @@ class AgentController {
             // }
 
             // const createotp = generateOTP()
-            // console.log(createotp, "THE OTP");
-
             // const otp = await bcrypt.hash(createotp + "", 10)
 
 
@@ -1501,7 +1498,6 @@ class AgentController {
             }
 
             const createotp = generateOTP()
-            console.log(createotp, "THE OTP");
 
             const otp = await bcrypt.hash(createotp + "", 10)
 
