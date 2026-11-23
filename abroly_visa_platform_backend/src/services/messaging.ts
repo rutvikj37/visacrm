@@ -32,7 +32,7 @@ export interface Recipient {
     leadId?: number | null;      // logged on this lead's timeline when known
 }
 
-export const MESSAGE_VARIABLES = ["name", "agency", "country", "portal_link", "amount", "due_date", "pending_count"];
+export const MESSAGE_VARIABLES = ["name", "agency", "country", "portal_link", "amount", "due_date", "pending_count", "trip", "link", "booking_no", "start_date", "total"];
 const DAY = 24 * 60 * 60 * 1000;
 
 export const renderText = (text: string, vars: Record<string, any>) =>

@@ -30,7 +30,7 @@ import { getAgencyUuidFromRequest } from "./tenant";
 export const PRIVATE_FOLDERS = ["student_docs", "subscription_proof", "reports", "service_files", "travel_docs"] as const;
 export const PUBLIC_FOLDERS = [
     "profiles", "certificates", "event_images", "courses", "course_chapter_items",
-    "testimonials", "banners", "service_info", "content_writing_files",
+    "testimonials", "banners", "service_info", "content_writing_files", "travel_media",
 ] as const;
 export type PrivateFolder = typeof PRIVATE_FOLDERS[number];
 export type PublicFolder = typeof PUBLIC_FOLDERS[number];

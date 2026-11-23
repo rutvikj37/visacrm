@@ -7,6 +7,7 @@ import {
 import { ArrowLeft, Eye, FileText, MessageCircle, Pencil, Plus, Printer, Receipt, Trash2, UserPlus, Wallet } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { BookingCreditNotes, BookingDocuments, ClientProfileCard } from "./BookingExtras";
+import { useOpenPdf, useSendWhatsapp } from "./travelActions";
 import { SuccessToast } from "@/utils/Toaster";
 import {
     BOOKING_STATUS, Field, SERVICE_STATUS, SERVICE_TYPES, Tile, apiBase, fmtDate, fmtRange, printVouchers, rupees, serviceLabel, waLink,
@@ -120,12 +121,14 @@ const BookingDetails = () => {
     };
 
     // trip kit: one public page with confirmations, day plan and shared documents (VC-02)
+    const openPdf = useOpenPdf();
+    const sendWa = useSendWhatsapp();
     const tripKit = async (email = false) => {
         const { success, data } = await commonPostAPICall({ email }, `travel/bookings/${id}/kit`, email);
         if (!success || email) return;
         const confirmed = (b.services || []).filter((s: any) => s.status === "confirmed").map((s: any) => `• ${serviceLabel(s.type)}: ${s.description}${s.confirmation_no ? ` (Conf. ${s.confirmation_no})` : ""}`).join("\n");
         const text = `Hi ${String(b.client?.name || "").split(" ")[0]}, your trip ${b.title} (${b.booking_no}) is confirmed for ${fmtRange(b.start_date, b.end_date)}.\n${confirmed}\nTickets, vouchers and your day plan: ${data.url}\nHave a great trip!${b.agency?.phone ? `\nHelp: ${b.agency.phone}` : ""}`;
-        window.open(waLink(b.client?.phone, text), "_blank", "noopener");
+        await sendWa({ to: b.client?.phone, lead_id: b.lead_id, trigger: "trip_kit", vars: { name: String(b.client?.name || "").split(" ")[0], trip: b.title, booking_no: b.booking_no, start_date: b.start_date, link: data.url }, text });
     };
 
     if (!b) return <div className="py-16 grid place-items-center"><Spinner /></div>;
@@ -146,7 +149,7 @@ const BookingDetails = () => {
             <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="flat" color="success" startContent={<MessageCircle size={14} />} onPress={() => tripKit(false)}>Send trip kit on WhatsApp</Button>
                 {b.client?.email && <Button size="sm" variant="flat" onPress={() => tripKit(true)}>Email trip kit</Button>}
-                <Button size="sm" variant="flat" startContent={<Printer size={14} />} onPress={() => printVouchers(b)}>Print vouchers</Button>
+                <Button size="sm" variant="flat" startContent={<Printer size={14} />} onPress={() => openPdf(`travel/bookings/${id}/vouchers.pdf`)}>Vouchers PDF</Button>
                 {b.invoice ? <Button size="sm" variant="flat" startContent={<Receipt size={14} />} onPress={() => navigate(`/fees/${b.invoice.id}`)}>Invoice {b.invoice.number}</Button>
                     : (canMoney || teamRole === "branch_manager") && <Button size="sm" variant="flat" color="primary" startContent={<Receipt size={14} />} onPress={openInvoice}>Create GST invoice</Button>}
                 {b.itinerary && <Button size="sm" variant="light" startContent={<FileText size={14} />} onPress={() => navigate(`/travel/itineraries/${b.itinerary.id}`)}>Itinerary</Button>}
@@ -186,7 +189,7 @@ const BookingDetails = () => {
                                             </td>
                                         </>}
                                         <td className="p-2 whitespace-nowrap text-right">
-                                            {["hotel", "transfer", "activity", "other"].includes(s.type) && <Button isIconOnly size="sm" variant="light" aria-label="Voucher" onPress={() => printVouchers(b, s.id)}><Printer size={14} /></Button>}
+                                            {["hotel", "transfer", "activity", "other"].includes(s.type) && <Button isIconOnly size="sm" variant="light" aria-label="Voucher" onPress={() => openPdf(`travel/bookings/${id}/vouchers.pdf?service=${s.id}`)}><Printer size={14} /></Button>}
                                             {canMoney && s.supplier_id && s.supplier_due > 0 && <Button isIconOnly size="sm" variant="light" aria-label="Pay supplier" onPress={() => { setPay({ service: s, amount: String(s.supplier_due), reference: "", paid_at: new Date().toISOString().slice(0, 10) }); payModal.onOpen(); }}><Wallet size={14} /></Button>}
                                             <Button isIconOnly size="sm" variant="light" aria-label="Edit" onPress={() => openService(s)}><Pencil size={14} /></Button>
                                         </td>

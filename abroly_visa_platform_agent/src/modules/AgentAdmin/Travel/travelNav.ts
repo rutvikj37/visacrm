@@ -11,9 +11,11 @@ export const travelNavGroup = (opts: { team?: boolean } = {}) => ({
     isActive: true,
     items: [
         { title: "Travel desk", url: "/travel", module: "itinerary" },
+        { title: "Sales pipeline", url: "/travel/pipeline", module: "itinerary" },
         { title: "Itineraries", url: "/travel/itineraries", module: "itinerary" },
         { title: "Quotes", url: "/travel/quotes", module: "itinerary" },
         { title: "Bookings", url: "/travel/bookings", module: "bookings" },
+        { title: "Travellers", url: "/travel/clients", module: "bookings" },
         { title: "Packages", url: "/travel/packages", module: "itinerary" },
         { title: "Suppliers", url: "/travel/suppliers", module: "suppliers" },
         { title: "Reports", url: "/travel/reports", module: "itinerary" },

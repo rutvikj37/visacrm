@@ -3,6 +3,7 @@ import { validateAgent } from "../../middleware/authMiddleware"
 import TravelController from "../controller/TravelController"
 import PublicTravelController from "../controller/PublicTravelController"
 import { travelGuard } from "../../services/travelAccess"
+import TravelPlusController, { publicCatalogue, publicPackage, publicPackageEnquiry, travelImageUpload } from "../controller/TravelPlusController"
 import TravelExtraController, { publicTripKit, publicTripKitDoc, travelUpload } from "../controller/TravelExtraController"
 
 /**
@@ -15,6 +16,20 @@ const T: any = TravelController
 const h = (name: string) => (req: any, res: any) => travelGuard(req, res, () => T[name](req, res))
 
 travelRoutes.get("/summary", validateAgent, h("summary"))
+travelRoutes.get("/dashboard", validateAgent, h("dashboard"))
+
+// pipeline, contacts, photos, PDFs, WhatsApp (TravelPlusController)
+const P: any = TravelPlusController
+const pl = (name: string) => (req: any, res: any) => travelGuard(req, res, () => P[name](req, res))
+travelRoutes.get("/pipeline", validateAgent, pl("pipeline"))
+travelRoutes.post("/pipeline/:uuid", validateAgent, pl("updateDeal"))
+travelRoutes.get("/clients", validateAgent, pl("clients"))
+travelRoutes.post("/media", validateAgent, travelImageUpload, pl("uploadImage"))
+travelRoutes.get("/itineraries/:uuid/pdf", validateAgent, pl("itineraryPdf"))
+travelRoutes.get("/quotes/:uuid/pdf", validateAgent, pl("quotePdf"))
+travelRoutes.get("/bookings/:uuid/vouchers.pdf", validateAgent, pl("vouchersPdf"))
+travelRoutes.post("/whatsapp/send", validateAgent, pl("sendWhatsapp"))
+travelRoutes.get("/whatsapp/numbers", validateAgent, pl("whatsappNumbers"))
 
 // settings, permissions, calendar link (settings are owner-only to save)
 const X: any = TravelExtraController
@@ -103,6 +118,10 @@ publicTravelRoutes.get("/itinerary/:token", (req, res) => PublicTravelController
 publicTravelRoutes.post("/itinerary/:token", (req, res) => PublicTravelController.respond(req, res))
 publicTravelRoutes.get("/calendar/:token", (req, res) => (TravelExtraController as any).calendarFeed(req, res))
 publicTravelRoutes.get("/kit/:token", publicTripKit)
+publicTravelRoutes.get("/packages/:agency", publicCatalogue)
+publicTravelRoutes.get("/package/:slug", publicPackage)
+publicTravelRoutes.post("/package/:slug", publicPackageEnquiry)
+publicTravelRoutes.get("/itinerary/:token/pdf", (req, res) => PublicTravelController.pdf(req, res))
 publicTravelRoutes.get("/kit/:token/doc/:docId", publicTripKitDoc)
 
 export default travelRoutes

@@ -128,17 +128,18 @@ export const can = async (req: RequestWithUser, module: PermModule, action: Perm
 export const travelPermFor = (method: string, path: string): { module: PermModule; action: PermAction } | null => {
     const p = path.split("?")[0].replace(/^\/api\/v1\/travel/, "");
     let module: PermModule | null = null;
-    if (/^\/(library|itineraries|quotes|packages)(\/|$)/.test(p)) module = "itinerary";
+    if (/^\/(library|itineraries|quotes|packages|pipeline|media)(\/|$)/.test(p)) module = "itinerary";
     else if (/^\/(bookings|clients|credit_notes)(\/|$)/.test(p)) module = "bookings";
     else if (/^\/suppliers(\/|$)/.test(p)) module = "suppliers";
     else if (/^\/(reports|targets)(\/|$)/.test(p)) module = "reports";
     if (!module) return null;
     let action: PermAction = "view";
-    if (/\/export(\/|$)/.test(p)) action = "export";
+    if (/\/export(\/|$)/.test(p) || /\/(pdf|vouchers\.pdf)$/.test(p)) action = /\/export/.test(p) ? "export" : "view";
     else if (method === "GET") action = /\/reveal$/.test(p) ? "edit" : "view";
     else if (/\/delete$/.test(p)) action = "delete";
     else if (/^\/settings$/.test(p)) return null;
-    else if (/^\/(library|itineraries|quotes|packages|suppliers|targets)$/.test(p) || /\/(services|travellers|rates|documents|members)$/.test(p)) action = "create";
+    else if (/^\/whatsapp\//.test(p)) return null;
+    else if (/^\/(library|itineraries|quotes|packages|suppliers|targets|media)$/.test(p) || /\/(services|travellers|rates|documents|members)$/.test(p)) action = "create";
     else action = "edit";
     return { module, action };
 };

@@ -6,6 +6,7 @@ import { publicFileUrl } from "../../helpers/storage";
 import { logActivity } from "../../services/leadIngestion";
 import { leadRecipients, notifyLater } from "../../services/notifications";
 import { hasModule } from "../../services/modules";
+import { renderItineraryPdf } from "./TravelPlusController";
 
 /**
  * Public itinerary page (IT-05, IT-06): /api/v1/public/travel/itinerary/:token
@@ -34,7 +35,13 @@ const load = async (token: string) => {
     return { it, agency };
 };
 
-const page = (title: string, color: string, body: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+/** Extra styles per itinerary theme (classic is the base). */
+const THEMES: Record<string, string> = {
+    classic: "",
+    modern: `body{background:#f1f5f9}header{border-radius:20px;padding:28px 26px;background:linear-gradient(135deg,var(--brand),#111827)}.card{border:0;box-shadow:0 6px 24px rgba(15,23,42,.08);border-radius:18px}.badge{border-radius:999px;background:var(--brand);color:#fff}h2{text-transform:uppercase;letter-spacing:.06em;font-size:13px;color:var(--brand)}`,
+    elegant: `body{font-family:Georgia,'Times New Roman',serif;background:#fbf8f3}header{background:#fff;color:var(--ink);border:1px solid #e8dfd0;flex-direction:column;text-align:center}header h1{font-size:28px;font-weight:normal;letter-spacing:.02em}header p{color:var(--muted)}.card{border-color:#e8dfd0}.badge{background:transparent;border:1px solid var(--brand);color:var(--brand)}h2{font-weight:normal;font-size:18px;border-bottom:1px solid #e8dfd0;padding-bottom:6px}`,
+};
+const page = (title: string, color: string, body: string, theme = "classic") => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><meta name="robots" content="noindex">
 <style>
 :root{--brand:${color};--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--bg:#f8fafc;--card:#fff}
@@ -58,6 +65,8 @@ button,.btn{border:0;border-radius:10px;padding:10px 16px;font:600 14px system-u
 .primary{background:var(--brand);color:#fff}.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
 .ok{background:#ecfdf5;border-color:#a7f3d0}.muted{color:var(--muted);font-size:13px}
 footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0}
+.cover{width:100%;max-height:340px;object-fit:cover;border-radius:16px;margin-top:14px;display:block}.dayimg{width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px}.thumb{width:56px;height:42px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px}
+${THEMES[theme] || ""}
 @media print{.noprint{display:none!important}body{background:#fff}.card,header{break-inside:avoid}header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body><div class="wrap">${body}</div></body></html>`;
 
@@ -89,19 +98,21 @@ class PublicTravelController {
 
             const dayHtml = days.map((d: any, i: number) => {
                 const when = startMs ? fmtDate(new Date(startMs + i * 864e5).toISOString().slice(0, 10)) : "";
-                const items = (Array.isArray(d.items) ? d.items : []).map((it2: any) => `<li><span class="tag">${esc(ICON[it2.type] || "")}</span>${esc(it2.text)}</li>`).join("");
-                return `<div class="day"><div class="badge">Day ${i + 1}</div><div><h3>${esc(d.title)}</h3><div class="city">${esc([d.city, when].filter(Boolean).join(" · "))}</div>${items ? `<ul>${items}</ul>` : ""}${d.notes ? `<p class="muted">${nl(d.notes)}</p>` : ""}</div></div>`;
+                const img = (u: any) => (/^https?:\/\//.test(String(u || "")) ? String(u) : "");
+                const items = (Array.isArray(d.items) ? d.items : []).map((it2: any) => `<li>${img(it2.image) ? `<img class="thumb" src="${esc(img(it2.image))}" alt="">` : ""}<span class="tag">${esc(ICON[it2.type] || "")}</span>${esc(it2.text)}</li>`).join("");
+                return `<div class="day"><div class="badge">Day ${i + 1}</div><div><h3>${esc(d.title)}</h3><div class="city">${esc([d.city, when].filter(Boolean).join(" · "))}</div>${img(d.image) ? `<img class="dayimg" src="${esc(img(d.image))}" alt="">` : ""}${items ? `<ul>${items}</ul>` : ""}${d.notes ? `<p class="muted">${nl(d.notes)}</p>` : ""}</div></div>`;
             }).join("");
 
             const block = (title: string, v: any) => (v ? `<div class="card"><h2>${title}</h2><div>${nl(v)}</div></div>` : "");
             const respond = x.status === "accepted"
-                ? `<div class="card ok"><h2>You accepted this itinerary</h2><p class="muted">Your consultant will be in touch with the next steps.</p></div>`
+                ? `<div class="card ok"><h2>You accepted this itinerary</h2><p class="muted">Your consultant will be in touch with the next steps.</p><p><a class="btn ghost" href="${esc(req.originalUrl.split("?")[0].replace(/\/$/, ""))}/pdf">Download PDF</a></p></div>`
                 : `<form class="card noprint" method="post" action=""><h2>Happy with this plan?</h2>
                     ${x.status === "changes_requested" ? `<p class="muted">You asked for changes. Your consultant is updating the plan.</p>` : ""}
                     <textarea name="note" maxlength="2000" placeholder="Any changes you would like? (optional)"></textarea>
-                    <div class="btns"><button class="primary" name="action" value="accept">Accept itinerary</button><button class="ghost" name="action" value="changes">Request changes</button><a class="btn ghost" href="javascript:window.print()">Print / Save as PDF</a></div></form>`;
+                    <div class="btns"><button class="primary" name="action" value="accept">Accept itinerary</button><button class="ghost" name="action" value="changes">Request changes</button><a class="btn ghost" href="${esc(req.originalUrl.split("?")[0].replace(/\/$/, ""))}/pdf">Download PDF</a></div></form>`;
 
             const body = `<header>${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><h1>${esc(x.title)}</h1><p>${esc([x.destination, `${x.nights}N/${Number(x.nights) + 1}D`, x.start_date ? `from ${fmtDate(x.start_date)}` : ""].filter(Boolean).join(" · "))}</p><p>Prepared by ${esc(name)}</p></div></header>
+                ${/^https?:\/\//.test(String(x.cover_image || "")) ? `<img class="cover" src="${esc(x.cover_image)}" alt="">` : ""}
                 <div class="card"><h2>Day by day</h2>${dayHtml || `<p class="muted">The day plan is being prepared.</p>`}</div>
                 ${pricing}
                 <div class="cols">${block("Included", x.inclusions)}${block("Not included", x.exclusions)}</div>
@@ -109,9 +120,23 @@ class PublicTravelController {
                 ${respond}
                 <footer>${esc(name)}${agency?.support_number ? ` · ${esc(agency.support_number)}` : ""}${agency?.support_email ? ` · ${esc(agency.support_email)}` : ""}${agency?.agency_address ? `<br>${esc(agency.agency_address)}` : ""}</footer>`;
             res.setHeader("Content-Security-Policy", "default-src 'none'; img-src * data:; style-src 'unsafe-inline'; form-action 'self'");
-            return res.status(200).send(page(x.title, color, body));
+            return res.status(200).send(page(x.title, color, body, x.theme || "classic"));
         } catch (error) {
             console.error("PublicTravelController.itinerary", error);
+            return res.status(500).send("Something went wrong");
+        }
+    }
+
+    /** GET /public/travel/itinerary/:token/pdf */
+    async pdf(req: Request, res: Response) {
+        try {
+            const found = await load(String(req.params.token || ""));
+            if (!found) return res.status(404).send("Not found");
+            const { it } = found;
+            const quote: any = await Quotation.findOne({ where: { agency_uuid: it.dataValues.agency_uuid, itinerary_id: it.dataValues.id, status: ["sent", "accepted"] }, order: [["version", "DESC"]] });
+            return renderItineraryPdf(res, it, quote, it.dataValues.agency_uuid);
+        } catch (error) {
+            console.error("PublicTravelController.pdf", error);
             return res.status(500).send("Something went wrong");
         }
     }

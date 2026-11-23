@@ -139,16 +139,20 @@ export const FacebookSourceCard = ({ integrations, configured, busy, call, onRem
 };
 
 export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardProps) => {
-    const wa = integrations.find((i) => i.type === "whatsapp");
+    // an agency can connect more than one WhatsApp number (e.g. sales and operations); replies go from the number the client wrote to
+    const allNumbers = integrations.filter((i) => i.type === "whatsapp");
+    const wa = allNumbers[0];
     const [showForm, setShowForm] = useState(false);
+    const [addMode, setAddMode] = useState(false);
     const [form, setForm] = useState({ phone_number_id: "", waba_id: "", access_token: "", app_secret: "" });
     const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
     const save = async () => {
-        const r = await call("wa-save", "crm/meta/whatsapp", form);
+        const r = await call("wa-save", "crm/meta/whatsapp", { ...form, add_number: addMode });
         if (r.success) {
             setForm({ phone_number_id: "", waba_id: "", access_token: "", app_secret: "" });
             setShowForm(false);
+            setAddMode(false);
         }
     };
 
@@ -166,8 +170,8 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
                     and your team can reply from the CRM.
                 </p>
 
-                {wa && (
-                    <div className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">
+                {allNumbers.map((wa) => (
+                    <div key={wa.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium flex-1 min-w-0 truncate">{wa.name}</span>
                             <Switch size="sm" isSelected={wa.status === "active"} isDisabled={busy === wa.uuid} onValueChange={() => call(wa.uuid, `crm/integrations/${wa.uuid}/toggle`)} aria-label="Turn on or off" />
@@ -189,11 +193,12 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {!showForm && <Button size="sm" variant="flat" onPress={() => setShowForm(true)}>Update details</Button>}
+                            {!showForm && wa === allNumbers[0] && <Button size="sm" variant="flat" onPress={() => { setAddMode(false); setShowForm(true); }}>Update details</Button>}
                             <Button size="sm" variant="flat" color="danger" startContent={<Trash2 size={14} />} className="ml-auto" onPress={() => onRemove(wa)}>Disconnect</Button>
                         </div>
                     </div>
-                )}
+                ))}
+                {allNumbers.length > 0 && !showForm && <Button size="sm" variant="light" className="self-start" onPress={() => { setAddMode(true); setShowForm(true); }}>+ Add another WhatsApp number</Button>}
 
                 {formOpen && (
                     <div className="flex flex-col gap-3">
@@ -214,9 +219,9 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
                         <div className="flex gap-2">
                             <Button color="primary" variant="flat" isLoading={busy === "wa-save"} onPress={save}
                                 isDisabled={!form.phone_number_id.trim() || !form.waba_id.trim() || !form.access_token.trim()}>
-                                {wa ? "Save" : "Connect WhatsApp"}
+                                {addMode ? "Add number" : wa ? "Save" : "Connect WhatsApp"}
                             </Button>
-                            {wa && <Button variant="light" onPress={() => setShowForm(false)}>Cancel</Button>}
+                            {wa && <Button variant="light" onPress={() => { setShowForm(false); setAddMode(false); }}>Cancel</Button>}
                         </div>
                     </div>
                 )}

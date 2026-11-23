@@ -74,6 +74,7 @@ const SubAgentCRM = () => {
           { title: "Calendar", url: "/crm/calendar" },
           { title: "Tasks", url: "/crm/tasks" },
           { title: "Chats", url: "/crm/chats" },
+          { title: "WhatsApp inbox", url: "/crm/inbox", module: "messaging" },
           // a branch manager sees their branch's report
           ...(teamRoleForMenu === "branch_manager" && branchForMenu ? [{ title: "Reports", url: "/reports" }] : []),
         ],

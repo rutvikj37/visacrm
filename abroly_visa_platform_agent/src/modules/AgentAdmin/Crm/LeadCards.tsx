@@ -3,6 +3,15 @@ import { Button, Checkbox, Chip, Spinner } from "@heroui/react";
 import { CalendarClock, MessageCircle, Phone } from "lucide-react";
 import { followUpState, formatDateTime, formatPhone, sourceLabel, statusMeta, temperatureMeta, timeAgo, whatsappLink } from "./crmShared";
 
+/** Travel leads: destination and trip value instead of country / course. */
+const travelLine = (lead: any) => {
+    if (lead.business_line !== "travel") return null;
+    let dest: any = lead.destinations;
+    if (typeof dest === "string") { try { dest = JSON.parse(dest); } catch { dest = [dest]; } }
+    const parts = [Array.isArray(dest) ? dest.join(", ") : "", lead.trip_value != null ? `₹${Number(lead.trip_value).toLocaleString("en-IN")}` : ""].filter(Boolean);
+    return parts.length ? parts.join(" · ") : null;
+};
+
 /**
  * Lead Inbox on phones: one card per lead with the actions a counsellor needs on the go
  * (call, WhatsApp, open). Tick boxes feed the same bulk actions as the table.
@@ -37,7 +46,7 @@ const LeadCards = ({ leads, loading, selectable, selected, onToggle, branchLabel
                             <Chip size="sm" color={meta.color} variant="flat" className="shrink-0">{meta.label}</Chip>
                         </div>
                         <button type="button" className="text-left text-xs text-default-600 flex flex-wrap gap-x-3 gap-y-0.5" onClick={() => navigate(`/crm/leads/${lead.uuid}`)}>
-                            {(lead.interested_country || lead.interested_course) && <span>{[lead.interested_country, lead.interested_course].filter(Boolean).join(" · ")}</span>}
+                            {travelLine(lead) ? <span className="font-medium text-foreground">✈ {travelLine(lead)}</span> : (lead.interested_country || lead.interested_course) && <span>{[lead.interested_country, lead.interested_course].filter(Boolean).join(" · ")}</span>}
                             <span>{sourceLabel(lead.source)}</span>
                             <span>{lead.assignee?.username || "Unassigned"}{branchLabel(lead.branch_id) ? ` · ${branchLabel(lead.branch_id)}` : ""}</span>
                             <span className="text-default-400">{timeAgo(lead.last_activity_at || lead.createdAt)}</span>

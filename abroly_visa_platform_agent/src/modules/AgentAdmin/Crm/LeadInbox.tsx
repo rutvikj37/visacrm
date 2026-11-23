@@ -518,8 +518,13 @@ const LeadInbox = () => {
                                             <div className="text-xs text-default-500 whitespace-nowrap">{formatPhone(lead) || lead.email}</div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="text-sm">{lead.interested_country || "-"}</div>
-                                            <div className="text-xs text-default-500 truncate max-w-[180px]">{lead.interested_course || lead.visa_type || ""}</div>
+                                            {lead.business_line === "travel" ? (<>
+                                                <div className="text-sm truncate max-w-[180px]">✈ {(() => { let d: any = lead.destinations; if (typeof d === "string") { try { d = JSON.parse(d); } catch { d = [d]; } } return Array.isArray(d) && d.length ? d.join(", ") : "Trip"; })()}</div>
+                                                <div className="text-xs font-medium">{lead.trip_value != null ? `₹${Number(lead.trip_value).toLocaleString("en-IN")}` : <span className="text-default-400 font-normal">No value yet</span>}</div>
+                                            </>) : (<>
+                                                <div className="text-sm">{lead.interested_country || "-"}</div>
+                                                <div className="text-xs text-default-500 truncate max-w-[180px]">{lead.interested_course || lead.visa_type || ""}</div>
+                                            </>)}
                                         </TableCell>
                                         <TableCell><Chip size="sm" variant="flat">{sourceLabel(lead.source)}</Chip></TableCell>
                                         <TableCell>

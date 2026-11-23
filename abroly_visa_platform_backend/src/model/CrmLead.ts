@@ -49,6 +49,10 @@ const CrmLead = sequelize.define('CrmLead', {
     trip_type: { type: DataTypes.STRING(40), allowNull: true },
     departure_city: { type: DataTypes.STRING, allowNull: true },
     converted_booking_id: { type: DataTypes.INTEGER, allowNull: true },
+    // travel sales pipeline (prospect tracker): deal value (paise; empty = latest quote / budget), priority, expected close
+    deal_value: { type: DataTypes.BIGINT, allowNull: true },
+    priority: { type: DataTypes.ENUM("low", "medium", "high"), allowNull: true },
+    expected_close: { type: DataTypes.DATEONLY, allowNull: true },
 
     // where it came from
     source: { type: DataTypes.ENUM(...CRM_LEAD_SOURCES), defaultValue: "manual" },

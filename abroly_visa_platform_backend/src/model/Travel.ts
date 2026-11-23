@@ -86,6 +86,8 @@ export const Itinerary = sequelize.define('Itinerary', {
     terms: { type: DataTypes.TEXT, allowNull: true },
     cancellation_policy: { type: DataTypes.TEXT, allowNull: true },
     status: { type: DataTypes.ENUM("draft", "sent", "accepted", "changes_requested"), defaultValue: "draft" },
+    theme: { type: DataTypes.STRING(20), defaultValue: "classic" }, // classic | modern | elegant (client page and PDF)
+    cover_image: { type: DataTypes.STRING(500), allowNull: true },
     client_note: { type: DataTypes.TEXT, allowNull: true }, // change request from the share link
     share_token: { type: DataTypes.STRING(64), allowNull: true },
     branch_id: { type: DataTypes.INTEGER, allowNull: true },
@@ -102,6 +104,7 @@ export const Quotation = sequelize.define('Quotation', {
     number: { type: DataTypes.STRING(40), allowNull: false },
     crm_lead_id: { type: DataTypes.INTEGER, allowNull: true },
     itinerary_id: { type: DataTypes.INTEGER, allowNull: true },
+    package_id: { type: DataTypes.INTEGER, allowNull: true }, // tour_packages.id when quoted from a package
     version: { type: DataTypes.INTEGER, defaultValue: 1 },
     parent_id: { type: DataTypes.INTEGER, allowNull: true }, // first version of this quote
     title: { type: DataTypes.STRING, allowNull: true },
@@ -149,6 +152,8 @@ export const Booking = sequelize.define('Booking', {
     crm_lead_id: { type: DataTypes.INTEGER, allowNull: true },
     quotation_id: { type: DataTypes.INTEGER, allowNull: true },
     itinerary_id: { type: DataTypes.INTEGER, allowNull: true },
+    package_id: { type: DataTypes.INTEGER, allowNull: true },
+    messages_sent: { type: DataTypes.JSON, allowNull: true, get: jsonGetter('messages_sent') }, // automatic WhatsApp: { trip_tomorrow: date, welcome_back: date }
     user_id: { type: DataTypes.INTEGER, allowNull: false }, // the client (users table)
     visa_case_id: { type: DataTypes.INTEGER, allowNull: true }, // agency_leads.id
     title: { type: DataTypes.STRING, allowNull: false },

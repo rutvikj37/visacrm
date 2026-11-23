@@ -16,6 +16,14 @@ const TravelLeadPanel = ({ lead }: { lead: any }) => {
     const [its, setIts] = useState<any[]>([]);
     const [quotes, setQuotes] = useState<any[]>([]);
     const [busy, setBusy] = useState("");
+    const [packages, setPackages] = useState<any[]>([]);
+    const quoteFromPackage = async (pkgId: string) => {
+        if (!pkgId) return;
+        setBusy("pkg");
+        const { success, data } = await commonPostAPICall({ lead_id: lead.uuid, package_id: pkgId }, "travel/quotes");
+        setBusy("");
+        if (success && data?.id) navigate(`/travel/quotes/${data.id}`);
+    };
 
     useEffect(() => {
         if (!lead?.uuid || !has("itinerary")) return;
@@ -23,6 +31,8 @@ const TravelLeadPanel = ({ lead }: { lead: any }) => {
             const [a, b] = await Promise.all([commonGetAPICalls(`/travel/itineraries?lead=${lead.uuid}`), commonGetAPICalls(`/travel/quotes?lead=${lead.uuid}`)]);
             if (a.success) setIts(a.data);
             if (b.success) setQuotes(b.data);
+            const p = await commonGetAPICalls("/travel/packages?status=active");
+            if (p.success) setPackages(p.data || []);
         })();
     }, [lead?.uuid]);
 
@@ -56,6 +66,12 @@ const TravelLeadPanel = ({ lead }: { lead: any }) => {
                 <div className="flex flex-wrap gap-2">
                     <Button size="sm" color="primary" variant={its.length ? "flat" : "solid"} isLoading={busy === "it"} startContent={<Map size={14} />} onPress={createItinerary}>Create itinerary</Button>
                     <Button size="sm" color="primary" variant={its.length ? "solid" : "flat"} isLoading={busy === "q"} startContent={<FileText size={14} />} onPress={createQuote}>New quote</Button>
+                    {packages.length > 0 && (
+                        <select aria-label="Quote from a package" className="h-8 rounded-medium bg-default-100 px-2 text-sm max-w-[220px]" value="" disabled={busy === "pkg"} onChange={(e) => quoteFromPackage(e.target.value)}>
+                            <option value="">Quote from a package…</option>
+                            {packages.map((p) => <option key={p.id} value={p.id}>{p.title} · ₹{Number(p.price_pp).toLocaleString("en-IN")}/pp</option>)}
+                        </select>
+                    )}
                 </div>
             )}
             {(its.length > 0 || quotes.length > 0) && (

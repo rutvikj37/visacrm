@@ -42,6 +42,8 @@ export const readBilling = (raw: any) => {
     return {
         legal_name: b.legal_name || "", gstin: b.gstin || "", address: b.address || "", invoice_prefix: b.invoice_prefix || "INV",
         default_gst_percent: Number(b.default_gst_percent) || 0, upi_id: b.upi_id || "", bank_details: b.bank_details || "", terms: b.terms || "",
+        // Google review link and rating, printed on invoices and the client trip pages
+        google_review_url: b.google_review_url || "", google_rating: b.google_rating || "",
     };
 };
 
@@ -197,6 +199,8 @@ class FeesController {
             const settings = {
                 legal_name: String(b.legal_name || "").trim().slice(0, 255), gstin, address: String(b.address || "").trim().slice(0, 1000), invoice_prefix: prefix,
                 default_gst_percent: gst, upi_id: String(b.upi_id || "").trim().slice(0, 100), bank_details: String(b.bank_details || "").trim().slice(0, 1000), terms: String(b.terms || "").trim().slice(0, 2000),
+                google_review_url: /^https:\/\/\S+$/.test(String(b.google_review_url || "").trim()) ? String(b.google_review_url).trim().slice(0, 500) : "",
+                google_rating: /^[1-5](\.\d)?$/.test(String(b.google_rating || "").trim()) ? String(b.google_rating).trim() : "",
             };
             // keep other keys (e.g. state_code used on subscription invoices)
             const prev: any = await Agent.findOne({ where: { uuid: a.agencyUuid, role: "agent" }, attributes: ["billing_settings"] });
@@ -392,6 +396,7 @@ class FeesController {
                     branch_name: bd.name || null,
                     address: bd.address || billing.address || agency?.dataValues?.agency_address, phone: bd.phone || agency?.dataValues?.support_number, email: bd.email || agency?.dataValues?.support_email,
                     upi_id: billing.upi_id, bank_details: billing.bank_details, terms: billing.terms, logo_url: logo,
+                    google_review_url: billing.google_review_url || null, google_rating: billing.google_rating || null,
                 },
                 // any online gateway (Razorpay or Cashfree) can make payment links
                 razorpay_ready: Boolean(await linkGateway(accessOf(req).agencyUuid)),

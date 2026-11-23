@@ -228,7 +228,10 @@ class MetaController {
                 status: "active",
                 last_error: null,
             };
-            const existing: any = await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp" } });
+            // "add another number": a second (third...) WhatsApp number; otherwise update the first one
+            const existing: any = req.body?.add_number
+                ? await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp", external_id: phoneNumberId } })
+                : await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp" }, order: [["id", "ASC"]] });
             const previous = existing ? (decryptJson<any>(existing.dataValues.credentials) || {}) : {};
             values.credentials = encryptJson({
                 access_token: accessToken,

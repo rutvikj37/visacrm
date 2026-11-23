@@ -184,6 +184,8 @@ const FeesList = () => {
                                     <Field label="UPI ID (shown on invoices)"><Input aria-label="UPI ID" placeholder="yourname@bank" value={settings.upi_id} onValueChange={setS("upi_id")} /></Field>
                                     <Field label="Bank details (shown on invoices)"><Textarea aria-label="Bank details" minRows={2} value={settings.bank_details} onValueChange={setS("bank_details")} /></Field>
                                     <Field label="Terms / footer note" className="sm:col-span-2"><Textarea aria-label="Terms" minRows={2} value={settings.terms} onValueChange={setS("terms")} /></Field>
+                                    <Field label="Google review link (printed on invoices and trip pages)"><Input aria-label="Google review link" placeholder="https://g.page/r/..." value={settings.google_review_url || ""} onValueChange={setS("google_review_url")} /></Field>
+                                    <Field label="Google rating (e.g. 4.8)"><Input aria-label="Google rating" placeholder="4.8" value={settings.google_rating || ""} onValueChange={setS("google_rating")} /></Field>
                                 </div>
                                 <div className="rounded-xl border border-default-200 p-3 flex flex-col gap-3">
                                     <div>

@@ -45,3 +45,33 @@ export const supplierDueReminders = async () => {
         });
     }
 };
+
+/**
+ * Automatic client messages for trips (WA-03), using the agency's templates (Messages → When to send):
+ *   trip_tomorrow - the day before departure; welcome_back - the day after the trip ends.
+ * Each is sent once per booking (booking.messages_sent).
+ */
+export const tripMessages = async () => {
+    const agencies = await activeAgencyUuids();
+    if (!agencies.length) return;
+    const tomorrow = new Date(Date.parse(istDay()) + 864e5).toISOString().slice(0, 10);
+    const yesterday = new Date(Date.parse(istDay()) - 864e5).toISOString().slice(0, 10);
+    const { runTrigger } = await import("./messaging");
+    const MessageTemplate = (await import("../model/MessageTemplate")).default;
+    const User = (await import("../model/User")).default;
+    for (const [trigger, field, day] of [["trip_tomorrow", "start_date", tomorrow], ["welcome_back", "end_date", yesterday]] as const) {
+        const withTemplate: any[] = await MessageTemplate.findAll({ where: { agency_uuid: agencies, trigger, is_active: 1 }, attributes: ["agency_uuid"], group: ["agency_uuid"], raw: true });
+        if (!withTemplate.length) continue;
+        const rows: any[] = await Booking.findAll({ where: { agency_uuid: withTemplate.map((t) => t.agency_uuid), status: { [Op.ne]: "cancelled" }, [field]: day }, limit: 500 });
+        for (const b of rows) {
+            const sent = (b.messages_sent && typeof b.messages_sent === "object" ? b.messages_sent : {}) as Record<string, string>;
+            if (sent[trigger]) continue;
+            await b.update({ messages_sent: { ...sent, [trigger]: day } });
+            const client: any = await User.findByPk(b.dataValues.user_id, { attributes: ["username", "phone_number", "country_code", "email"], raw: true });
+            if (!client) continue;
+            runTrigger(b.dataValues.agency_uuid, trigger, {
+                name: client.username, phoneDigits: client.phone_number ? `${String(client.country_code || "+91").replace(/\D/g, "")}${client.phone_number}` : null, email: client.email, leadId: b.dataValues.crm_lead_id,
+            }, { trip: b.dataValues.title, booking_no: b.dataValues.booking_no, start_date: b.dataValues.start_date });
+        }
+    }
+};

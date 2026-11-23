@@ -5,6 +5,15 @@ import { CalendarClock, User } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { LEAD_STATUSES, followUpState, formatDateTime, formatPhone, sourceLabel, temperatureMeta } from "./crmShared";
 
+/** Travel leads: destination and trip value instead of country / course. */
+const travelLine = (lead: any) => {
+    if (lead.business_line !== "travel") return null;
+    let dest: any = lead.destinations;
+    if (typeof dest === "string") { try { dest = JSON.parse(dest); } catch { dest = [dest]; } }
+    const parts = [Array.isArray(dest) ? dest.join(", ") : "", lead.trip_value != null ? `₹${Number(lead.trip_value).toLocaleString("en-IN")}` : ""].filter(Boolean);
+    return parts.length ? parts.join(" · ") : null;
+};
+
 const BOARD_STATUSES = LEAD_STATUSES.filter((s) => !["converted", "junk"].includes(s.key));
 
 /** Lead pipeline as columns. Drag a card to change its status (Lost asks for a reason). */
@@ -84,7 +93,7 @@ const LeadBoard = ({ query, refreshKey, onChanged }: { query: string; refreshKey
                                             <Chip size="sm" variant="flat" color={temp.color}>{temp.label}</Chip>
                                         </div>
                                         <div className="text-xs text-default-500 truncate">{formatPhone(lead) || lead.email}</div>
-                                        {(lead.interested_country || lead.interested_course) && (
+                                        {travelLine(lead) ? <div className="text-xs truncate font-medium text-foreground">✈ {travelLine(lead)}</div> : (lead.interested_country || lead.interested_course) && (
                                             <div className="text-xs truncate">{[lead.interested_country, lead.interested_course].filter(Boolean).join(" · ")}</div>
                                         )}
                                         <div className="flex flex-wrap items-center gap-1 text-[11px] text-default-500">

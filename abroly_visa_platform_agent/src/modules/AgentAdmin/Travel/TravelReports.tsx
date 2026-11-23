@@ -87,6 +87,23 @@ const TravelReports = () => {
                     <Group title="By lead source" rows={d.by_source} label={(r) => SOURCE[r.name] || r.name} />
                     <Group title="By month" rows={d.by_month} label={(r) => new Date(`${r.name}-01T00:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })} />
                 </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <Group title="By package" rows={d.by_package || []} />
+                    <Card shadow="sm"><CardHeader className="font-semibold">Payment links</CardHeader><CardBody className="pt-0 gap-2 text-sm">
+                        <div className="flex flex-wrap gap-4">
+                            <div><div className="text-xs text-default-500">Paid online in this period</div><div className="font-semibold">{rupees(d.payment_links?.paid_total || 0)} <span className="text-xs font-normal text-default-500">({d.payment_links?.paid_count || 0})</span></div></div>
+                            {(d.payment_links?.by_gateway || []).filter((g: any) => g.count).map((g: any) => <div key={g.gateway}><div className="text-xs text-default-500 capitalize">{g.gateway}</div><div className="font-semibold">{rupees(g.total)} <span className="text-xs font-normal text-default-500">({g.count})</span></div></div>)}
+                        </div>
+                        {(d.payment_links?.open || []).length > 0 && (<>
+                            <div className="text-xs text-default-500 mt-1">Links sent and not fully paid</div>
+                            {d.payment_links.open.map((l: any) => <div key={l.id} className="flex justify-between border-t border-default-100 py-1"><span>{l.invoice} · {l.client}</span><span className="font-medium">{rupees(l.balance)}</span></div>)}
+                        </>)}
+                        {(d.payment_links?.paid || []).length > 0 && (<>
+                            <div className="text-xs text-default-500 mt-1">Recent online payments</div>
+                            {d.payment_links.paid.slice(0, 10).map((p: any, i: number) => <div key={i} className="flex justify-between border-t border-default-100 py-1"><span>{p.invoice} · <span className="capitalize">{p.gateway}</span> · {fmtDate(p.paid_at)}</span><span className="font-medium">{rupees(p.amount)}</span></div>)}
+                        </>)}
+                    </CardBody></Card>
+                </div>
                 {d.supplier_dues?.length > 0 && (
                     <Card shadow="sm"><CardHeader className="font-semibold">Owed to suppliers (all open bookings)</CardHeader><CardBody className="pt-0">
                         <table className="w-full text-sm"><thead><tr className="text-xs text-default-500 text-left"><th className="py-1">Supplier</th><th className="py-1 text-right">Services</th><th className="py-1 text-right">Due</th><th className="py-1 text-right">Overdue</th></tr></thead>

@@ -16,7 +16,7 @@ import User from "../../model/User";
 import CrmLead from "../../model/CrmLead";
 import ClientInvoice from "../../model/ClientInvoice";
 import ClientPayment from "../../model/ClientPayment";
-import { Booking, BookingDocument, BookingService, BookingTraveller, ClientMember, CreditNote, Itinerary, TravelSupplier, TravelTarget } from "../../model/Travel";
+import { Booking, BookingDocument, BookingService, BookingTraveller, ClientMember, CreditNote, Itinerary, TourPackage, TravelSupplier, TravelTarget } from "../../model/Travel";
 import { audit } from "../../services/audit";
 import { agencyBrand, mailEnabled, sendMail } from "../../services/mailer";
 import { hasModule } from "../../services/modules";
@@ -484,6 +484,21 @@ class TravelExtraController {
                 g.due += due; g.services += 1; if (x.supplier_due_date && x.supplier_due_date < today()) g.overdue += due; supplierDues.set(k, g);
             }
             const converted = d.enquiries.filter((e: any) => e.status === "converted").length;
+            // package-wise sales: bookings quoted from a fixed package
+            const pkgBookings: any[] = await Booking.findAll({ where: { agency_uuid: a.agencyUuid, status: { [Op.ne]: "cancelled" }, package_id: { [Op.ne]: null }, createdAt: { [Op.between]: [new Date(`${d.from}T00:00:00+05:30`), new Date(`${d.to}T23:59:59+05:30`)] } }, attributes: ["package_id", "total_sell", "total_cost"], raw: true });
+            const pkgs: any[] = await TourPackage.findAll({ where: { id: [...new Set(pkgBookings.map((b) => b.package_id))].concat([-1]) }, attributes: ["id", "title"], raw: true });
+            const byPackage = pkgs.map((p) => { const rows = pkgBookings.filter((b) => b.package_id === p.id); return { name: p.title, bookings: rows.length, sell: toRupees(rows.reduce((s, r) => s + Number(r.total_sell), 0)), ...(cost ? { profit: toRupees(rows.reduce((s, r) => s + Number(r.total_sell) - Number(r.total_cost), 0)) } : {}) }; }).sort((x, y) => y.sell - x.sell);
+            // payment links: links created on invoices and online payments received in the period
+            const onlinePays: any[] = await ClientPayment.findAll({ where: { agency_uuid: a.agencyUuid, method: ["razorpay", "cashfree"], paid_at: { [Op.between]: [new Date(`${d.from}T00:00:00+05:30`), new Date(`${d.to}T23:59:59+05:30`)] } }, attributes: ["invoice_id", "amount", "method", "paid_at", "reference"], raw: true });
+            const openLinks: any[] = await ClientInvoice.findAll({ where: { agency_uuid: a.agencyUuid, payment_link_url: { [Op.ne]: null }, status: { [Op.in]: ["unpaid", "partial"] } }, attributes: ["uuid", "number", "total", "amount_paid", "payment_link_url", "student_id"], raw: true });
+            const linkClients: any[] = await User.findAll({ where: { id: openLinks.map((l) => l.student_id).concat([-1]) }, attributes: ["id", "username"], raw: true });
+            const invNos: any[] = await ClientInvoice.findAll({ where: { id: onlinePays.map((p) => p.invoice_id).concat([-1]) }, attributes: ["id", "number"], raw: true });
+            const paymentLinks = {
+                paid_count: onlinePays.length, paid_total: toRupees(onlinePays.reduce((s, p) => s + Number(p.amount), 0)),
+                by_gateway: ["razorpay", "cashfree"].map((g) => ({ gateway: g, count: onlinePays.filter((p) => p.method === g).length, total: toRupees(onlinePays.filter((p) => p.method === g).reduce((s, p) => s + Number(p.amount), 0)) })),
+                paid: onlinePays.slice(0, 50).map((p) => ({ invoice: invNos.find((i) => i.id === p.invoice_id)?.number || "", amount: toRupees(p.amount), gateway: p.method, paid_at: p.paid_at, reference: p.reference })),
+                open: openLinks.slice(0, 50).map((l) => ({ id: l.uuid, invoice: l.number, client: linkClients.find((c) => c.id === l.student_id)?.username || "", balance: toRupees(Number(l.total) - Number(l.amount_paid)), url: l.payment_link_url })),
+            };
             return ok(res, "Travel reports", {
                 from: d.from, to: d.to,
                 totals: { bookings: d.rows.length, sell: toRupees(d.rows.reduce((s, r) => s + r.sell, 0)), ...(cost ? { profit: toRupees(d.rows.reduce((s, r) => s + r.profit, 0)) } : {}), enquiries: d.enquiries.length, conversion: d.enquiries.length ? Math.round(converted * 1000 / d.enquiries.length) / 10 : 0 },
@@ -495,6 +510,8 @@ class TravelExtraController {
                 bookings: cost ? d.rows.map((r) => ({ ...r, sell: toRupees(r.sell), cost: toRupees(r.cost), tax: toRupees(r.tax), profit: toRupees(r.profit) })) : d.rows.map((r) => ({ booking_no: r.booking_no, created: r.created, client: r.client, title: r.title, destination: r.destination, agent: r.agent, sell: toRupees(r.sell) })),
                 supplier_dues: cost ? [...supplierDues.values()].sort((x, y) => y.due - x.due).map((g) => ({ ...g, due: toRupees(g.due), overdue: toRupees(g.overdue) })) : [],
                 team: d.people.map((p: any) => ({ id: p.id, name: p.username })),
+                by_package: byPackage,
+                payment_links: paymentLinks,
                 month,
             });
         } catch (error) { return fail(res, error, "reports"); }
@@ -614,8 +631,10 @@ export const publicTripKit = async (req: Request, res: Response) => {
             BookingService.findAll({ where: { booking_id: x.id, status: { [Op.ne]: "cancelled" } }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name", "phone"], required: false }], order: [["service_date", "ASC"]] }),
             BookingDocument.findAll({ where: { booking_id: x.id, share_with_client: true }, order: [["kind", "ASC"]] }),
             x.itinerary_id ? Itinerary.findByPk(x.itinerary_id, { attributes: ["days", "inclusions"] }) : null,
-            Agent.findOne({ where: { uuid: x.agency_uuid, role: "agent" }, attributes: ["app_name", "username", "primary_color", "support_number", "support_email", "favicon_url"], raw: true }),
+            Agent.findOne({ where: { uuid: x.agency_uuid, role: "agent" }, attributes: ["app_name", "username", "primary_color", "support_number", "support_email", "favicon_url", "billing_settings"], raw: true }),
         ]);
+        let billing: any = {}; try { billing = agency?.billing_settings ? JSON.parse(agency.billing_settings) : {}; } catch { billing = {}; }
+        const review = /^https:\/\//.test(String(billing.google_review_url || "")) ? `<div class="c" style="text-align:center"><b>Loved your trip?</b><br><a href="${esc(billing.google_review_url)}" target="_blank" rel="noopener">Leave us a Google review${billing.google_rating ? ` (rated ${esc(billing.google_rating)}★)` : ""}</a></div>` : "";
         const color = /^#[0-9a-f]{3,8}$/i.test(agency?.primary_color || "") ? agency.primary_color : "#0f5bd8";
         const logo = agency?.favicon_url ? (String(agency.favicon_url).startsWith("http") ? agency.favicon_url : publicFileUrl("profiles", agency.favicon_url)) : null;
         const svc = services.map((s: any) => { const j = s.toJSON(); const det = Object.entries(j.details || {}).filter(([k, v]) => v && !["qty", "nights"].includes(k)).map(([k, v]) => `${esc(k.replace(/_/g, " "))}: ${esc(v)}`).join(" · "); return `<tr><td><b>${esc(LABEL[j.type] || j.type)}</b><br>${esc(j.description)}${det ? `<br><small>${det}</small>` : ""}</td><td>${esc(fmt(j.service_date))}</td><td>${j.confirmation_no ? `<b>${esc(j.confirmation_no)}</b>` : `<span class="m">${j.status === "confirmed" ? "Confirmed" : "Being confirmed"}</span>`}${j.supplier?.phone ? `<br><small>${esc(j.supplier.name)} · ${esc(j.supplier.phone)}</small>` : ""}</td></tr>`; }).join("");
@@ -627,6 +646,7 @@ export const publicTripKit = async (req: Request, res: Response) => {
 ${svc ? `<div class="c"><h2>Your bookings</h2><table>${svc}</table></div>` : ""}
 ${docHtml ? `<div class="c"><h2>Tickets, vouchers and documents</h2><ul>${docHtml}</ul></div>` : ""}
 ${days ? `<div class="c"><h2>Day plan</h2><ul>${days}</ul></div>` : ""}
+${review}
 <footer>${esc(agency?.app_name || agency?.username || "")}${agency?.support_number ? ` · ${esc(agency.support_number)}` : ""}${agency?.support_email ? ` · ${esc(agency.support_email)}` : ""}<br>Keep this page handy during your trip.</footer></div></body></html>`;
         res.setHeader("Content-Security-Policy", "default-src 'none'; img-src * data:; style-src 'unsafe-inline'");
         return res.status(200).send(html);

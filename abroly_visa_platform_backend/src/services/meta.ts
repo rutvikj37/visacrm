@@ -581,7 +581,10 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
 
 /** Send a WhatsApp text from the CRM (works inside the 24-hour customer service window). */
 export const sendWhatsappText = async (agencyUuid: string, lead: any, body: string) => {
-    const integration: any = await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp", status: "active" } });
+    // reply from the number the client wrote to (agencies can connect more than one), else the first one
+    const ownId = lead?.dataValues?.integration_id;
+    const integration: any = (ownId && await LeadIntegration.findOne({ where: { id: ownId, agency_uuid: agencyUuid, type: "whatsapp", status: "active" } }))
+        || await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp", status: "active" }, order: [["id", "ASC"]] });
     if (!integration) throw new MetaError("Connect your WhatsApp Business number in Lead Sources first");
     const credentials = waCredentials(integration);
     if (!credentials?.access_token || !credentials?.phone_number_id) throw new MetaError("WhatsApp connection is incomplete - please reconnect");

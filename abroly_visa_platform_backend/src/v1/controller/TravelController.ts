@@ -19,6 +19,8 @@ import {
     SERVICE_TYPES, splitGst, stateOfGstin, toPaise, toRupees, totalsInRupees,
 } from "../../services/travel";
 import { nextNumber, readBilling } from "./FeesController";
+import { travelDashboard } from "../../services/travelDashboard";
+import { runTrigger } from "../../services/messaging";
 
 /**
  * Travel CRM for agencies: /api/v1/travel/...
@@ -96,10 +98,12 @@ const cleanDays = (raw: any) => {
         title: str(d?.title, 200) || `Day ${i + 1}`,
         city: str(d?.city, 120),
         notes: str(d?.notes, 3000),
+        image: /^https?:\/\//.test(String(d?.image || "")) ? String(d.image).slice(0, 500) : null,
         items: (Array.isArray(d?.items) ? d.items : []).slice(0, 30).map((it: any) => ({
             type: ["hotel", "sightseeing", "transfer", "meal", "flight", "activity", "note"].includes(it?.type) ? it.type : "note",
             text: str(it?.text, 1000) || "",
             library_item_id: it?.library_item_id ? String(it.library_item_id).slice(0, 64) : null,
+            image: /^https?:\/\//.test(String(it?.image || "")) ? String(it.image).slice(0, 500) : null,
         })).filter((it: any) => it.text),
     }));
 };
@@ -108,7 +112,8 @@ const presentItinerary = (x: any, lead?: any) => ({
     id: x.uuid, title: x.title, destination: x.destination, nights: x.nights, start_date: x.start_date, is_template: Boolean(x.is_template),
     days: Array.isArray(x.days) ? x.days : [], inclusions: x.inclusions, exclusions: x.exclusions, terms: x.terms,
     cancellation_policy: x.cancellation_policy, status: x.status, client_note: x.client_note,
-    share_token: x.share_token, lead: lead ? { id: lead.uuid, name: lead.name } : undefined, updatedAt: x.updatedAt,
+    share_token: x.share_token, theme: x.theme || "classic", cover_image: x.cover_image || null,
+    lead: lead ? { id: lead.uuid, name: lead.name } : undefined, updatedAt: x.updatedAt,
 });
 
 const optionTotals = (q: any, opt: any) => {
@@ -231,6 +236,13 @@ class TravelController {
             };
             return ok(res, "Summary", redactCost(data, req));
         } catch (error) { return fail(res, error, "summary"); }
+    }
+
+    // GET /travel/dashboard - travel KPIs and today's action lists (Today page, Travel desk)
+    async dashboard(req: RequestWithUser, res: Response) {
+        try {
+            return ok(res, "Travel dashboard", await travelDashboard(req));
+        } catch (error) { return fail(res, error, "dashboard"); }
     }
 
     // ------------------------------------------------------------ library
@@ -438,6 +450,7 @@ class TravelController {
                 title: str(b.title) || (source ? s.title : null) || `${destination || "Trip"} ${nights}N/${nights + 1}D`,
                 destination, nights, start_date: date(b.start_date) || l.travel_start || null, days,
                 inclusions: s.inclusions || null, exclusions: s.exclusions || null, terms: s.terms || null, cancellation_policy: s.cancellation_policy || null,
+                theme: s.theme || "classic", cover_image: s.cover_image || null,
                 branch_id: lead?.dataValues.branch_id || branchId || null, created_by: userId,
             });
             if (lead) await logActivity(lead.dataValues.id, agencyUuid, "note", `Itinerary created: ${row.dataValues.title}`, userId);
@@ -473,6 +486,8 @@ class TravelController {
             if (b.days !== undefined) { updates.days = cleanDays(b.days); updates.nights = Math.max(0, updates.days.length - 1); }
             for (const k of ["inclusions", "exclusions", "terms", "cancellation_policy"]) if (b[k] !== undefined) updates[k] = str(b[k], 8000);
             if (b.is_template !== undefined) updates.is_template = Boolean(b.is_template);
+            if (b.theme !== undefined) updates.theme = ["classic", "modern", "elegant"].includes(b.theme) ? b.theme : "classic";
+            if (b.cover_image !== undefined) updates.cover_image = /^https?:\/\//.test(String(b.cover_image || "")) ? String(b.cover_image).slice(0, 500) : null;
             await row.update(updates);
             return ok(res, "Itinerary saved", presentItinerary(row.toJSON()));
         } catch (error) { return fail(res, error, "updateItinerary"); }
@@ -525,6 +540,24 @@ class TravelController {
             const lead = await findLead(req, b.lead_id);
             if (b.lead_id && !lead) return no(res, "Lead not found");
             let itinerary: any = null;
+            // quote from a fixed package: copy its day plan for this lead and start with the package price
+            let pkg: any = null;
+            if (b.package_id) {
+                pkg = await TourPackage.findOne({ where: { agency_uuid: agencyUuid, uuid: b.package_id } });
+                if (!pkg) return no(res, "Package not found");
+                if (pkg.dataValues.itinerary_id && !b.itinerary_id) {
+                    const tpl: any = await Itinerary.findByPk(pkg.dataValues.itinerary_id);
+                    if (tpl) {
+                        const t = tpl.toJSON();
+                        itinerary = await Itinerary.create({
+                            agency_uuid: agencyUuid, crm_lead_id: lead?.dataValues.id || null, is_template: false, title: pkg.dataValues.title, destination: t.destination || pkg.dataValues.destination,
+                            nights: t.nights, days: t.days, inclusions: t.inclusions, exclusions: t.exclusions, terms: t.terms, cancellation_policy: t.cancellation_policy,
+                            theme: t.theme || "classic", cover_image: t.cover_image || pkg.dataValues.image_url || null, start_date: lead?.dataValues.travel_start || null,
+                            branch_id: lead?.dataValues.branch_id || branchId || null, created_by: userId,
+                        });
+                    }
+                }
+            }
             if (b.itinerary_id) {
                 itinerary = await Itinerary.findOne({ where: { agency_uuid: agencyUuid, uuid: b.itinerary_id } });
                 if (!itinerary) return no(res, "Itinerary not found");
@@ -537,9 +570,10 @@ class TravelController {
             const row: any = await Quotation.create({
                 agency_uuid: agencyUuid, number, crm_lead_id: lead?.dataValues.id || itinerary?.dataValues.crm_lead_id || null,
                 itinerary_id: itinerary?.dataValues.id || null, version: 1,
-                title: str(b.title) || itinerary?.dataValues.title || (destination ? `${destination} trip` : "Trip quote"),
+                title: str(b.title) || pkg?.dataValues.title || itinerary?.dataValues.title || (destination ? `${destination} trip` : "Trip quote"),
                 is_international: international, adults: l.adults || 2, children: l.children || 0, infants: l.infants || 0,
-                options: [{ name: "Standard", lines: [] }], billing_mode: "full_value",
+                package_id: pkg?.dataValues.id || null,
+                options: [{ name: "Standard", lines: pkg ? [{ service_type: "other", description: `${pkg.dataValues.title} (per person)`, supplier_id: null, rate_id: null, qty: Math.max(1, (l.adults || 2) + (l.children || 0)), nights: 0, unit_cost: Number(pkg.dataValues.price_pp), markup_type: "percent", markup_value: 0 }] : [] }], billing_mode: "full_value",
                 gst_percent: tax.gst_full_value_percent, tcs_percent: international ? tax.tcs_overseas_percent : 0,
                 valid_until: new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10),
                 branch_id: lead?.dataValues.branch_id || branchId || null, created_by: userId,
@@ -678,7 +712,7 @@ class TravelController {
                 }
                 const bookingNo = await nextTravelNumber(Booking, "booking_no", agencyUuid, "BK", tx);
                 const created: any = await Booking.create({
-                    agency_uuid: agencyUuid, booking_no: bookingNo, crm_lead_id: lead.dataValues.id, quotation_id: q.id, itinerary_id: q.itinerary_id,
+                    agency_uuid: agencyUuid, booking_no: bookingNo, crm_lead_id: lead.dataValues.id, quotation_id: q.id, itinerary_id: q.itinerary_id, package_id: q.package_id || null,
                     user_id: client.dataValues.id, title: q.title, destination: itinerary?.dataValues.destination || (lead.dataValues.destinations || []).join?.(", ") || null,
                     is_international: q.is_international, start_date: startDate, end_date: endDate, status: "confirmed",
                     total_sell: t.sell, total_cost: t.cost, tax_total: t.gst + t.tcs, discount: t.discount,
@@ -702,6 +736,10 @@ class TravelController {
                 return created;
             });
             await logActivity(lead.dataValues.id, agencyUuid, "converted", `Booked: ${booking.dataValues.booking_no} (${q.title})`, userId, { booking_id: booking.dataValues.id });
+            // "booking confirmed" message, if the agency set up a template for it (Messages → When to send)
+            runTrigger(agencyUuid, "booking_confirmed", {
+                name: lead.dataValues.name, phoneDigits: String(lead.dataValues.phone_normalized || "").replace(/\D/g, "") || null, email: lead.dataValues.email, leadId: lead.dataValues.id,
+            }, { trip: q.title, booking_no: booking.dataValues.booking_no, start_date: booking.dataValues.start_date, total: `Rs ${toRupees(optionTotals(q, opt).total).toLocaleString("en-IN")}` });
             audit(req, { entity: "booking", entityId: booking.dataValues.id, branchId: q.branch_id, action: "created", summary: `Booking ${booking.dataValues.booking_no} created from quote ${q.number} v${q.version}` });
             return ok(res, `Booking ${booking.dataValues.booking_no} created`, { id: booking.dataValues.uuid });
         } catch (error) { return fail(res, error, "bookQuote"); }
@@ -716,7 +754,7 @@ class TravelController {
             const rows = await TourPackage.findAll({ where, order: [["status", "ASC"], ["title", "ASC"]], include: [{ model: Itinerary, as: "itinerary", attributes: ["uuid", "title"], required: false }] });
             return ok(res, "Packages", rows.map((r: any) => {
                 const x = r.toJSON();
-                return { id: x.uuid, title: x.title, destination: x.destination, nights: x.nights, price_pp: toRupees(x.price_pp), valid_from: x.valid_from, valid_to: x.valid_to, highlights: x.highlights, image_url: x.image_url, status: x.status, itinerary: x.itinerary ? { id: x.itinerary.uuid, title: x.itinerary.title } : null };
+                return { id: x.uuid, title: x.title, destination: x.destination, nights: x.nights, price_pp: toRupees(x.price_pp), valid_from: x.valid_from, valid_to: x.valid_to, highlights: x.highlights, image_url: x.image_url, status: x.status, itinerary: x.itinerary ? { id: x.itinerary.uuid, title: x.itinerary.title } : null, public_url: x.public_slug ? `${publicApiBase(req)}/v1/public/travel/package/${x.public_slug}` : null, catalogue_url: `${publicApiBase(req)}/v1/public/travel/packages/${ctx(req).agencyUuid}` };
             }));
         } catch (error) { return fail(res, error, "listPackages"); }
     }
@@ -738,13 +776,14 @@ class TravelController {
                 valid_from: date(b.valid_from), valid_to: date(b.valid_to), highlights: str(b.highlights, 3000), image_url: str(b.image_url, 500),
                 status: b.status === "inactive" ? "inactive" : "active",
             };
+            const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60)}-${crypto.randomBytes(3).toString("hex")}`;
             if (req.params.uuid) {
                 const row: any = await TourPackage.findOne({ where: { agency_uuid: agencyUuid, uuid: req.params.uuid } });
                 if (!row) return no(res, "Package not found");
-                await row.update(values);
+                await row.update({ ...values, public_slug: row.dataValues.public_slug || slug });
                 return ok(res, "Package saved");
             }
-            await TourPackage.create({ ...values, agency_uuid: agencyUuid, created_by: userId });
+            await TourPackage.create({ ...values, public_slug: slug, agency_uuid: agencyUuid, created_by: userId });
             return ok(res, "Package added");
         } catch (error) { return fail(res, error, "savePackage"); }
     }

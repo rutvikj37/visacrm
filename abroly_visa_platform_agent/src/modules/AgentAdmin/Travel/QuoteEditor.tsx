@@ -4,10 +4,11 @@ import {
     Autocomplete, AutocompleteItem, Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader,
     Select, SelectItem, Spinner, Switch, Tab, Tabs, Textarea, useDisclosure,
 } from "@heroui/react";
-import { ArrowLeft, CheckCircle2, Copy, MessageCircle, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, FileDown, MessageCircle, Plus, Save, Trash2 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { SuccessToast } from "@/utils/Toaster";
-import { Field, QUOTE_STATUS, SERVICE_TYPES, apiBase, rupees, waLink } from "./travelShared";
+import { Field, QUOTE_STATUS, SERVICE_TYPES, apiBase, rupees } from "./travelShared";
+import { useOpenPdf, useSendWhatsapp } from "./travelActions";
 
 type Line = { service_type: string; description: string; supplier_id: number | null; rate_id: number | null; qty: number; nights: number; unit_cost: number; markup_type: "percent" | "flat"; markup_value: number };
 type Option = { name: string; lines: Line[] };
@@ -116,6 +117,8 @@ const QuoteEditor = () => {
         if (success && data?.id) navigate(`/travel/quotes/${data.id}`);
     };
 
+    const openPdf = useOpenPdf();
+    const sendWa = useSendWhatsapp();
     const sendWhatsApp = async () => {
         if (dirty && !(await save())) return;
         const lines = options.map((o, i) => `${o.name}: ${rupees(totals[i]?.total)} (${rupees(totals[i]?.per_person)} per person)`).join("\n");
@@ -125,7 +128,7 @@ const QuoteEditor = () => {
             if (success) link = data.url || `${apiBase()}/v1/public/travel/itinerary/${data.token}`;
         }
         const text = `Hi ${String(q.lead?.name || "").split(" ")[0]}, here is your quote for ${q.title}:\n${lines}\nPrices include GST${q.is_international && Number(q.tcs_percent) > 0 ? " and TCS" : ""}.${q.valid_until ? ` Valid until ${q.valid_until}.` : ""}${link ? `\nFull plan: ${link}` : ""}`;
-        window.open(waLink(q.lead?.phone, text), "_blank", "noopener");
+        await sendWa({ to: q.lead?.phone, lead_id: q.lead?.id, trigger: "quote_sent", vars: { name: String(q.lead?.name || "").split(" ")[0], trip: q.title, total: rupees(totals[oi]?.total), link }, text });
         if (q.status === "draft") status("sent");
     };
 
@@ -164,6 +167,7 @@ const QuoteEditor = () => {
             <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="flat" color="success" startContent={<MessageCircle size={14} />} onPress={sendWhatsApp}>Send on WhatsApp</Button>
                 {!closed && <Button size="sm" variant="flat" color="primary" startContent={<CheckCircle2 size={14} />} onPress={bookModal.onOpen}>Client accepted - book it</Button>}
+                <Button size="sm" variant="flat" startContent={<FileDown size={14} />} onPress={async () => { if (dirty && !(await save())) return; openPdf(`travel/quotes/${id}/pdf`); }}>PDF</Button>
                 <Button size="sm" variant="flat" startContent={<Copy size={14} />} onPress={newVersion}>New version</Button>
                 {q.status !== "rejected" && !closed && <Button size="sm" variant="light" color="danger" onPress={() => status("rejected")}>Mark lost</Button>}
                 {q.itinerary && <Button size="sm" variant="light" onPress={() => navigate(`/travel/itineraries/${q.itinerary.id}`)}>Open itinerary</Button>}

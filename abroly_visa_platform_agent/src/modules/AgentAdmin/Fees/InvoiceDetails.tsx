@@ -134,6 +134,12 @@ const InvoiceDetails = () => {
                         </div>
                     )}
                     {(inv.notes || agency.terms) && <div className="text-xs text-gray-600 whitespace-pre-line">{[inv.notes, agency.terms].filter(Boolean).join("\n\n")}</div>}
+                    {agency.google_review_url && (
+                        <div className="text-xs text-gray-700 border-t border-gray-200 pt-2">
+                            {agency.google_rating ? <b>Rated {agency.google_rating}★ on Google. </b> : null}
+                            Happy with our service? <a href={agency.google_review_url} target="_blank" rel="noopener" className="text-primary underline">Leave us a Google review</a>
+                        </div>
+                    )}
                 </CardBody>
             </Card>
 

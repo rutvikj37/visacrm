@@ -15,6 +15,13 @@ const TRIGGERS: Record<string, { label: string; help: string }> = {
     lead_converted: { label: "When a lead becomes a visa case", help: "Tell the student their process has started." },
     documents_pending: { label: "While documents are pending", help: "Reminder every 3 days until the student has sent everything." },
     fee_due: { label: "When a fee is due", help: "Reminder 2 days before the due date and every 3 days while overdue." },
+    // Travel CRM
+    quote_sent: { label: "Travel: when a quote is sent", help: "Used by “Send on WhatsApp” on a quote. Variables: name, trip, total, link." },
+    itinerary_shared: { label: "Travel: when an itinerary is shared", help: "Used by “Send on WhatsApp” on an itinerary. Variables: name, trip, link." },
+    booking_confirmed: { label: "Travel: when a booking is confirmed", help: "Sent automatically when a quote is booked. Variables: name, trip, booking_no, start_date, total." },
+    trip_kit: { label: "Travel: trip kit", help: "Used by “Send trip kit”. Variables: name, trip, booking_no, start_date, link." },
+    trip_tomorrow: { label: "Travel: the day before the trip", help: "Sent automatically the day before departure. Variables: name, trip, booking_no, start_date." },
+    welcome_back: { label: "Travel: welcome back", help: "Sent automatically the day after the trip ends. Variables: name, trip." },
 };
 const SAMPLES: Record<string, string> = {
     lead_created: "Hi {{name}}, thank you for contacting {{agency}}! Our counsellor will call you shortly about your {{country}} plans.",
@@ -22,6 +29,12 @@ const SAMPLES: Record<string, string> = {
     documents_pending: "Hi {{name}}, we are still waiting for {{pending_count}} item(s) for your {{country}} visa. Please upload them here: {{portal_link}}",
     fee_due: "Hi {{name}}, a payment of {{amount}} is due on {{due_date}}. You can pay here: {{portal_link}}",
     manual: "Hi {{name}}, ",
+    quote_sent: "Hi {{name}}, here is your quote for {{trip}}: {{total}}. Full plan: {{link}}",
+    itinerary_shared: "Hi {{name}}, here is your trip plan for {{trip}}: {{link}}",
+    booking_confirmed: "Hi {{name}}, your trip {{trip}} is confirmed (booking {{booking_no}}), starting {{start_date}}. We will share your vouchers soon.",
+    trip_kit: "Hi {{name}}, your tickets, vouchers and day plan for {{trip}} are here: {{link}}",
+    trip_tomorrow: "Hi {{name}}, your trip {{trip}} starts tomorrow! Have a wonderful time. Call us any time if you need help.",
+    welcome_back: "Welcome back, {{name}}! We hope you loved {{trip}}. We would be grateful for a quick review.",
 };
 const emptyDraft = () => ({ id: "", name: "", channel: "whatsapp", trigger: "lead_created", subject: "", body: SAMPLES.lead_created, wa_template_name: "", wa_language: "en", wa_variables: [] as string[], is_active: true });
 const Field = ({ label, hint, className = "", children }: any) => (

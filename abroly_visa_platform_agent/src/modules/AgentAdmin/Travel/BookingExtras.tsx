@@ -149,7 +149,7 @@ export const ClientProfileCard = ({ clientId, bookingId, onChanged }: { clientId
                         <div key={x.id} className="py-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span className="font-medium">{x.name}</span><span className="text-default-500 capitalize">{[x.relation, x.pax_type, x.dob ? `DOB ${fmtDate(x.dob)}` : "", x.passport_masked ? `Passport ${x.passport_masked}` : ""].filter(Boolean).join(" · ")}</span>
                             <div className="ml-auto flex gap-1">
-                                <Button size="sm" variant="flat" onPress={async () => { const { success } = await commonPostAPICall({ member_id: x.id }, `travel/bookings/${bookingId}/travellers/from_member`, true); if (success) onChanged(); }}>Add to booking</Button>
+                                {bookingId && <Button size="sm" variant="flat" onPress={async () => { const { success } = await commonPostAPICall({ member_id: x.id }, `travel/bookings/${bookingId}/travellers/from_member`, true); if (success) onChanged(); }}>Add to booking</Button>}
                                 <Button isIconOnly size="sm" variant="light" aria-label="Remove" onPress={async () => { const { success } = await commonPostAPICall({}, `travel/clients/members/${x.id}/delete`, true); if (success) load(); }}><Trash2 size={14} /></Button>
                             </div>
                         </div>
@@ -157,7 +157,7 @@ export const ClientProfileCard = ({ clientId, bookingId, onChanged }: { clientId
                 </div>
             )}
 
-            {d.trips.length > 1 && (<>
+            {bookingId && d.trips.length > 1 && (<>
                 <div className="text-sm font-medium">Past and other trips</div>
                 <div className="flex flex-wrap gap-2">{d.trips.filter((t: any) => t.id !== bookingId).map((t: any) => <Chip key={t.id} variant="flat" className="cursor-pointer" onClick={() => navigate(`/travel/bookings/${t.id}`)}>{t.booking_no} · {t.title} · {fmtDate(t.start_date)}</Chip>)}</div>
             </>)}

@@ -92,6 +92,7 @@ const AgentCRM = () => {
           { title: "Calendar", url: "/crm/calendar" },
           { title: "Tasks", url: "/crm/tasks" },
           { title: "Chats", url: "/crm/chats" },
+          { title: "WhatsApp inbox", url: "/crm/inbox", module: "messaging" },
           { title: "Reports", url: "/reports" },
         ],
       },

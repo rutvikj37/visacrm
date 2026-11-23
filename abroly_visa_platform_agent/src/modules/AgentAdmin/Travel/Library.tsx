@@ -5,6 +5,7 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import EmptyState from "@/components/ui-kit/EmptyState";
 import { CardListSkeleton } from "@/components/ui-kit/Skeletons";
 import { Field, LIBRARY_TYPES, PageHead } from "./travelShared";
+import { ImageUpload } from "./travelActions";
 
 const empty = { id: "", type: "activity", name: "", destination: "", star: "", description: "", photo: "" };
 
@@ -71,7 +72,7 @@ const Library = () => {
                         <Field label="Name" className="sm:col-span-2"><Input aria-label="Name" value={form.name} onValueChange={(v) => setForm((f: any) => ({ ...f, name: v }))} /></Field>
                         {form.type === "hotel" && <Field label="Star rating"><Input aria-label="Star rating" type="number" min={1} max={7} value={form.star} onValueChange={(v) => setForm((f: any) => ({ ...f, star: v }))} /></Field>}
                         <Field label="Description" className="sm:col-span-2"><Textarea aria-label="Description" minRows={3} value={form.description} onValueChange={(v) => setForm((f: any) => ({ ...f, description: v }))} /></Field>
-                        <Field label="Photo URL (optional)" className="sm:col-span-2"><Input aria-label="Photo URL" value={form.photo} onValueChange={(v) => setForm((f: any) => ({ ...f, photo: v }))} /></Field>
+                        <Field label="Photo (shown in itineraries and on the client page)" className="sm:col-span-2"><ImageUpload value={form.photo || null} onChange={(url) => setForm((f: any) => ({ ...f, photo: url || "" }))} /></Field>
                     </ModalBody>
                     <ModalFooter>
                         {form.id && <Button variant="light" color="danger" className="mr-auto" onPress={async () => { const { success } = await commonPostAPICall({}, `travel/library/${form.id}/delete`, true); if (success) { close(); load(); } }}>Delete</Button>}

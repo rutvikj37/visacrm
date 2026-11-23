@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Textarea, useDisclosure } from "@heroui/react";
-import { MessageCircle, Package, Pencil, Plus } from "lucide-react";
+import { Copy, ExternalLink, MessageCircle, Package, Pencil, Plus } from "lucide-react";
+import { SuccessToast } from "@/utils/Toaster";
+import { ImageUpload } from "./travelActions";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import EmptyState from "@/components/ui-kit/EmptyState";
 import { CardListSkeleton } from "@/components/ui-kit/Skeletons";
@@ -17,9 +19,11 @@ const Packages = () => {
     const [form, setForm] = useState<any>(empty);
     const [saving, setSaving] = useState(false);
 
+    const [catalogue, setCatalogue] = useState("");
     const load = async () => {
         const { success, data } = await commonGetAPICalls("/travel/packages");
         setRows(success ? data : []);
+        setCatalogue((data || [])[0]?.catalogue_url || "");
     };
     useEffect(() => { load(); }, []);
 
@@ -37,19 +41,23 @@ const Packages = () => {
         if (success) { close(); load(); }
     };
     const share = async (p: any) => {
-        let link = "";
-        if (p.itinerary?.id) {
+        // the public package page has the day plan and an enquiry form that creates a lead
+        let link = p.public_url || "";
+        if (!link && p.itinerary?.id) {
             const { success, data } = await commonPostAPICall({}, `travel/itineraries/${p.itinerary.id}/share`);
             if (success) link = data.url || `${apiBase()}/v1/public/travel/itinerary/${data.token}`;
         }
-        const text = `${p.title}\n${[p.destination, `${p.nights}N/${p.nights + 1}D`].filter(Boolean).join(" · ")}\nFrom ${rupees(p.price_pp)} per person${p.valid_to ? ` (valid till ${fmtDate(p.valid_to)})` : ""}${p.highlights ? `\n${p.highlights}` : ""}${link ? `\nDay plan: ${link}` : ""}\nReply to book!`;
+        const text = `${p.title}\n${[p.destination, `${p.nights}N/${p.nights + 1}D`].filter(Boolean).join(" · ")}\nFrom ${rupees(p.price_pp)} per person${p.valid_to ? ` (valid till ${fmtDate(p.valid_to)})` : ""}${p.highlights ? `\n${p.highlights}` : ""}${link ? `\nDetails and booking: ${link}` : ""}\nReply to book!`;
         window.open(waLink("", text), "_blank", "noopener");
     };
 
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
-            <PageHead title="Packages" sub="Ready trips with a price per person you can share in one tap"
-                actions={<Button color="primary" startContent={<Plus size={16} />} onPress={() => open()}>New package</Button>} />
+            <PageHead title="Packages" sub="Ready trips with a price per person. Each has a public page with an enquiry form that creates a lead."
+                actions={<>
+                    {catalogue && <Button variant="flat" startContent={<Copy size={16} />} onPress={async () => { await navigator.clipboard?.writeText(catalogue); SuccessToast("Catalogue link copied - add it to your website, Instagram bio or WhatsApp"); }}>Copy catalogue link</Button>}
+                    <Button color="primary" startContent={<Plus size={16} />} onPress={() => open()}>New package</Button>
+                </>} />
             {rows === null ? <CardListSkeleton /> : !rows.length ? (
                 <EmptyState icon={Package} title="No packages yet" text="Add your fixed packages (for example Kerala 5N/6D from ₹18,999) and share them on WhatsApp." actions={<Button color="primary" startContent={<Plus size={14} />} onPress={() => open()}>Add a package</Button>} />
             ) : (
@@ -65,6 +73,7 @@ const Packages = () => {
                                 {p.highlights && <div className="text-xs text-default-600 line-clamp-2">{p.highlights}</div>}
                                 <div className="flex gap-2 mt-2">
                                     <Button size="sm" variant="flat" color="success" className="flex-1" startContent={<MessageCircle size={14} />} onPress={() => share(p)}>Share</Button>
+                                    {p.public_url && <Button size="sm" variant="flat" isIconOnly aria-label="Open public page" onPress={() => window.open(p.public_url, "_blank", "noopener")}><ExternalLink size={14} /></Button>}
                                     <Button size="sm" variant="flat" startContent={<Pencil size={14} />} onPress={() => open(p)}>Edit</Button>
                                 </div>
                             </CardBody>
@@ -84,7 +93,7 @@ const Packages = () => {
                         <Field label="Valid from"><Input aria-label="Valid from" type="date" value={form.valid_from} onValueChange={(v) => setForm((f: any) => ({ ...f, valid_from: v }))} /></Field>
                         <Field label="Valid to"><Input aria-label="Valid to" type="date" value={form.valid_to} onValueChange={(v) => setForm((f: any) => ({ ...f, valid_to: v }))} /></Field>
                         <Field label="Highlights" className="sm:col-span-2"><Textarea aria-label="Highlights" minRows={2} value={form.highlights} onValueChange={(v) => setForm((f: any) => ({ ...f, highlights: v }))} /></Field>
-                        <Field label="Image URL (optional)" className="sm:col-span-2"><Input aria-label="Image URL" value={form.image_url} onValueChange={(v) => setForm((f: any) => ({ ...f, image_url: v }))} /></Field>
+                        <Field label="Photo" className="sm:col-span-2"><ImageUpload value={form.image_url || null} onChange={(url) => setForm((f: any) => ({ ...f, image_url: url || "" }))} /></Field>
                         <Field label="Show in catalogue"><Select aria-label="Status" selectedKeys={[form.status]} onChange={(e) => setForm((f: any) => ({ ...f, status: e.target.value || "active" }))}><SelectItem key="active">Yes</SelectItem><SelectItem key="inactive">Hidden</SelectItem></Select></Field>
                     </ModalBody>
                     <ModalFooter>

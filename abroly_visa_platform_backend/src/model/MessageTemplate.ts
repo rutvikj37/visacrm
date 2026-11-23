@@ -8,7 +8,7 @@ import { jsonGetter } from '../helpers/json';
  * WhatsApp: wa_template_name = name of the template approved in WhatsApp Manager;
  *           wa_variables = which values fill its {{1}}, {{2}} ... (e.g. ["name", "agency"]).
  */
-export const MESSAGE_TRIGGERS = ["manual", "lead_created", "lead_converted", "documents_pending", "fee_due"] as const;
+export const MESSAGE_TRIGGERS = ["manual", "lead_created", "lead_converted", "documents_pending", "fee_due", "quote_sent", "itinerary_shared", "booking_confirmed", "trip_kit", "trip_tomorrow", "welcome_back"] as const;
 
 const MessageTemplate = sequelize.define('MessageTemplate', {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },

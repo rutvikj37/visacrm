@@ -3,13 +3,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
     Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Spinner, Textarea, useDisclosure,
 } from "@heroui/react";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, ExternalLink, FileText, GripVertical, Library, MessageCircle, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, ExternalLink, FileDown, FileText, GripVertical, Library, MessageCircle, Plus, Save, Trash2 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { SuccessToast } from "@/utils/Toaster";
-import { DAY_ITEM_TYPES, Field, ITINERARY_STATUS, apiBase, waLink } from "./travelShared";
+import { DAY_ITEM_TYPES, Field, ITINERARY_STATUS, apiBase } from "./travelShared";
+import { ImageUpload, useOpenPdf, useSendWhatsapp } from "./travelActions";
 
-type Item = { type: string; text: string; library_item_id?: string | null };
-type Day = { title: string; city?: string | null; notes?: string | null; items: Item[] };
+type Item = { type: string; text: string; library_item_id?: string | null; image?: string | null };
+type Day = { title: string; city?: string | null; notes?: string | null; image?: string | null; items: Item[] };
 
 const LIB_TO_DAY: Record<string, string> = { hotel: "hotel", activity: "sightseeing", transfer: "transfer", meal: "meal", destination: "note", note: "note" };
 
@@ -36,8 +37,8 @@ const ItineraryBuilder = () => {
         const { success, data } = await commonGetAPICalls(`/travel/itineraries/${id}`);
         if (!success) return;
         setIt(data);
-        setDays((data.days || []).map((d: any) => ({ title: d.title, city: d.city, notes: d.notes, items: d.items || [] })));
-        setMeta({ title: data.title, destination: data.destination || "", start_date: data.start_date || "", inclusions: data.inclusions || "", exclusions: data.exclusions || "", terms: data.terms || "", cancellation_policy: data.cancellation_policy || "" });
+        setDays((data.days || []).map((d: any) => ({ title: d.title, city: d.city, notes: d.notes, image: d.image || null, items: d.items || [] })));
+        setMeta({ title: data.title, destination: data.destination || "", start_date: data.start_date || "", inclusions: data.inclusions || "", exclusions: data.exclusions || "", terms: data.terms || "", cancellation_policy: data.cancellation_policy || "", theme: data.theme || "classic", cover_image: data.cover_image || null });
         setDirty(false);
     };
     useEffect(() => { load(); }, [id]);
@@ -71,6 +72,8 @@ const ItineraryBuilder = () => {
     };
     const libFiltered = useMemo(() => library.filter((l) => !libSearch.trim() || `${l.name} ${l.destination || ""}`.toLowerCase().includes(libSearch.trim().toLowerCase())), [library, libSearch]);
 
+    const openPdf = useOpenPdf();
+    const sendWa = useSendWhatsapp();
     const share = async (via: "whatsapp" | "open" | "copy") => {
         if (dirty && !(await save())) return;
         const { success, data } = await commonPostAPICall({}, `travel/itineraries/${id}/share`);
@@ -78,7 +81,7 @@ const ItineraryBuilder = () => {
         const url = data.url || `${apiBase()}/v1/public/travel/itinerary/${data.token}`;
         if (via === "copy") { await navigator.clipboard?.writeText(url); SuccessToast("Link copied"); }
         else if (via === "open") window.open(url, "_blank", "noopener");
-        else window.open(waLink(it?.lead_phone, `Hi ${String(it?.lead?.name || "").split(" ")[0]}, here is your trip plan "${meta.title}": ${url}`), "_blank", "noopener");
+        else await sendWa({ to: it?.lead_phone, lead_id: it?.lead?.id, trigger: "itinerary_shared", vars: { name: String(it?.lead?.name || "").split(" ")[0], trip: meta.title, link: url }, text: `Hi ${String(it?.lead?.name || "").split(" ")[0]}, here is your trip plan "${meta.title}": ${url}` });
         load();
     };
 
@@ -114,7 +117,8 @@ const ItineraryBuilder = () => {
             {!it.is_template && (
                 <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="flat" color="success" startContent={<MessageCircle size={14} />} onPress={() => share("whatsapp")}>Send on WhatsApp</Button>
-                    <Button size="sm" variant="flat" startContent={<ExternalLink size={14} />} onPress={() => share("open")}>Preview / PDF</Button>
+                    <Button size="sm" variant="flat" startContent={<ExternalLink size={14} />} onPress={() => share("open")}>Client page</Button>
+                    <Button size="sm" variant="flat" startContent={<FileDown size={14} />} onPress={async () => { if (dirty && !(await save())) return; openPdf(`travel/itineraries/${id}/pdf`); }}>PDF</Button>
                     <Button size="sm" variant="flat" startContent={<Copy size={14} />} onPress={() => share("copy")}>Copy link</Button>
                     <Button size="sm" variant="flat" color="primary" startContent={<FileText size={14} />} onPress={makeQuote}>{it.quotes?.length ? "New quote" : "Price this trip"}</Button>
                     <Button size="sm" variant="light" onPress={saveAsTemplate}>Save as template</Button>
@@ -132,6 +136,12 @@ const ItineraryBuilder = () => {
                 <Field label="Destination"><Input aria-label="Destination" value={meta.destination} onValueChange={setM("destination")} /></Field>
                 <Field label="Start date"><Input aria-label="Start date" type="date" value={meta.start_date} onValueChange={setM("start_date")} /></Field>
                 <Field label="Length"><div className="h-10 flex items-center text-sm">{Math.max(0, days.length - 1)} nights / {days.length} days</div></Field>
+                <Field label="Design (client page and PDF)">
+                    <Select aria-label="Design" selectedKeys={[meta.theme || "classic"]} onChange={(e) => setM("theme")(e.target.value || "classic")}>
+                        <SelectItem key="classic">Classic</SelectItem><SelectItem key="modern">Modern</SelectItem><SelectItem key="elegant">Elegant</SelectItem>
+                    </Select>
+                </Field>
+                <Field label="Cover photo" className="sm:col-span-2"><ImageUpload value={meta.cover_image} onChange={(url) => { setMeta((m: any) => ({ ...m, cover_image: url })); setDirty(true); }} label="Add cover photo" /></Field>
             </CardBody></Card>
 
             <div className="flex flex-col gap-3">
@@ -166,6 +176,7 @@ const ItineraryBuilder = () => {
                                             {DAY_ITEM_TYPES.map((t) => <SelectItem key={t.key}>{t.label}</SelectItem>)}
                                         </Select>
                                         <Textarea aria-label="Details" size="sm" minRows={1} value={item.text} onValueChange={(v) => change((x) => { x[di].items[ii].text = v; return x; })} className="flex-1" />
+                                        <ImageUpload compact value={item.image} onChange={(url) => change((x) => { x[di].items[ii].image = url; return x; })} label="Photo" />
                                         <Button isIconOnly size="sm" variant="light" aria-label="Remove" onPress={() => change((x) => { x[di].items.splice(ii, 1); return x; })}><Trash2 size={14} /></Button>
                                     </div>
                                 ))}
@@ -174,6 +185,7 @@ const ItineraryBuilder = () => {
                                     <Button size="sm" variant="light" startContent={<Library size={14} />} onPress={() => openLibrary(di)}>From library</Button>
                                 </div>
                                 <Textarea aria-label="Day notes" size="sm" minRows={1} placeholder="Notes for this day (optional)" value={d.notes || ""} onValueChange={(v) => change((x) => { x[di].notes = v; return x; })} />
+                                <ImageUpload value={d.image} onChange={(url) => change((x) => { x[di].image = url; return x; })} label="Day photo" />
                             </div>
                         </CardBody>
                     </Card>
@@ -199,7 +211,7 @@ const ItineraryBuilder = () => {
                                     {libFiltered.map((l) => (
                                         <button key={l.id} type="button" className="text-left py-2 px-1 hover:bg-default-50 rounded" onClick={() => {
                                             if (libFor === null) return;
-                                            change((x) => { x[libFor].items.push({ type: LIB_TO_DAY[l.type] || "note", text: [l.name, l.description].filter(Boolean).join(" - "), library_item_id: l.id }); return x; });
+                                            change((x) => { x[libFor].items.push({ type: LIB_TO_DAY[l.type] || "note", text: [l.name, l.description].filter(Boolean).join(" - "), library_item_id: l.id, image: l.photos?.[0] || null }); return x; });
                                             close();
                                         }}>
                                             <div className="font-medium text-sm">{l.name}{l.star ? ` · ${l.star}★` : ""}</div>
