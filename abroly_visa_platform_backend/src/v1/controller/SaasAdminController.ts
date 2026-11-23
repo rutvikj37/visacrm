@@ -1,3 +1,6 @@
+import { clearModuleCache, CRM_TYPES, moduleDetails, MODULE_KEYS, normalizeCrmType } from "../../services/modules";
+import AgencyModule from "../../model/AgencyModule";
+import { audit } from "../../services/audit";
 import { Response } from "express";
 import { notifyLater } from "../../services/notifications";
 import { Op, fn, col } from "sequelize";
@@ -201,7 +204,7 @@ class SaasAdminController {
 
             const { count, rows } = await Agent.findAndCountAll({
                 where,
-                attributes: ["id", "uuid", "username", "app_name", "email", "phone_number", "country_code", "status", "expires_at", "saas_kind", "saas_plan_id", "sudomain", "domain", "createdAt"],
+                attributes: ["id", "uuid", "username", "app_name", "email", "phone_number", "country_code", "status", "expires_at", "saas_kind", "saas_plan_id", "sudomain", "domain", "crm_type", "createdAt"],
                 include: [{ model: SaasPlan, as: "saas_plan", attributes: ["uuid", "name"], required: false }],
                 order: [...(ORDER[sort] || ORDER.ending), ["id", "ASC"]],
                 limit,
@@ -225,6 +228,7 @@ class SaasAdminController {
                     id: a.uuid,
                     name: a.app_name || a.username,
                     owner_name: a.username,
+                    crm_type: a.crm_type || "visa",
                     email: a.email,
                     phone: `${a.country_code || ""} ${a.phone_number || ""}`.trim(),
                     portal: a.domain ? `${a.sudomain ? `${a.sudomain}.` : ""}${a.domain}` : null,
@@ -265,10 +269,11 @@ class SaasAdminController {
                     "id", "uuid", "username", "app_name", "email", "phone_number", "country_code", "status",
                     "expires_at", "saas_kind", "sudomain", "domain", "createdAt",
                     "primary_color", "primary_foreground_color", "dark_primary_color",
-                    "support_number", "support_email", "agency_address", "meta_description",
+                    "support_number", "support_email", "agency_address", "meta_description", "crm_type",
                 ],
             });
             if (!agency) return returnHelper(res, 200, false, "Agency not found");
+            const moduleState = await moduleDetails(agency.dataValues.uuid);
             const [access, history, payments, leads] = await Promise.all([
                 getAgencyAccess(agency.dataValues.uuid),
                 SaasSubscription.findAll({
@@ -291,6 +296,8 @@ class SaasAdminController {
                 agency: { ...a, name: a.app_name || a.username, status_label: statusOf(a), portal },
                 access,
                 leads,
+                crm_type: moduleState?.crmType || "visa",
+                modules: moduleState?.modules || [],
                 history: history.map((h: any) => {
                     const x = h.toJSON();
                     return { id: x.uuid, kind: x.kind, plan: x.plan?.name || null, starts_at: x.starts_at, ends_at: x.ends_at, note: x.note, by_admin: Boolean(x.created_by_admin), createdAt: x.createdAt };
@@ -455,6 +462,7 @@ class SaasAdminController {
                     country_code: countryCode,
                     role: "agent",
                     status: "active",
+                    crm_type: normalizeCrmType(b.crm_type),
                     sudomain: portal.sudomain,
                     domain: portal.domain,
                     // student landing + login branding defaults (owner can change in CRM → Branding)
@@ -526,6 +534,55 @@ class SaasAdminController {
     }
 
     // POST /saas_admin/agencies/:uuid/portal  { sudomain?, domain? }  - own domain or platform subdomain
+    // POST /saas_admin/agencies/:uuid/modules  { crm_type?, overrides?: { [module_key]: true | false | null } }
+    // null removes an override (back to the CRM type / plan default). Data is never deleted when a module is off.
+    async updateModules(req: RequestWithUser, res: Response) {
+        try {
+            const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" }, attributes: ["id", "uuid", "crm_type"] });
+            if (!agency) return returnHelper(res, 200, false, "Agency not found");
+            const b = req.body || {};
+            const before = await moduleDetails(agency.dataValues.uuid);
+            const adminId = Number((req.user?.user as any)?.id) || null;
+            const changes: string[] = [];
+            await sequelize.transaction(async (t: any) => {
+                if (b.crm_type !== undefined) {
+                    if (!CRM_TYPES.includes(b.crm_type)) throw new Error("CRM type must be visa, travel or both");
+                    if (b.crm_type !== agency.dataValues.crm_type) {
+                        await Agent.update({ crm_type: b.crm_type }, { where: { id: agency.dataValues.id }, transaction: t });
+                        changes.push(`CRM type: ${agency.dataValues.crm_type || "visa"} → ${b.crm_type}`);
+                    }
+                }
+                const overrides = b.overrides && typeof b.overrides === "object" ? b.overrides : {};
+                for (const [key, value] of Object.entries(overrides)) {
+                    if (!MODULE_KEYS.includes(key)) throw new Error(`Unknown module: ${key}`);
+                    if (value === null) {
+                        const n = await AgencyModule.destroy({ where: { agency_uuid: agency.dataValues.uuid, module_key: key }, transaction: t });
+                        if (n) changes.push(`${key}: back to default`);
+                    } else {
+                        const existing: any = await AgencyModule.findOne({ where: { agency_uuid: agency.dataValues.uuid, module_key: key }, transaction: t });
+                        if (existing) await existing.update({ is_enabled: Boolean(value), updated_by: adminId }, { transaction: t });
+                        else await AgencyModule.create({ agency_uuid: agency.dataValues.uuid, module_key: key, is_enabled: Boolean(value), updated_by: adminId }, { transaction: t });
+                        changes.push(`${key}: ${value ? "on" : "off"}`);
+                    }
+                }
+            });
+            clearModuleCache(agency.dataValues.uuid);
+            const after = await moduleDetails(agency.dataValues.uuid);
+            if (changes.length) {
+                audit(null, {
+                    agencyUuid: agency.dataValues.uuid, entity: "settings", action: "modules",
+                    summary: `Super Admin changed modules - ${changes.join(", ")}`,
+                    meta: { before: before?.modules.filter((m) => m.enabled).map((m) => m.key), after: after?.modules.filter((m) => m.enabled).map((m) => m.key), admin_id: adminId },
+                    actor: { type: "system", name: "Super Admin" },
+                });
+            }
+            return returnHelper(res, 200, true, changes.length ? "Modules updated" : "No changes", { crm_type: after?.crmType, modules: after?.modules || [] });
+        } catch (error: any) {
+            if (error?.message && !error?.sql) return returnHelper(res, 200, false, error.message);
+            return fail(res, error, "updateModules");
+        }
+    }
+
     async updatePortal(req: RequestWithUser, res: Response) {
         try {
             const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" } });

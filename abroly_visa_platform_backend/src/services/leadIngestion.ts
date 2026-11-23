@@ -36,6 +36,7 @@ export interface LeadInput {
     status?: CrmLeadStatus | null;
     next_follow_up_at?: Date | string | null;
     branch_id?: number | null; // chosen by a person adding the lead (wins over routing)
+    travel?: Record<string, any> | null; // travel enquiry fields, already cleaned (services/travel.ts)
 }
 
 export interface IngestOptions {
@@ -248,6 +249,7 @@ export const ingestLead = async ({
         intake: clean(input.intake),
         message: clean(input.message, 5000),
         campaign: clean(input.campaign),
+        ...(input.travel || {}),
     };
 
     // 1. Same record from the same source already imported -> nothing to do (makes syncs safe to repeat)

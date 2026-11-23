@@ -1,3 +1,5 @@
+import { cleanTravelLeadFields, presentTravelLead } from "../../services/travel";
+import { Booking } from "../../model/Travel";
 import AgencyBranch from "../../model/AgencyBranch";
 import { audit } from "../../services/audit";
 import { branchFilter, branchOfAgent, isAgencyBranch, pickBranchAssignee } from "../../services/branches";
@@ -258,6 +260,7 @@ class CrmController {
                 next_follow_up_at: body.next_follow_up_at,
                 // the owner may pick a branch; a team member's lead goes to their own branch
                 branch_id: isOwner ? (body.branch_id ? Number(body.branch_id) : null) : accessOf(req).branchId,
+                travel: cleanTravelLeadFields(body),
             };
             const source = (CRM_LEAD_SOURCES as readonly string[]).includes(body.source) ? body.source : "manual";
             const merge = body.merge === true || body.merge === "1";
@@ -315,6 +318,12 @@ class CrmController {
                 activities,
                 whatsapp_enabled: whatsapp > 0,
                 doc_checklist: checklistSummary(lead.dataValues.doc_checklist),
+                travel: {
+                    ...presentTravelLead(lead.toJSON()),
+                    booking_id: lead.dataValues.converted_booking_id
+                        ? ((await Booking.findOne({ where: { id: lead.dataValues.converted_booking_id, agency_uuid: ctx(req).agencyUuid }, attributes: ["uuid"], raw: true })) as any)?.uuid || null
+                        : null,
+                },
             });
         } catch (error) {
             return handleError(res, error, "leadDetails");
@@ -343,6 +352,7 @@ class CrmController {
             if (body.doc_checklist !== undefined) {
                 updates.doc_checklist = normalizeDocChecklist(body.doc_checklist);
             }
+            Object.assign(updates, cleanTravelLeadFields(body));
             if (updates.email) {
                 updates.email = updates.email.toLowerCase();
                 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.email)) return returnHelper(res, 200, false, "Please enter a valid email");

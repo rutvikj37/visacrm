@@ -48,8 +48,11 @@ import PanelHeader from "@/components/panel/PanelHeader"
 import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import NotificationBell from "@/modules/AgentAdmin/Notifications/NotificationBell"
+import useModules from "@/hooks/useModules"
+import { filterNav, travelNavGroup } from "@/modules/AgentAdmin/Travel/travelNav"
 
 const AgentCRM = () => {
+  const { crmType, modules, has } = useModules()
   // for logout
   const { isOpen, onOpenChange } = useDisclosure();
 
@@ -103,20 +106,23 @@ const AgentCRM = () => {
           // contact form messages arrive in the Lead Inbox (source "Portal"); the old list is linked from Lead sources
         ],
       },
+      // travel agencies see the Travel group before visa cases
+      ...(crmType === "travel" ? [travelNavGroup()] : []),
       {
-        title: "Visa cases",
+        title: has("visa") ? "Visa cases" : "Billing",
         url: "#",
         icon: KanbanSquare,
         isActive: true,
         items: [
-          { title: "Case board", url: "/cases/board" },
-          { title: "Client fees", url: "/fees" },
-          { title: "Commissions", url: "/commissions" },
+          { title: "Case board", url: "/cases/board", module: "visa" },
+          { title: "Client fees", url: "/fees", module: "billing" },
+          { title: "Commissions", url: "/commissions", module: "visa" },
         ],
       },
+      ...(crmType !== "travel" ? [travelNavGroup()] : []),
       {
         // what students see in the agency's student portal (job openings / banners are paid add-ons)
-        title: "Student portal",
+        title: crmType === "travel" ? "Client portal" : "Student portal",
         url: "#",
         icon: GraduationCap,
         isActive: false,
@@ -145,7 +151,7 @@ const AgentCRM = () => {
         isActive: false,
         items: [
           { title: "Lead sources", url: "/crm/sources" },
-          { title: "Visa templates", url: "/crm/templates" },
+          { title: "Visa templates", url: "/crm/templates", module: "visa" },
           { title: "Branding", url: "/branding" },
           { title: "Payments (Razorpay)", url: "/settings/payments" },
           { title: "Subscription", url: "/subscription" },
@@ -191,10 +197,8 @@ const AgentCRM = () => {
             <SidebarGroup>
               <SidebarGroupLabel>Menu</SidebarGroupLabel>
               <SidebarMenu>
-                {data.navMain
-                  .filter((item: any) => !item.addon || !planAddons || planAddons.includes(item.addon))
-                  // add-on pages inside a group are hidden one by one
-                  .map((item: any) => ({ ...item, items: item.items?.filter((sub: any) => !sub.addon || !planAddons || planAddons.includes(sub.addon)) }))
+                {/* modules (CRM type, plan, Super Admin overrides) decide what shows; older backends fall back to plan add-ons */}
+                {filterNav(data.navMain, (key?: string | null) => !key || (modules ? has(key) : (!planAddons || planAddons.includes(key) || !["jobs", "side_banner"].includes(key))))
                   .map((item: any) => (
                   <SidebarNavGroup key={item.title} item={item} styledLinks />
                 ))}

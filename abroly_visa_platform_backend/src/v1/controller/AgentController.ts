@@ -1,3 +1,4 @@
+import { labelsFor, modulesFor } from "../../services/modules";
 import { businessFocusOf } from "../../services/businessFocus";
 import { publicFileUrl, saveFile, deleteFile, ownerFromRequest, agencyOwner } from "../../helpers/storage";
 import { Request, Response } from "express";
@@ -1606,6 +1607,11 @@ class AgentController {
                         is_firstTime: findUser?.dataValues.is_verified == 1 ? false : true,
                         // SaaS: plan, trial / paid, days left, features - drives banners and locked modules
                         subscription: await getAgencyAccess((req.user?.user as any)?.agent_uuid),
+                        // Travel CRM: product type, enabled modules and the words that go with them
+                        ...(await (async () => {
+                            const m = await modulesFor((req.user?.user as any)?.agent_uuid);
+                            return { crm_type: m.crmType, modules: m.enabled, labels: labelsFor(m.crmType) };
+                        })()),
                         // agency colour (Branding settings) - the agency panel uses the same colour as the student portal
                         // agency look for the panel header: colour, name and logo (Branding settings)
                         ...(await (async () => {

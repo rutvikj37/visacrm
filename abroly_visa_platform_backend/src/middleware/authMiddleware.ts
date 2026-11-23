@@ -1,3 +1,4 @@
+import { hasModule, moduleForPath, MODULE_DISABLED } from "../services/modules"
 import express from 'express'
 import { NextFunction, Request, Response } from "express";
 import Jwt, { DecodeOptions, JsonWebTokenError, VerifyErrors } from "jsonwebtoken";
@@ -235,7 +236,7 @@ const agentValidate = async (req: RequestWithUser, res: Response, next: NextFunc
                     const branchId = findUser?.dataValues?.branch_id || null
                     inner.team_role = teamRole
                     inner.branch_id = branchId
-                    if (teamRole === "branch_manager" || teamRole === "documents") {
+                    if (teamRole === "branch_manager" || teamRole === "documents" || teamRole === "operations") {
                         if (branchId) {
                             const members: any[] = await Agent.findAll({
                                 where: { parent_id: findUser?.dataValues?.parent_id, branch_id: branchId },
@@ -254,6 +255,12 @@ const agentValidate = async (req: RequestWithUser, res: Response, next: NextFunc
                             return returnHelper(res, 200, false, "Your role (Accounts) can view leads and cases but not change them")
                         }
                     }
+                }
+
+                // module switched off for this agency (Super Admin → CRM type / modules)
+                const neededModule = moduleForPath(req.originalUrl || "")
+                if (neededModule && inner.agent_uuid && !(await hasModule(inner.agent_uuid, neededModule))) {
+                    return res.status(403).json({ ...MODULE_DISABLED })
                 }
 
                 req.user = user;

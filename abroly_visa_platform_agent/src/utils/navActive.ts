@@ -4,7 +4,9 @@
  */
 export const isNavItemActive = (url: string, pathname: string, search: string): boolean => {
     const [path, qs = ""] = url.split("?");
-    const pathMatch = pathname === path || (path !== "/" && (pathname === path || pathname.startsWith(`${path}/`)));
+    // hub pages whose sub-pages have their own menu items match only exactly (Travel desk vs Travel → Quotes)
+    const exactOnly = path === "/travel";
+    const pathMatch = pathname === path || (!exactOnly && path !== "/" && pathname.startsWith(`${path}/`));
     if (!pathMatch) return false;
 
     const wanted = new URLSearchParams(qs);

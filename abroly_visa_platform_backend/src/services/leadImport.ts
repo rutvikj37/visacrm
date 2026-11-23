@@ -31,6 +31,7 @@ const FIELD_ALIASES: Record<keyof LeadInput | "first_name" | "last_name", string
     status: [],
     next_follow_up_at: [],
     branch_id: [],
+    travel: [],
 };
 
 const normaliseHeader = (header: string) => header.toLowerCase().replace(/[^a-z0-9]/g, "");

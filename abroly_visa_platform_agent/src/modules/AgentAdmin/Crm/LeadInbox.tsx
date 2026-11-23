@@ -122,10 +122,14 @@ const LeadInbox = () => {
     };
 
     // "+" button on phones links here with ?add=1
+    // Travel desk links here with ?new=travel to open a holiday enquiry
+    const [addLine, setAddLine] = useState<"visa" | "travel" | undefined>(undefined);
     useEffect(() => {
-        if (params.get("add") !== "1") return;
+        const isNewTravel = params.get("new") === "travel";
+        if (params.get("add") !== "1" && !isNewTravel) return;
+        setAddLine(isNewTravel ? "travel" : undefined);
         addModal.onOpen();
-        const next = new URLSearchParams(params); next.delete("add"); setParams(next, { replace: true });
+        const next = new URLSearchParams(params); next.delete("add"); next.delete("new"); setParams(next, { replace: true });
     }, [params]);
 
     // inline edits in the table (no need to open the lead)
@@ -631,7 +635,7 @@ const LeadInbox = () => {
                     )}
                 </DrawerContent>
             </Drawer>
-            <LeadFormModal isOpen={addModal.isOpen} onOpenChange={addModal.onOpenChange} team={team} canAssign={isManager} onSaved={refresh} />
+            <LeadFormModal isOpen={addModal.isOpen} onOpenChange={(o) => { addModal.onOpenChange(); if (!o) setAddLine(undefined); }} team={team} canAssign={isManager} onSaved={refresh} defaultLine={addLine} />
             <LeadFormModal
                 isOpen={editModal.isOpen}
                 onOpenChange={(open) => {

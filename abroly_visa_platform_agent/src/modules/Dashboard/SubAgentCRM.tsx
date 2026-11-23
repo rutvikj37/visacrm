@@ -44,8 +44,11 @@ import SidebarNavGroup from "@/components/panel/SidebarNavGroup"
 import PanelHeader from "@/components/panel/PanelHeader"
 import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
+import useModules from "@/hooks/useModules"
+import { filterNav, travelNavGroup } from "@/modules/AgentAdmin/Travel/travelNav"
 
 const SubAgentCRM = () => {
+  const { crmType, has } = useModules()
   // for logout
   const { isOpen, onOpenChange } = useDisclosure();
 
@@ -85,18 +88,20 @@ const SubAgentCRM = () => {
           { title: "Follow-ups today", url: "/crm/leads?follow_up=today" },
         ],
       },
+      ...(crmType === "travel" ? [travelNavGroup({ team: true })] : []),
       {
-        title: "Visa cases",
+        title: has("visa") ? "Visa cases" : "Billing",
         url: "#",
         icon: Inbox,
         isActive: true,
         items: [
-          { title: "Case board", url: "/cases/board" },
-          { title: "Client fees", url: "/fees" },
+          { title: "Case board", url: "/cases/board", module: "visa" },
+          { title: "Client fees", url: "/fees", module: "billing" },
           // money from universities: Accounts and branch managers only
-          ...(teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager" ? [{ title: "Commissions", url: "/commissions" }] : []),
+          ...(teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager" ? [{ title: "Commissions", url: "/commissions", module: "visa" }] : []),
         ],
       },
+      ...(crmType !== "travel" ? [travelNavGroup({ team: true })] : []),
     ],
     projects: [
       // {
@@ -135,7 +140,7 @@ const SubAgentCRM = () => {
           <SidebarGroup>
             <SidebarGroupLabel>Menu</SidebarGroupLabel>
             <SidebarMenu>
-              {data.navMain.map((item) => (
+              {filterNav(data.navMain, has).map((item: any) => (
                 <SidebarNavGroup key={item.title} item={item} />
               ))}
             </SidebarMenu>

@@ -3,7 +3,7 @@ import React, { useEffect } from 'react'
 import { applyBrand } from '@/lib/theme';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToLocal, getFromLocal } from '../utils/localstorage';
-import { setAgencyInfo, setAuthLoading, setBranchId, setProfile, setRole, setSubscription, setTeamRole, setToken } from '../redux/slices/loginSlice';
+import { setAgencyInfo, setAuthLoading, setBranchId, setProfile, setRole, setSubscription, setTeamRole, setToken, setModules } from '../redux/slices/loginSlice';
 import SubscriptionExpired from '@/modules/AgentAdmin/Subscription/SubscriptionExpired';
 import PublicDashboard from '../modules/Dashboard/PublicDashboard';
 import AgentCRM from '../modules/Dashboard/AgentAdminCRM';
@@ -49,6 +49,7 @@ const Index = () => {
             applyCaseFlow(data?.business_focus)
             dispatch(setRole(data?.role))
             dispatch(setSubscription(data?.subscription))
+            dispatch(setModules({ crm_type: data?.crm_type, modules: data?.modules, labels: data?.labels }))
             dispatch(setTeamRole(data?.team_role))
             dispatch(setBranchId(data?.branch_id))
             dispatch(setAgencyInfo({ name: data?.agency_name || null, logo: data?.agency_logo || null }))

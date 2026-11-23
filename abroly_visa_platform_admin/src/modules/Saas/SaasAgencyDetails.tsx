@@ -6,6 +6,7 @@ import {
 } from "@nextui-org/react";
 import { ArrowLeft, CalendarPlus, Gift, Globe, KeyRound, Pencil, Repeat, Trash2, XCircle } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
+import AgencyModulesCard from "./AgencyModulesCard";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import { FormField, KIND_LABEL, METHOD_LABEL, STATUS_META, fmtDate, rupees } from "./saasShared";
 import { HEALTH_META, Trend, idleLabel } from "./SaasUsage";
@@ -239,6 +240,10 @@ const SaasAgencyDetails = () => {
                 <div><div className="text-xs text-default-500">Team members</div><div className="font-medium">{access?.team_count}{access?.plan?.max_team_members !== null && access?.plan ? ` / ${access.plan.max_team_members}` : ""}</div></div>
                 <div><div className="text-xs text-default-500">Leads</div><div className="font-medium">{data.leads}</div></div>
             </div>
+
+            {Array.isArray(data.modules) && data.modules.length > 0 && (
+                <AgencyModulesCard agencyId={String(id)} crmType={data.crm_type} modules={data.modules} onSaved={load} />
+            )}
 
             <div className="flex flex-wrap gap-2">
                 <Button variant="flat" startContent={<Pencil size={16} />} onPress={openEdit}>Edit details</Button>

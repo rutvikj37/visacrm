@@ -14,6 +14,8 @@ import CommonConfirmation from "@/components/CommonConfirmation";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import LeadFormModal from "./LeadFormModal";
 import ConvertLeadModal from "./ConvertLeadModal";
+import TravelLeadPanel from "@/modules/AgentAdmin/Travel/TravelLeadPanel";
+import useModules from "@/hooks/useModules";
 import PortalInvitePanel from "./PortalInvitePanel";
 import FormField from "./FormField";
 import MentionComposer, { MentionText } from "./MentionComposer";
@@ -58,6 +60,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
     const params = useParams();
     const uuid = leadUuid || params.uuid;
     const navigate = useNavigate();
+    const { has: hasModule, travel: travelOn } = useModules();
     const [searchParams, setSearchParams] = useSearchParams();
     const [callPrompt, setCallPrompt] = useState(false);
     const [quickReplies, setQuickReplies] = useState<any[]>([]);
@@ -68,6 +71,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
     const isManager = isOwner || teamRole === "branch_manager";
 
     const [lead, setLead] = useState<any>(null);
+    const [travelInfo, setTravelInfo] = useState<any>(null);
     const [activities, setActivities] = useState<any[]>([]);
     const [whatsappEnabled, setWhatsappEnabled] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
@@ -105,6 +109,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
         if (changed) onChanged?.();
         if (success) {
             setLead(data.lead);
+            setTravelInfo(data.travel || null);
             setActivities(data.activities || []);
             setWhatsappEnabled(Boolean(data.whatsapp_enabled));
             setNotFound(false);
@@ -336,7 +341,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                         {wa && <Button size="sm" as="a" href={wa} target="_blank" rel="noreferrer" variant="flat" color="success" startContent={<MessageCircle size={16} />}>WhatsApp</Button>}
                         {lead.email && <Button size="sm" as="a" href={`mailto:${lead.email}`} variant="flat" startContent={<Mail size={16} />}>Email</Button>}
                         <Button size="sm" variant="flat" startContent={<Pencil size={16} />} onPress={editModal.onOpen}>Edit</Button>
-                        {lead.status !== "converted" && (
+                        {lead.status !== "converted" && hasModule("visa") && lead.business_line !== "travel" && (
                             <Button size="sm" color="primary" startContent={<ArrowRightCircle size={16} />} onPress={convertModal.onOpen}>Convert</Button>
                         )}
                         {isOwner && lead.status !== "converted" && (
@@ -356,7 +361,20 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                 </div>
             )}
 
-            {lead.status === "converted" && (
+            {lead.status === "converted" && lead.converted_booking_id && (
+                <div className="rounded-xl border border-success-200 bg-success-50 px-3 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <BadgeCheck className="text-success shrink-0" size={24} />
+                    <div className="flex-1 min-w-0">
+                        <div className="font-medium">Booked</div>
+                        <div className="text-sm text-default-600">on {formatDateTime(lead.converted_at)} — continue under Travel → Bookings.</div>
+                    </div>
+                    <Button size="sm" color="success" onPress={() => navigate(travelInfo?.booking_id ? `/travel/bookings/${travelInfo.booking_id}` : "/travel/bookings")}>Open booking</Button>
+                </div>
+            )}
+
+            {lead.business_line === "travel" && travelOn && <TravelLeadPanel lead={lead} />}
+
+            {lead.status === "converted" && !lead.converted_booking_id && (
                 <div className="rounded-xl border border-success-200 bg-success-50 px-3 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
                     <BadgeCheck className="text-success shrink-0" size={24} />
                     <div className="flex-1 min-w-0">

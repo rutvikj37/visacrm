@@ -13,6 +13,10 @@ const initState = {
     designation:"",
     // SaaS plan / trial info from agent/kyc (refreshed on every app load)
     subscription: null as any,
+    // Travel CRM: product type, enabled modules, words (agent/kyc)
+    crm_type: null as any,
+    modules: null as any,
+    labels: null as any,
     // owner | counsellor | branch_manager | accounts | documents
     team_role: null as string | null,
     // branch office of a team member (null for the owner / people without a branch)
@@ -54,6 +58,11 @@ const loginSlice = createSlice({
         setSubscription(state, action) {
             state.subscription = action.payload || null;
         },
+        setModules(state, action) {
+            state.crm_type = action.payload?.crm_type || "visa";
+            state.modules = Array.isArray(action.payload?.modules) ? action.payload.modules : null;
+            state.labels = action.payload?.labels || null;
+        },
         clearUserInfo(state, action) {
             state.isLoading = true;
             state.token = null;
@@ -64,6 +73,9 @@ const loginSlice = createSlice({
             state.user_name = null;
             state.phone = null;
             state.subscription = null;
+            state.crm_type = null;
+            state.modules = null;
+            state.labels = null;
         }
 
     }
@@ -73,5 +85,5 @@ const loginSlice = createSlice({
 // export const { fetchUserData } = userListSlice.actions;
 // export default userListSlice.reducer;
 
-export const { setToken, setRole, setAuthLoading, setProfile, setSubscription, setTeamRole, setBranchId, setAgencyInfo, clearUserInfo } = loginSlice.actions
+export const { setToken, setRole, setAuthLoading, setProfile, setSubscription, setTeamRole, setBranchId, setAgencyInfo, setModules, clearUserInfo } = loginSlice.actions
 export default loginSlice.reducer

@@ -9,10 +9,11 @@ import { RequestWithUser } from "../utils/types";
  *   counsellor       - leads and cases assigned to them
  *   documents        - visa cases of their branch (all cases if no branch); leads assigned to them
  *   accounts         - can view all leads and cases, can not change them
+ *   operations       - travel bookings and suppliers of their branch (all if no branch); leads assigned to them
  *
  * team_role / branch / visible member ids are attached to the request by authMiddleware.
  */
-export const TEAM_ROLES = ["counsellor", "branch_manager", "accounts", "documents"] as const;
+export const TEAM_ROLES = ["counsellor", "branch_manager", "accounts", "documents", "operations"] as const;
 export type TeamRole = typeof TEAM_ROLES[number];
 
 export const TEAM_ROLE_LABELS: Record<string, string> = {
@@ -20,6 +21,7 @@ export const TEAM_ROLE_LABELS: Record<string, string> = {
     branch_manager: "Branch manager",
     accounts: "Accounts",
     documents: "Document executive",
+    operations: "Operations",
 };
 
 export const accessOf = (req: RequestWithUser) => {

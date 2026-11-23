@@ -212,6 +212,12 @@ const Agent = sequelize.define('Agent', {
         allowNull: true,
         defaultValue: null
     },
+    // product the agency bought: visa CRM, travel CRM or both (services/modules.ts)
+    crm_type: {
+        type: DataTypes.ENUM("visa", "travel", "both"),
+        allowNull: false,
+        defaultValue: "visa"
+    },
     // SaaS: current plan and what kind of access (expiry date stays in expires_at)
     saas_plan_id: {
         type: DataTypes.INTEGER,
@@ -236,7 +242,7 @@ const Agent = sequelize.define('Agent', {
     },
     // team members: what they do and which branch office they belong to
     team_role: {
-        type: DataTypes.ENUM("counsellor", "branch_manager", "accounts", "documents"),
+        type: DataTypes.ENUM("counsellor", "branch_manager", "accounts", "documents", "operations"),
         defaultValue: "counsellor"
     },
     branch_id: {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Card, CardBody, CardHeader, Input, Select, SelectItem, Spinner, Switch, Textarea } from "@nextui-org/react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { FormField } from "./saasShared";
+import TravelTaxCard from "./TravelTaxCard";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 
 /** Platform (seller) details printed on every subscription invoice. */
@@ -69,6 +70,7 @@ const SaasBillingSettings = () => {
                 </CardBody>
             </Card>
             <div className="flex justify-end"><Button color="primary" isLoading={saving} onPress={save}>Save settings</Button></div>
+            <TravelTaxCard />
         </div>
     );
 };

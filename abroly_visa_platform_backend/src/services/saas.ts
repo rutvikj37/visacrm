@@ -9,6 +9,7 @@ import SaasPlan from "../model/SaasPlan";
 import SaasSubscription from "../model/SaasSubscription";
 import SaasPayment from "../model/SaasPayment";
 import { RequestWithUser } from "../utils/types";
+import { hasModule, MODULE_KEYS } from "./modules";
 import { returnHelper } from "../helpers/returnHelper";
 
 /**
@@ -55,6 +56,8 @@ const DAY = 24 * 60 * 60 * 1000;
 export const cleanFeatures = (raw: any) => ({
     sources: Array.isArray(raw?.sources) ? raw.sources.filter((k: string) => SOURCE_KEYS.includes(k)) : [],
     addons: Array.isArray(raw?.addons) ? raw.addons.filter((k: string) => ADDON_KEYS.includes(k)) : [],
+    // optional: modules the plan includes (services/modules.ts); missing = every module
+    ...(Array.isArray(raw?.modules) ? { modules: raw.modules.filter((k: string) => MODULE_KEYS.includes(k)) } : {}),
 });
 
 /** Default plans: 6 and 12 months, full features. */
@@ -263,10 +266,11 @@ export const requireAddon = (key: string) => async (req: RequestWithUser, res: R
     try {
         const agencyUuid = (req.user?.user as any)?.agent_uuid;
         if (!agencyUuid) return next();
+        // the add-on keys are modules now: plan, CRM type and Super Admin overrides all count
         const { plan } = await planFor(agencyUuid);
-        if (plan && !plan.features.addons.includes(key)) {
+        if (!(await hasModule(agencyUuid, key))) {
             const label = ADDON_FEATURES.find((f) => f.key === key)?.label || key;
-            return returnHelper(res, 200, false, `${label} is a paid add-on and is not included in your ${plan.name} plan.`);
+            return returnHelper(res, 200, false, plan ? `${label} is a paid add-on and is not included in your ${plan.name} plan.` : `${label} is not enabled for your agency.`);
         }
         return next();
     } catch (error) {

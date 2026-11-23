@@ -7,7 +7,7 @@ import { RequestWithUser } from "../utils/types";
  *   audit(req, { entity: "case", entityId: 12, action: "stage", summary: "Stage: Documents → Application" })
  */
 export type AuditEntry = {
-    entity: "case" | "invoice" | "lead" | "team" | "settings";
+    entity: "case" | "invoice" | "lead" | "team" | "settings" | "booking" | "quote" | "traveller";
     entityId?: number | null;
     action: string;
     summary: string;

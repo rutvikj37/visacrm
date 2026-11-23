@@ -76,6 +76,8 @@ import ClientPayment from "../model/ClientPayment";
 import MessageTemplate from "../model/MessageTemplate";
 import PlatformSetting from "../model/PlatformSetting";
 import SaasCoupon from "../model/SaasCoupon";
+import AgencyModule from "../model/AgencyModule";
+import { TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller } from "../model/Travel";
 import Announcement from "../model/Announcement";
 import AnnouncementDismissal from "../model/AnnouncementDismissal";
 import ActivityLog from "../model/ActivityLog";
@@ -182,7 +184,9 @@ class ModelInitializer {
       LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate,
       // SaaS billing
       SaasPlan, SaasSubscription, SaasPayment,
-      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat
+      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat,
+      // Travel CRM
+      AgencyModule, TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller
     ];
 
     // Sync base models first
@@ -244,6 +248,7 @@ class ModelInitializer {
 
       // CRM lead relationships
       this.setupCrmAssociations();
+      this.setupTravelAssociations();
       
       console.log("✅ All associations set up successfully");
       
@@ -479,6 +484,22 @@ class ModelInitializer {
       targetKey: "id",
       as: "banner"
     });
+  }
+
+  private setupTravelAssociations(): void {
+    const c = { constraints: false };
+    Quotation.belongsTo(Itinerary, { foreignKey: "itinerary_id", as: "itinerary", ...c });
+    TourPackage.belongsTo(Itinerary, { foreignKey: "itinerary_id", as: "itinerary", ...c });
+    SupplierRate.belongsTo(TravelSupplier, { foreignKey: "supplier_id", as: "supplier", ...c });
+    BookingService.belongsTo(TravelSupplier, { foreignKey: "supplier_id", as: "supplier", ...c });
+    BookingService.belongsTo(Booking, { foreignKey: "booking_id", as: "booking", ...c });
+    Booking.hasMany(BookingService, { foreignKey: "booking_id", as: "services", ...c });
+    Booking.hasMany(BookingTraveller, { foreignKey: "booking_id", as: "travellers", ...c });
+    Booking.belongsTo(User, { foreignKey: "user_id", as: "client", ...c });
+    Booking.belongsTo(ClientInvoice, { foreignKey: "invoice_id", as: "invoice", ...c });
+    Booking.belongsTo(CrmLead, { foreignKey: "crm_lead_id", as: "lead", ...c });
+    Booking.belongsTo(Quotation, { foreignKey: "quotation_id", as: "quotation", ...c });
+    Booking.belongsTo(Itinerary, { foreignKey: "itinerary_id", as: "itinerary", ...c });
   }
 
   private setupCrmAssociations(): void {

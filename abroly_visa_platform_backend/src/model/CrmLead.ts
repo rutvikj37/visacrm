@@ -33,6 +33,22 @@ const CrmLead = sequelize.define('CrmLead', {
     visa_type: { type: DataTypes.STRING, allowNull: true },
     intake: { type: DataTypes.STRING, allowNull: true },
     message: { type: DataTypes.TEXT, allowNull: true },
+    // visa or travel enquiry (a "both" agency has both kinds). Travel enquiry fields below.
+    business_line: { type: DataTypes.ENUM("visa", "travel"), defaultValue: "visa" },
+    destinations: { type: DataTypes.JSON, allowNull: true, get: jsonGetter('destinations') },
+    travel_start: { type: DataTypes.DATEONLY, allowNull: true },
+    travel_end: { type: DataTypes.DATEONLY, allowNull: true },
+    travel_month: { type: DataTypes.STRING(7), allowNull: true }, // YYYY-MM when dates are not fixed
+    nights: { type: DataTypes.INTEGER, allowNull: true },
+    adults: { type: DataTypes.INTEGER, allowNull: true },
+    children: { type: DataTypes.INTEGER, allowNull: true },
+    child_ages: { type: DataTypes.JSON, allowNull: true, get: jsonGetter('child_ages') },
+    infants: { type: DataTypes.INTEGER, allowNull: true },
+    budget: { type: DataTypes.BIGINT, allowNull: true }, // paise
+    hotel_category: { type: DataTypes.STRING(20), allowNull: true },
+    trip_type: { type: DataTypes.STRING(40), allowNull: true },
+    departure_city: { type: DataTypes.STRING, allowNull: true },
+    converted_booking_id: { type: DataTypes.INTEGER, allowNull: true },
 
     // where it came from
     source: { type: DataTypes.ENUM(...CRM_LEAD_SOURCES), defaultValue: "manual" },

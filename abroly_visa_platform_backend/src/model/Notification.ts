@@ -6,7 +6,7 @@ import { jsonGetter } from '../helpers/json';
 export const NOTIFICATION_TYPES = [
     "new_lead", "lead_assigned", "whatsapp_message", "portal_chat", "follow_up_due", "daily_digest",
     "document_uploaded", "case_assigned", "task_assigned", "trial_ending", "plan_ending", "plan_expired", "payment_received", "import_done",
-    "payment_failed", "announcement", "mention",
+    "payment_failed", "announcement", "mention", "itinerary_response",
 ] as const;
 
 const Notification = sequelize.define('Notification', {

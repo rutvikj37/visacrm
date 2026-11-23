@@ -19,7 +19,7 @@ const PLATFORM_PORTAL_DOMAIN = (import.meta as any).env?.VITE_PLATFORM_PORTAL_DO
 const portalUrlOf = (portal?: string | null) => (portal ? `https://${portal}` : "");
 
 const emptyForm = {
-    name: "", owner_name: "", country_code: "+91", phone_number: "", email: "",
+    name: "", owner_name: "", country_code: "+91", phone_number: "", email: "", crm_type: "visa",
     portal_mode: "subdomain", sudomain: "", domain: "",
     plan_id: "", activate: "paid", amount: "", method: "upi", reference: "", note: "", trial_days: "14",
 };
@@ -272,6 +272,7 @@ const SaasAgencies = () => {
             country_code: form.country_code,
             phone_number: form.phone_number,
             email: form.email.trim(),
+            crm_type: form.crm_type,
             sudomain: form.portal_mode === "subdomain" ? form.sudomain.trim().toLowerCase() : (form.sudomain.trim() || null),
             domain: form.portal_mode === "subdomain" ? PLATFORM_PORTAL_DOMAIN : form.domain.trim().toLowerCase(),
             plan_id: form.plan_id || undefined,
@@ -436,7 +437,10 @@ const SaasAgencies = () => {
                                     <div className="text-xs text-default-500">{a.owner_name !== a.name ? `${a.owner_name} · ` : ""}{a.phone}</div>
                                 </TableCell>
                                 <TableCell><PortalLink portal={a.portal} /></TableCell>
-                                <TableCell>{a.plan?.name || <span className="text-default-400">No plan</span>}</TableCell>
+                                <TableCell>
+                                    <div>{a.plan?.name || <span className="text-default-400">No plan</span>}</div>
+                                    <div className="text-xs text-default-500">{a.crm_type === "travel" ? "Travel CRM" : a.crm_type === "both" ? "Visa + Travel" : "Visa CRM"}</div>
+                                </TableCell>
                                 <TableCell><Chip size="sm" variant="flat" color={STATUS_META[a.status]?.color}>{STATUS_META[a.status]?.label || a.status}</Chip></TableCell>
                                 <TableCell>
                                     <div className="text-sm">{fmtDate(a.ends_at)}</div>
@@ -521,6 +525,14 @@ const SaasAgencies = () => {
                                         </div>
                                     </FormField>
                                     <FormField label="Owner email *"><Input aria-label="Email" type="email" value={form.email} onValueChange={set("email")} description="Login details are emailed here" /></FormField>
+                                    <FormField label="CRM type *">
+                                        <Select aria-label="CRM type" selectedKeys={[form.crm_type]} onChange={(e) => set("crm_type")(e.target.value || "visa")}
+                                            description="Decides the modules, menus and wording. You can change it later on the agency page.">
+                                            <SelectItem key="visa">Visa CRM</SelectItem>
+                                            <SelectItem key="travel">Travel CRM</SelectItem>
+                                            <SelectItem key="both">Visa + Travel</SelectItem>
+                                        </Select>
+                                    </FormField>
                                 </div>
 
                                 <div className="mt-2 space-y-2">
