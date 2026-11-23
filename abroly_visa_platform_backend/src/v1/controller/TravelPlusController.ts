@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import path from "path";
 import multer from "multer";
-import PDFDocument from "pdfkit";
 import axios from "axios";
 import { NextFunction, Request, Response } from "express";
 import { Op } from "sequelize";
@@ -19,7 +18,8 @@ import { ingestLead, logActivity } from "../../services/leadIngestion";
 import { sendTemplate } from "../../services/messaging";
 import { sendWhatsappText } from "../../services/meta";
 import { hasModule } from "../../services/modules";
-import { quoteTotals, seesCost, toPaise, toRupees } from "../../services/travel";
+import { seesCost, toPaise, toRupees } from "../../services/travel";
+import { Brand, itineraryPdf, quotePdf, vouchersPdf } from "../../services/travelPdf";
 import { publicApiBase } from "./TravelController";
 
 /**
@@ -50,88 +50,26 @@ const imageUpload = multer({
 export const travelImageUpload = (req: Request, res: Response, next: NextFunction) =>
     imageUpload(req, res, (err: any) => (err ? returnHelper(res, 200, false, err.code === "LIMIT_FILE_SIZE" ? "Photos can be up to 5 MB" : err.message || "Upload failed") : next()));
 
-// ---------------------------------------------------------------- PDF helpers (pdfkit: no browser needed on the server)
+// ---------------------------------------------------------------- PDFs (layouts in services/travelPdf.ts)
 
-const brandOf = async (agencyUuid: string) => {
-    const a: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["app_name", "username", "primary_color", "support_number", "support_email", "agency_address", "favicon_url"], raw: true });
-    const color = /^#[0-9a-f]{6}$/i.test(a?.primary_color || "") ? a.primary_color : "#0f5bd8";
-    return { name: a?.app_name || a?.username || "Travel agency", color, phone: a?.support_number || "", email: a?.support_email || "", address: a?.agency_address || "", logo: a?.favicon_url ? (String(a.favicon_url).startsWith("http") ? a.favicon_url : publicFileUrl("profiles", a.favicon_url)) : null };
+/** Agency look and billing details for PDFs. */
+export const pdfBrand = async (agencyUuid: string): Promise<Brand> => {
+    const a: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["app_name", "username", "primary_color", "support_number", "support_email", "agency_address", "favicon_url", "billing_settings"], raw: true });
+    let billing: any = {}; try { billing = a?.billing_settings ? JSON.parse(a.billing_settings) : {}; } catch { billing = {}; }
+    return {
+        name: billing.legal_name || a?.app_name || a?.username || "Travel agency",
+        color: /^#[0-9a-f]{6}$/i.test(a?.primary_color || "") ? a.primary_color : "#0f5bd8",
+        phone: a?.support_number || "", email: a?.support_email || "", address: billing.address || a?.agency_address || "",
+        logo: a?.favicon_url ? (String(a.favicon_url).startsWith("http") ? a.favicon_url : publicFileUrl("profiles", a.favicon_url)) : null,
+        gstin: billing.gstin || "", upi: billing.upi_id || "", bank: billing.bank_details || "",
+        review: /^https:\/\//.test(String(billing.google_review_url || "")) ? billing.google_review_url : "", rating: billing.google_rating || "",
+    };
 };
-const fetchImage = async (url?: string | null) => {
-    if (!url || !/^https?:\/\//.test(url)) return null;
-    try {
-        const r = await axios.get(url, { responseType: "arraybuffer", timeout: 6000, maxContentLength: 4 * 1024 * 1024 });
-        const type = String(r.headers["content-type"] || "");
-        return /jpe?g|png/i.test(type) ? Buffer.from(r.data) : null;
-    } catch { return null; }
-};
-const rs = (paise: number) => `Rs ${(Math.round(paise) / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-const fmt = (d?: string | null) => (d ? new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "");
-const ITEM: Record<string, string> = { hotel: "Stay", sightseeing: "Sightseeing", transfer: "Transfer", meal: "Meal", flight: "Flight", activity: "Activity", note: "" };
 
-const startPdf = async (res: Response, filename: string, brand: any, title: string, subtitle: string) => {
-    const doc = new PDFDocument({ size: "A4", margin: 44, bufferPages: true, info: { Title: title, Author: brand.name } });
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${filename.replace(/[^\w.-]+/g, "_")}"`);
-    doc.pipe(res);
-    const logo = await fetchImage(brand.logo);
-    doc.rect(0, 0, doc.page.width, 96).fill(brand.color);
-    let x = 44;
-    if (logo) { try { doc.image(logo, 44, 22, { fit: [52, 52] }); x = 108; } catch { /* unsupported image */ } }
-    doc.fillColor("#ffffff").fontSize(20).font("Helvetica-Bold").text(title, x, 26, { width: doc.page.width - x - 44 });
-    doc.fontSize(10).font("Helvetica").text(subtitle, x, doc.y + 2, { width: doc.page.width - x - 44 });
-    doc.fillColor("#111827").moveDown(0).y = 116;
-    doc.x = 44;
-    return doc;
-};
-const heading = (doc: any, text: string, color: string) => {
-    if (doc.y > doc.page.height - 120) doc.addPage();
-    doc.moveDown(0.6).fontSize(13).font("Helvetica-Bold").fillColor(color).text(text, 44).fillColor("#111827").font("Helvetica").fontSize(10).moveDown(0.3);
-};
-const footer = (doc: any, brand: any) => {
-    const range = doc.bufferedPageRange();
-    for (let i = range.start; i < range.start + range.count; i++) {
-        doc.switchToPage(i);
-        // writing below the bottom margin would make pdfkit start a new (blank) page
-        const bottom = doc.page.margins.bottom;
-        doc.page.margins.bottom = 0;
-        doc.fontSize(8).fillColor("#6b7280").text([brand.name, brand.phone, brand.email].filter(Boolean).join("  ·  "), 44, doc.page.height - 34, { width: doc.page.width - 88, align: "center", lineBreak: false });
-        doc.page.margins.bottom = bottom;
-    }
-};
+/** Itinerary PDF (also used by the public client page). */
 export const renderItineraryPdf = async (res: Response, it: any, quote: any, agencyUuid: string) => {
-    const brand = await brandOf(agencyUuid);
-    const x = it.toJSON ? it.toJSON() : it;
-    const doc = await startPdf(res, `${x.title}.pdf`, brand, x.title, [x.destination, `${x.nights}N/${Number(x.nights) + 1}D`, x.start_date ? `from ${fmt(x.start_date)}` : "", `Prepared by ${brand.name}`].filter(Boolean).join("  ·  "));
-    const cover = await fetchImage(x.cover_image);
-    if (cover) { try { doc.image(cover, 44, doc.y, { fit: [doc.page.width - 88, 200], align: "center" }); doc.y += 210; } catch { /* skip */ } }
-    heading(doc, "Day by day", brand.color);
-    const start = x.start_date ? Date.parse(`${x.start_date}T00:00:00Z`) : null;
-    for (const [i, d] of (Array.isArray(x.days) ? x.days : []).entries()) {
-        if (doc.y > doc.page.height - 140) doc.addPage();
-        const when = start ? fmt(new Date(start + i * 864e5).toISOString().slice(0, 10)) : "";
-        doc.font("Helvetica-Bold").fontSize(11).text(`Day ${i + 1}: ${d.title}`, 44).font("Helvetica").fontSize(9).fillColor("#6b7280").text([d.city, when].filter(Boolean).join(" · ")).fillColor("#111827").fontSize(10);
-        for (const item of d.items || []) doc.text(`•  ${ITEM[item.type] ? `${ITEM[item.type]}: ` : ""}${item.text}`, 56, doc.y, { width: doc.page.width - 100 });
-        if (d.notes) doc.fillColor("#4b5563").text(d.notes, 56).fillColor("#111827");
-        doc.moveDown(0.5);
-    }
-    if (quote) {
-        const q = quote.toJSON ? quote.toJSON() : quote;
-        const pax = Math.max(1, Number(q.adults || 0) + Number(q.children || 0));
-        heading(doc, "Price", brand.color);
-        for (const o of q.options || []) {
-            const t = quoteTotals(o.lines || [], { discount: Number(q.discount || 0), billingMode: q.billing_mode, gstPercent: Number(q.gst_percent), tcsPercent: Number(q.tcs_percent), international: Boolean(q.is_international), travellers: pax });
-            doc.font("Helvetica-Bold").text(`${o.name}: ${rs(t.total)}`, 44, doc.y, { continued: true }).font("Helvetica").text(`   (${rs(t.per_person)} per person, ${pax} travellers, incl. GST${t.tcs ? " and TCS" : ""})`);
-        }
-        if (q.valid_until) doc.fillColor("#6b7280").text(`Valid until ${fmt(q.valid_until)}`).fillColor("#111827");
-    }
-    for (const [label, key] of [["Included", "inclusions"], ["Not included", "exclusions"], ["Cancellation policy", "cancellation_policy"], ["Terms", "terms"]] as const) {
-        if (!x[key]) continue;
-        heading(doc, label, brand.color);
-        doc.text(String(x[key]), 44, doc.y, { width: doc.page.width - 88 });
-    }
-    footer(doc, brand);
-    doc.end();
+    const lead: any = it?.dataValues?.crm_lead_id ? await CrmLead.findByPk(it.dataValues.crm_lead_id, { attributes: ["name"], raw: true }) : null;
+    return itineraryPdf(res, await pdfBrand(agencyUuid), it, quote, lead ? { name: lead.name } : null);
 };
 
 class TravelPlusController {
@@ -280,57 +218,32 @@ class TravelPlusController {
         } catch (error) { return fail(res, error, "itineraryPdf"); }
     }
 
+    /** GET /travel/quotes/:uuid/pdf - quotation with price breakdown per option, payment details and day plan. */
     async quotePdf(req: RequestWithUser, res: Response) {
         try {
             const a = accessOf(req);
             const q: any = await Quotation.findOne({ where: { agency_uuid: a.agencyUuid, uuid: req.params.uuid } });
             if (!q) return no(res, "Quote not found");
             const it: any = q.dataValues.itinerary_id ? await Itinerary.findByPk(q.dataValues.itinerary_id) : null;
-            if (it) return renderItineraryPdf(res, it, q, a.agencyUuid);
-            // a quote without a day plan: price page only
-            return renderItineraryPdf(res, { title: q.dataValues.title || "Trip quote", destination: "", nights: 0, days: [], start_date: null }, q, a.agencyUuid);
+            const lead: any = q.dataValues.crm_lead_id ? await CrmLead.findByPk(q.dataValues.crm_lead_id, { attributes: ["name", "country_code", "phone_number", "email"], raw: true }) : null;
+            const client = lead ? { name: lead.name, phone: `${lead.country_code || ""} ${lead.phone_number || ""}`.trim(), email: lead.email } : null;
+            return quotePdf(res, await pdfBrand(a.agencyUuid), q, it, client, (q.dataValues.sent_at || q.dataValues.updatedAt || new Date()).toISOString().slice(0, 10));
         } catch (error) { return fail(res, error, "quotePdf"); }
     }
 
-    /** GET /travel/bookings/:uuid/vouchers.pdf - one voucher page per hotel / transfer / activity. */
+    /** GET /travel/bookings/:uuid/vouchers.pdf[?service=uuid] - one voucher page per hotel / transfer / activity. */
     async vouchersPdf(req: RequestWithUser, res: Response) {
         try {
             const a = accessOf(req);
             const b: any = await Booking.findOne({ where: { agency_uuid: a.agencyUuid, uuid: req.params.uuid } });
             if (!b) return no(res, "Booking not found");
-            const x = b.toJSON();
             const [services, pax, client]: any[] = await Promise.all([
-                BookingService.findAll({ where: { booking_id: x.id, status: { [Op.ne]: "cancelled" }, type: ["hotel", "transfer", "activity", "other"] }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name", "phone"], required: false }], order: [["service_date", "ASC"]] }),
-                BookingTraveller.findAll({ where: { booking_id: x.id }, attributes: ["name", "pax_type"], raw: true }),
-                User.findByPk(x.user_id, { attributes: ["username", "phone_number", "country_code"], raw: true }),
+                BookingService.findAll({ where: { booking_id: b.dataValues.id, status: { [Op.ne]: "cancelled" }, type: ["hotel", "transfer", "activity", "other"] }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name", "phone", "city"], required: false }], order: [["service_date", "ASC"], ["id", "ASC"]] }),
+                BookingTraveller.findAll({ where: { booking_id: b.dataValues.id }, attributes: ["name", "pax_type", "is_lead"], order: [["is_lead", "DESC"], ["id", "ASC"]], raw: true }),
+                User.findByPk(b.dataValues.user_id, { attributes: ["username", "phone_number", "country_code"], raw: true }),
             ]);
             const onlyId = String(req.query.service || "");
-            const list = services.filter((s: any) => !onlyId || s.dataValues.uuid === onlyId);
-            const brand = await brandOf(a.agencyUuid);
-            const doc = await startPdf(res, `vouchers-${x.booking_no}.pdf`, brand, `${list.length === 1 ? "Voucher" : "Vouchers"} · ${x.booking_no}`, `${x.title} · ${fmt(x.start_date)}${x.end_date ? ` – ${fmt(x.end_date)}` : ""}`);
-            if (!list.length) doc.text("No hotel, transfer or activity services on this booking yet.");
-            list.forEach((s: any, i: number) => {
-                const v = s.toJSON();
-                if (i > 0) doc.addPage().y = 60;
-                doc.fontSize(16).font("Helvetica-Bold").fillColor(brand.color).text(`${v.type === "hotel" ? "Hotel" : v.type === "transfer" ? "Transfer" : "Activity"} voucher`, 44).fillColor("#111827").moveDown(0.5);
-                const rows: [string, string][] = [
-                    ["Service", v.description], ["Supplier", [v.supplier?.name, v.supplier?.phone].filter(Boolean).join(" · ") || "-"],
-                    ["Confirmation no.", v.confirmation_no || "Pending"], ["Date", `${fmt(v.service_date)}${v.end_date && v.end_date !== v.service_date ? ` – ${fmt(v.end_date)}` : ""}`],
-                    ...Object.entries(v.details || {}).filter(([k, val]) => val && !["qty", "nights"].includes(k)).map(([k, val]) => [k.replace(/_/g, " "), String(val)] as [string, string]),
-                    ["Guests", pax.map((p: any) => `${p.name}${p.pax_type !== "adult" ? ` (${p.pax_type})` : ""}`).join(", ") || client?.username || ""],
-                    ["Lead guest phone", `${client?.country_code || ""} ${client?.phone_number || ""}`.trim()],
-                ];
-                doc.fontSize(10.5).font("Helvetica");
-                for (const [k, val] of rows) {
-                    const y = doc.y;
-                    doc.fillColor("#6b7280").text(k.charAt(0).toUpperCase() + k.slice(1), 44, y, { width: 150 });
-                    doc.fillColor("#111827").font(k === "Confirmation no." ? "Helvetica-Bold" : "Helvetica").text(val, 200, y, { width: doc.page.width - 244 }).font("Helvetica");
-                    doc.moveDown(0.4);
-                }
-                doc.moveDown(1).fontSize(9).fillColor("#6b7280").text(`Please show this voucher at check-in / pick-up. For help call ${brand.phone || "your travel consultant"}.`, 44);
-            });
-            footer(doc, brand);
-            doc.end();
+            return vouchersPdf(res, await pdfBrand(a.agencyUuid), b, services.filter((s: any) => !onlyId || s.dataValues.uuid === onlyId), pax, client);
         } catch (error) { return fail(res, error, "vouchersPdf"); }
     }
 

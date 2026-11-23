@@ -252,14 +252,17 @@ const run = async () => {
         await log(leadId, "converted", `Booked: ${booking.dataValues.booking_no} (${t.title})`, at(L.start - 20));
 
         // services: confirmed for trips that are ready; the "soon" trip still has open items (shows on the dashboard)
+        let hotelDay = 0; // hotels follow one another through the trip
         for (const [li, l] of lines.entries()) {
             const confirmed = stage !== "soon" || li === 0;
+            const checkIn = l.service_type === "hotel" ? Math.min(hotelDay, Math.max(0, L.nights - 1)) : Math.min(li, Math.max(0, L.nights - 1));
+            if (l.service_type === "hotel") hotelDay += Math.max(1, l.nights);
             const cost = l.unit_cost * l.qty * Math.max(1, l.nights);
             const paid = stage === "done" || stage === "now" ? cost : stage === "next" ? Math.round(cost * 0.3) : li === 0 ? Math.round(cost * 0.5) : 0;
             keep("services", await T.BookingService.create({
                 agency_uuid: agencyUuid, booking_id: booking.dataValues.id, type: l.service_type === "activity" ? "activity" : l.service_type, description: l.description, supplier_id: l.supplier_id,
                 confirmation_no: confirmed ? `${l.description.slice(0, 3).toUpperCase()}-${10000 + bn * 100 + li}` : null, status: confirmed ? "confirmed" : "requested",
-                service_date: iso(L.start + (l.service_type === "hotel" ? 0 : Math.min(li, L.nights - 1))), end_date: l.service_type === "hotel" ? iso(L.start + Math.max(1, l.nights)) : null,
+                service_date: iso(L.start + checkIn), end_date: l.service_type === "hotel" ? iso(L.start + checkIn + Math.max(1, l.nights)) : null,
                 cost, sell: cost + Math.round(cost * l.markup_value / 100), details: l.service_type === "hotel" ? { room_type: (rateBy[l.description] as any).room || "", meal_plan: (rateBy[l.description] as any).meal || "", qty: l.qty, nights: l.nights } : { pickup_time: "09:00 from hotel lobby", qty: l.qty },
                 supplier_due_date: iso(stage === "soon" ? L.start - 3 : L.start - 10), supplier_paid: paid,
                 supplier_payments: paid ? [{ amount: paid, paid_at: iso(L.start - 12), method: "bank_transfer", reference: `UTR${700000 + bn * 10 + li}` }] : null,
