@@ -5,9 +5,9 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import EmptyState from "@/components/ui-kit/EmptyState";
 import { CardListSkeleton } from "@/components/ui-kit/Skeletons";
 import { Field, LIBRARY_TYPES, PageHead } from "./travelShared";
-import { ImageUpload } from "./travelActions";
+import { MultiImageUpload } from "./travelActions";
 
-const empty = { id: "", type: "activity", name: "", destination: "", star: "", description: "", photo: "" };
+const empty = { id: "", type: "activity", name: "", destination: "", star: "", description: "", photos: [] as string[] };
 
 /** Master library of destinations, hotels, sightseeing and transfers used in itineraries (IT-02). */
 const Library = () => {
@@ -28,10 +28,10 @@ const Library = () => {
     }, [type, search]);
     useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
-    const open = (x?: any) => { setForm(x ? { ...empty, ...x, star: x.star ? String(x.star) : "", photo: x.photos?.[0] || "", description: x.description || "", destination: x.destination || "" } : { ...empty, type: type || "activity" }); modal.onOpen(); };
+    const open = (x?: any) => { setForm(x ? { ...empty, ...x, star: x.star ? String(x.star) : "", photos: Array.isArray(x.photos) ? x.photos : [], description: x.description || "", destination: x.destination || "" } : { ...empty, type: type || "activity" }); modal.onOpen(); };
     const save = async (close: () => void) => {
         setSaving(true);
-        const body = { ...form, star: form.star ? Number(form.star) : null, photos: form.photo ? [form.photo] : [] };
+        const body = { ...form, star: form.star ? Number(form.star) : null, photos: form.photos || [] };
         const { success } = await commonPostAPICall(body, form.id ? `travel/library/${form.id}/update` : "travel/library", true);
         setSaving(false);
         if (success) { close(); load(); }
@@ -53,7 +53,7 @@ const Library = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {rows.map((x) => (
                         <Card key={x.id} isPressable shadow="sm" onPress={() => open(x)}>
-                            {x.photos?.[0] && <img src={x.photos[0]} alt="" className="h-28 w-full object-cover" />}
+                            {x.photos?.[0] && <div className="relative"><img src={x.photos[0]} alt="" className="h-28 w-full object-cover" />{x.photos.length > 1 && <span className="absolute bottom-1 right-1 text-[11px] bg-black/60 text-white rounded px-1.5">+{x.photos.length - 1}</span>}</div>}
                             <CardBody className="gap-1">
                                 <div className="flex items-start gap-2"><div className="font-semibold flex-1 truncate">{x.name}{x.star ? ` · ${x.star}★` : ""}</div><Chip size="sm" variant="flat">{LIBRARY_TYPES.find((t) => t.key === x.type)?.label}</Chip></div>
                                 {x.destination && <div className="text-xs text-default-500">{x.destination}</div>}
@@ -72,7 +72,7 @@ const Library = () => {
                         <Field label="Name" className="sm:col-span-2"><Input aria-label="Name" value={form.name} onValueChange={(v) => setForm((f: any) => ({ ...f, name: v }))} /></Field>
                         {form.type === "hotel" && <Field label="Star rating"><Input aria-label="Star rating" type="number" min={1} max={7} value={form.star} onValueChange={(v) => setForm((f: any) => ({ ...f, star: v }))} /></Field>}
                         <Field label="Description" className="sm:col-span-2"><Textarea aria-label="Description" minRows={3} value={form.description} onValueChange={(v) => setForm((f: any) => ({ ...f, description: v }))} /></Field>
-                        <Field label="Photo (shown in itineraries and on the client page)" className="sm:col-span-2"><ImageUpload value={form.photo || null} onChange={(url) => setForm((f: any) => ({ ...f, photo: url || "" }))} /></Field>
+                        <Field label="Photos (added to the itinerary with this item; the first is the main one)" className="sm:col-span-2"><MultiImageUpload value={form.photos} max={8} onChange={(urls) => setForm((f: any) => ({ ...f, photos: urls }))} /></Field>
                     </ModalBody>
                     <ModalFooter>
                         {form.id && <Button variant="light" color="danger" className="mr-auto" onPress={async () => { const { success } = await commonPostAPICall({}, `travel/library/${form.id}/delete`, true); if (success) { close(); load(); } }}>Delete</Button>}

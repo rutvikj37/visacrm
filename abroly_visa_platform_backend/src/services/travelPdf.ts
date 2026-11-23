@@ -233,8 +233,10 @@ const dayPlan = async (pdf: Pdf, days: any[], start: string | null, withImages: 
         const textW = CW - 74;
         let est = 34 + (day.notes ? d.font(R).fontSize(9).heightOfString(day.notes, { width: textW }) + 6 : 0);
         for (const it of items) est += d.font(R).fontSize(9.5).heightOfString(it.text || "", { width: textW - 70 }) + 6;
-        const img = withImages ? await fetchImage(day.image) : null;
-        if (img) est += 130;
+        // up to 3 day photos side by side (plus item photos, up to 3)
+        const urls = withImages ? [...(Array.isArray(day.images) && day.images.length ? day.images : day.image ? [day.image] : []), ...items.flatMap((it: any) => (Array.isArray(it.images) ? it.images : it.image ? [it.image] : []))] : [];
+        const imgs = (await Promise.all([...new Set(urls)].slice(0, 3).map((u: any) => fetchImage(u)))).filter(Boolean) as Buffer[];
+        if (imgs.length) est += 130;
         pdf.need(Math.min(est, 420));
         const y0 = d.y;
         // day badge
@@ -256,12 +258,16 @@ const dayPlan = async (pdf: Pdf, days: any[], start: string | null, withImages: 
             y = d.y + 5;
         }
         if (day.notes) { d.font(R).fontSize(9).fillColor("#4b5563").text(day.notes, x, y, { width: textW }); y = d.y + 5; }
-        if (img) {
-            d.save();
-            d.roundedRect(x, y + 2, textW, 120, 8).clip();
-            try { d.image(img, x, y + 2, { cover: [textW, 120], align: "center", valign: "center" }); } catch { /* skip */ }
-            d.restore();
-            y += 128;
+        if (imgs.length) {
+            const gap = 6, w = (textW - gap * (imgs.length - 1)) / imgs.length, h = imgs.length === 1 ? 130 : 100;
+            imgs.forEach((im, k) => {
+                const ix = x + k * (w + gap);
+                d.save();
+                d.roundedRect(ix, y + 2, w, h, 8).clip();
+                try { d.image(im, ix, y + 2, { cover: [w, h], align: "center", valign: "center" }); } catch { /* skip */ }
+                d.restore();
+            });
+            y += h + 8;
         }
         const bottom = Math.max(y, y0 + 62);
         if (i < days.length - 1) { d.moveTo(M + 28, y0 + 64).lineTo(M + 28, bottom + 8).dash(2, { space: 3 }).lineWidth(0.8).strokeColor(tint(pdf.c, 0.6)).stroke().undash(); }

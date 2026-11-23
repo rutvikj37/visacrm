@@ -65,7 +65,8 @@ button,.btn{border:0;border-radius:10px;padding:10px 16px;font:600 14px system-u
 .primary{background:var(--brand);color:#fff}.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
 .ok{background:#ecfdf5;border-color:#a7f3d0}.muted{color:var(--muted);font-size:13px}
 footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0}
-.cover{width:100%;max-height:340px;object-fit:cover;border-radius:16px;margin-top:14px;display:block}.dayimg{width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px}.thumb{width:56px;height:42px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px}
+.cover{width:100%;max-height:340px;object-fit:cover;border-radius:16px;margin-top:14px;display:block}.dayimg{width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px}.thumbs{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px}.thumb{width:72px;height:54px;object-fit:cover;border-radius:6px;display:block}
+.gallery{display:grid;gap:6px;margin-top:8px}.gallery.g1{grid-template-columns:1fr}.gallery.g2{grid-template-columns:1fr 1fr}.gallery.g3{grid-template-columns:repeat(3,1fr)}.gallery img{width:100%;height:150px;object-fit:cover;border-radius:10px;display:block}.gallery.g1 img{height:220px}@media(max-width:620px){.gallery.g3{grid-template-columns:1fr 1fr}.gallery img{height:110px}}
 ${THEMES[theme] || ""}
 @media print{.noprint{display:none!important}body{background:#fff}.card,header{break-inside:avoid}header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body><div class="wrap">${body}</div></body></html>`;
@@ -98,9 +99,14 @@ class PublicTravelController {
 
             const dayHtml = days.map((d: any, i: number) => {
                 const when = startMs ? fmtDate(new Date(startMs + i * 864e5).toISOString().slice(0, 10)) : "";
-                const img = (u: any) => (/^https?:\/\//.test(String(u || "")) ? String(u) : "");
-                const items = (Array.isArray(d.items) ? d.items : []).map((it2: any) => `<li>${img(it2.image) ? `<img class="thumb" src="${esc(img(it2.image))}" alt="">` : ""}<span class="tag">${esc(ICON[it2.type] || "")}</span>${esc(it2.text)}</li>`).join("");
-                return `<div class="day"><div class="badge">Day ${i + 1}</div><div><h3>${esc(d.title)}</h3><div class="city">${esc([d.city, when].filter(Boolean).join(" · "))}</div>${img(d.image) ? `<img class="dayimg" src="${esc(img(d.image))}" alt="">` : ""}${items ? `<ul>${items}</ul>` : ""}${d.notes ? `<p class="muted">${nl(d.notes)}</p>` : ""}</div></div>`;
+                const pics = (x: any) => (Array.isArray(x?.images) && x.images.length ? x.images : x?.image ? [x.image] : []).filter((u: any) => /^https?:\/\//.test(String(u || ""))) as string[];
+                const items = (Array.isArray(d.items) ? d.items : []).map((it2: any) => {
+                    const ip = pics(it2);
+                    return `<li><span class="tag">${esc(ICON[it2.type] || "")}</span>${esc(it2.text)}${ip.length ? `<div class="thumbs">${ip.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(u)}" alt=""></a>`).join("")}</div>` : ""}</li>`;
+                }).join("");
+                const dp = pics(d);
+                const gallery = dp.length ? `<div class="gallery g${Math.min(dp.length, 3)}">${dp.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt=""></a>`).join("")}</div>` : "";
+                return `<div class="day"><div class="badge">Day ${i + 1}</div><div><h3>${esc(d.title)}</h3><div class="city">${esc([d.city, when].filter(Boolean).join(" · "))}</div>${gallery}${items ? `<ul>${items}</ul>` : ""}${d.notes ? `<p class="muted">${nl(d.notes)}</p>` : ""}</div></div>`;
             }).join("");
 
             const block = (title: string, v: any) => (v ? `<div class="card"><h2>${title}</h2><div>${nl(v)}</div></div>` : "");

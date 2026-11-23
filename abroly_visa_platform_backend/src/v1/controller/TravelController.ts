@@ -91,21 +91,35 @@ const presentRate = (x: any) => ({
     cost: toRupees(x.cost), currency: x.currency, supplier_name: x.supplier?.name,
 });
 
+const isUrl = (u: any) => /^https?:\/\//.test(String(u || ""));
+/** Photo list from `images` (new) or a single `image` (older itineraries); http(s) URLs only. */
+const photos = (x: any, max: number) => {
+    const list = Array.isArray(x?.images) ? x.images : x?.image ? [x.image] : [];
+    return [...new Set(list.filter(isUrl).map((u: any) => String(u).slice(0, 500)))].slice(0, max) as string[];
+};
 const cleanDays = (raw: any) => {
     if (!Array.isArray(raw)) return [];
-    return raw.slice(0, 60).map((d: any, i: number) => ({
-        day: i + 1,
-        title: str(d?.title, 200) || `Day ${i + 1}`,
-        city: str(d?.city, 120),
-        notes: str(d?.notes, 3000),
-        image: /^https?:\/\//.test(String(d?.image || "")) ? String(d.image).slice(0, 500) : null,
-        items: (Array.isArray(d?.items) ? d.items : []).slice(0, 30).map((it: any) => ({
-            type: ["hotel", "sightseeing", "transfer", "meal", "flight", "activity", "note"].includes(it?.type) ? it.type : "note",
-            text: str(it?.text, 1000) || "",
-            library_item_id: it?.library_item_id ? String(it.library_item_id).slice(0, 64) : null,
-            image: /^https?:\/\//.test(String(it?.image || "")) ? String(it.image).slice(0, 500) : null,
-        })).filter((it: any) => it.text),
-    }));
+    return raw.slice(0, 60).map((d: any, i: number) => {
+        const dayImages = photos(d, 8);
+        return {
+            day: i + 1,
+            title: str(d?.title, 200) || `Day ${i + 1}`,
+            city: str(d?.city, 120),
+            notes: str(d?.notes, 3000),
+            images: dayImages,
+            image: dayImages[0] || null, // first photo, kept for older screens
+            items: (Array.isArray(d?.items) ? d.items : []).slice(0, 30).map((it: any) => {
+                const itemImages = photos(it, 6);
+                return {
+                    type: ["hotel", "sightseeing", "transfer", "meal", "flight", "activity", "note"].includes(it?.type) ? it.type : "note",
+                    text: str(it?.text, 1000) || "",
+                    library_item_id: it?.library_item_id ? String(it.library_item_id).slice(0, 64) : null,
+                    images: itemImages,
+                    image: itemImages[0] || null,
+                };
+            }).filter((it: any) => it.text),
+        };
+    });
 };
 
 const presentItinerary = (x: any, lead?: any) => ({

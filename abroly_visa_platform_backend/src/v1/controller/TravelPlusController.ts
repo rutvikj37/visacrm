@@ -42,13 +42,14 @@ const OPEN_STAGES = ["new", "contacted", "follow_up", "interested", "counselling
 
 // ---------------------------------------------------------------- photo uploads (public, used on client pages)
 
+// one or many photos at once: field "files" (up to 10) or "file"
 const imageUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    limits: { fileSize: 5 * 1024 * 1024, files: 10 },
     fileFilter: (_req, file, cb) => cb(null, /\.(jpe?g|png|webp)$/i.test(file.originalname) && /^image\//.test(file.mimetype)),
-}).single("file");
+}).fields([{ name: "files", maxCount: 10 }, { name: "file", maxCount: 1 }]);
 export const travelImageUpload = (req: Request, res: Response, next: NextFunction) =>
-    imageUpload(req, res, (err: any) => (err ? returnHelper(res, 200, false, err.code === "LIMIT_FILE_SIZE" ? "Photos can be up to 5 MB" : err.message || "Upload failed") : next()));
+    imageUpload(req, res, (err: any) => (err ? returnHelper(res, 200, false, err.code === "LIMIT_FILE_SIZE" ? "Each photo can be up to 5 MB" : err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE" ? "Up to 10 photos at a time" : err.message || "Upload failed") : next()));
 
 // ---------------------------------------------------------------- PDFs (layouts in services/travelPdf.ts)
 
@@ -197,12 +198,19 @@ class TravelPlusController {
     /** POST /travel/media (multipart file) - a photo for itineraries, library items or packages; returns a public URL. */
     async uploadImage(req: RequestWithUser, res: Response) {
         try {
-            const file = (req as any).file as Express.Multer.File | undefined;
-            if (!file) return no(res, "Choose a JPG, PNG or WebP photo (up to 5 MB)");
-            const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
-            const ref = await saveFile({ owner: agencyOwner(accessOf(req).agencyUuid), folder: "travel_media", name: `${crypto.randomUUID()}${ext}`, body: file.buffer, contentType: file.mimetype });
-            const url = publicFileUrl("travel_media", ref);
-            return ok(res, "Photo uploaded", { url: url && !/^https?:/.test(url) ? `${publicApiBase(req).replace(/\/api$/, "")}/${url.replace(/^\//, "")}` : url });
+            const f = (req as any).files || {};
+            const files = [...(f.files || []), ...(f.file || [])] as Express.Multer.File[];
+            if (!files.length) return no(res, "Choose JPG, PNG or WebP photos (up to 5 MB each)");
+            const owner = agencyOwner(accessOf(req).agencyUuid);
+            const urls: string[] = [];
+            for (const file of files) {
+                const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
+                const ref = await saveFile({ owner, folder: "travel_media", name: `${crypto.randomUUID()}${ext}`, body: file.buffer, contentType: file.mimetype });
+                const url = publicFileUrl("travel_media", ref);
+                urls.push(url && !/^https?:/.test(url) ? `${publicApiBase(req).replace(/\/api$/, "")}/${url.replace(/^\//, "")}` : String(url));
+            }
+            // `url` stays for screens that upload one photo
+            return ok(res, urls.length > 1 ? `${urls.length} photos uploaded` : "Photo uploaded", { url: urls[0], urls });
         } catch (error) { return fail(res, error, "uploadImage"); }
     }
 

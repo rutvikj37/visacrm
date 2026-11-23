@@ -7,10 +7,12 @@ import { ArrowDown, ArrowLeft, ArrowUp, Copy, ExternalLink, FileDown, FileText, 
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { SuccessToast } from "@/utils/Toaster";
 import { DAY_ITEM_TYPES, Field, ITINERARY_STATUS, apiBase } from "./travelShared";
-import { ImageUpload, useOpenPdf, useSendWhatsapp } from "./travelActions";
+import { ImageUpload, MultiImageUpload, useOpenPdf, useSendWhatsapp } from "./travelActions";
 
-type Item = { type: string; text: string; library_item_id?: string | null; image?: string | null };
-type Day = { title: string; city?: string | null; notes?: string | null; image?: string | null; items: Item[] };
+type Item = { type: string; text: string; library_item_id?: string | null; images?: string[] };
+type Day = { title: string; city?: string | null; notes?: string | null; images?: string[]; items: Item[] };
+/** Photos of a day or item: `images`, or the single `image` of older itineraries. */
+const picsOf = (x: any): string[] => (Array.isArray(x?.images) && x.images.length ? x.images : x?.image ? [x.image] : []);
 
 const LIB_TO_DAY: Record<string, string> = { hotel: "hotel", activity: "sightseeing", transfer: "transfer", meal: "meal", destination: "note", note: "note" };
 
@@ -37,7 +39,7 @@ const ItineraryBuilder = () => {
         const { success, data } = await commonGetAPICalls(`/travel/itineraries/${id}`);
         if (!success) return;
         setIt(data);
-        setDays((data.days || []).map((d: any) => ({ title: d.title, city: d.city, notes: d.notes, image: d.image || null, items: d.items || [] })));
+        setDays((data.days || []).map((d: any) => ({ title: d.title, city: d.city, notes: d.notes, images: picsOf(d), items: (d.items || []).map((it: any) => ({ ...it, images: picsOf(it) })) })));
         setMeta({ title: data.title, destination: data.destination || "", start_date: data.start_date || "", inclusions: data.inclusions || "", exclusions: data.exclusions || "", terms: data.terms || "", cancellation_policy: data.cancellation_policy || "", theme: data.theme || "classic", cover_image: data.cover_image || null });
         setDirty(false);
     };
@@ -176,7 +178,7 @@ const ItineraryBuilder = () => {
                                             {DAY_ITEM_TYPES.map((t) => <SelectItem key={t.key}>{t.label}</SelectItem>)}
                                         </Select>
                                         <Textarea aria-label="Details" size="sm" minRows={1} value={item.text} onValueChange={(v) => change((x) => { x[di].items[ii].text = v; return x; })} className="flex-1" />
-                                        <ImageUpload compact value={item.image} onChange={(url) => change((x) => { x[di].items[ii].image = url; return x; })} label="Photo" />
+                                        <MultiImageUpload compact value={item.images} max={6} onChange={(urls) => change((x) => { x[di].items[ii].images = urls; return x; })} label="Photos" />
                                         <Button isIconOnly size="sm" variant="light" aria-label="Remove" onPress={() => change((x) => { x[di].items.splice(ii, 1); return x; })}><Trash2 size={14} /></Button>
                                     </div>
                                 ))}
@@ -185,7 +187,10 @@ const ItineraryBuilder = () => {
                                     <Button size="sm" variant="light" startContent={<Library size={14} />} onPress={() => openLibrary(di)}>From library</Button>
                                 </div>
                                 <Textarea aria-label="Day notes" size="sm" minRows={1} placeholder="Notes for this day (optional)" value={d.notes || ""} onValueChange={(v) => change((x) => { x[di].notes = v; return x; })} />
-                                <ImageUpload value={d.image} onChange={(url) => change((x) => { x[di].image = url; return x; })} label="Day photo" />
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs text-default-500">Day photos (up to 8; the first is the main one)</span>
+                                    <MultiImageUpload value={d.images} max={8} onChange={(urls) => change((x) => { x[di].images = urls; return x; })} label="Add day photos" />
+                                </div>
                             </div>
                         </CardBody>
                     </Card>
@@ -211,7 +216,7 @@ const ItineraryBuilder = () => {
                                     {libFiltered.map((l) => (
                                         <button key={l.id} type="button" className="text-left py-2 px-1 hover:bg-default-50 rounded" onClick={() => {
                                             if (libFor === null) return;
-                                            change((x) => { x[libFor].items.push({ type: LIB_TO_DAY[l.type] || "note", text: [l.name, l.description].filter(Boolean).join(" - "), library_item_id: l.id, image: l.photos?.[0] || null }); return x; });
+                                            change((x) => { x[libFor].items.push({ type: LIB_TO_DAY[l.type] || "note", text: [l.name, l.description].filter(Boolean).join(" - "), library_item_id: l.id, images: (l.photos || []).slice(0, 6) }); return x; });
                                             close();
                                         }}>
                                             <div className="font-medium text-sm">{l.name}{l.star ? ` · ${l.star}★` : ""}</div>
