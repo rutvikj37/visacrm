@@ -16,7 +16,9 @@ export const travelNavGroup = (opts: { team?: boolean } = {}) => ({
         { title: "Bookings", url: "/travel/bookings", module: "bookings" },
         { title: "Packages", url: "/travel/packages", module: "itinerary" },
         { title: "Suppliers", url: "/travel/suppliers", module: "suppliers" },
+        { title: "Reports", url: "/travel/reports", module: "itinerary" },
         ...(opts.team ? [] : [{ title: "Library", url: "/travel/library", module: "itinerary" }]),
+        { title: opts.team ? "My calendar link" : "Travel settings", url: "/travel/settings", module: "itinerary" },
     ],
 });
 

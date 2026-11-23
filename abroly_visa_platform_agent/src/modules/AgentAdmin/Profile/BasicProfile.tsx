@@ -1,3 +1,4 @@
+import { TwoStepCard } from "@/modules/AgentAdmin/Travel/TravelSettings";
 import React, { useEffect, useState } from 'react'
 import 'rsuite/dist/rsuite.min.css';
 import { Nav } from 'rsuite';
@@ -119,6 +120,8 @@ const BasicProfile = () => {
           </div>
         )}
       </div>
+      {/* owner login security, for every CRM type */}
+      <div className="mt-4 max-w-3xl"><TwoStepCard /></div>
     </div>
   );
 }

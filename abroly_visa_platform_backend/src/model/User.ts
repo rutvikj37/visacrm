@@ -70,6 +70,8 @@ const User = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0
     },
+    // Travel CRM client profile: preferences (meal, seat, hotel, interests) and important dates
+    travel_prefs: { type: DataTypes.JSON, allowNull: true },
     // agency (tenant) this student belongs to - Agent.uuid of the main agency account
     agency_uuid: {
       type: DataTypes.STRING,

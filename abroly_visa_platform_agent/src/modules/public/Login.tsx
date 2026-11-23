@@ -27,7 +27,7 @@ import { useAgencyBrand } from "@/utils/agencyHost";
 
 import { publicAsset } from "@/utils/appBase";
 
-type Screen = "phone" | "code" | "set_passcode" | "forgot" | "reset_code";
+type Screen = "phone" | "code" | "set_passcode" | "forgot" | "reset_code" | "totp";
 
 const Login = () => {
   const { commonPostPublicAPICall } = useApiCallUtils();
@@ -85,6 +85,26 @@ const Login = () => {
     addToLocal("website", "agent");
     dispatch(setAuthLoading("false"));
     navigate("/");
+  };
+
+  // owners with two-step login: authenticator code after the passcode
+  const [totpToken, setTotpToken] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const handleMustTotp = (data: any) => {
+    if (data?.must_totp && data?.totp_token) {
+      setTotpToken(data.totp_token);
+      setTotpCode("");
+      setScreen("totp");
+      return true;
+    }
+    return false;
+  };
+  const submitTotp = async () => {
+    if (totpCode.length !== 6) { ErrorToast("Enter the 6-digit code"); return; }
+    setIsLoadingOtpVerify(true);
+    const { success, data } = await commonPostPublicAPICall({ totp_token: totpToken, code: totpCode }, "agent/verify_totp", true);
+    setIsLoadingOtpVerify(false);
+    if (success && data?.token) finishLogin(data);
   };
 
   const handleMustSetPasscode = (data: any) => {
@@ -204,7 +224,7 @@ const Login = () => {
       true
     );
     if (success == true) {
-      if (handleMustSetPasscode(data)) {
+      if (handleMustSetPasscode(data) || handleMustTotp(data)) {
         setIsLoadingOtpVerify(false);
         return;
       }
@@ -274,6 +294,7 @@ const Login = () => {
       "agent/set_passcode",
       true
     );
+    if (success && handleMustTotp(data)) return;
     if (success && data?.token) finishLogin(data);
     setIsLoadingOtpVerify(false);
   };
@@ -537,6 +558,31 @@ const Login = () => {
                       >
                         Resend reset email
                       </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {screen === "totp" && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+                    <div className="text-center lg:text-left">
+                      <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">Two-step login</h2>
+                      <p className="text-gray-600 mt-2 text-sm">Enter the 6-digit code from your authenticator app.</p>
+                    </div>
+                    <div className="space-y-4">
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        label="Code"
+                        labelPlacement="outside-top"
+                        placeholder="123456"
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        onKeyDown={(e) => { if (e.key === "Enter") submitTotp(); }}
+                      />
+                      <Button className="w-full bg-indigo-600 text-white rounded-xl py-3 font-semibold" size="lg" isLoading={isLoadingOtpVerify} onPress={submitTotp}>
+                        Verify & log in
+                      </Button>
+                      <Button variant="light" className="w-full" onPress={() => setScreen("phone")}>Back</Button>
                     </div>
                   </motion.div>
                 )}

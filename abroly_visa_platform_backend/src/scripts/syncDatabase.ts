@@ -36,6 +36,10 @@ const syncDatabase = async () => {
       await initializer.initializeModels(syncOptions);
     }
     
+    // new values on existing ENUM columns (sync leaves those alone)
+    const { syncEnumColumns } = await import('../config/enumSync');
+    await syncEnumColumns();
+
     console.log('✅ Database sync completed successfully');
     await sequelize.close();
     process.exit(0);

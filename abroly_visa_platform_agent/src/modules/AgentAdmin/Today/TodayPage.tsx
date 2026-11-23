@@ -2,9 +2,10 @@ import { PageSkeleton } from "@/components/ui-kit/Skeletons";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, CardBody, CardHeader, Chip, Spinner } from "@heroui/react";
-import { AlarmClock, CalendarClock, FileCheck2, IndianRupee, MessageCircle, Phone, RefreshCw, UserPlus, Users } from "lucide-react";
+import { AlarmClock, CalendarClock, FileCheck2, FileText, IndianRupee, MessageCircle, Phone, Plane, RefreshCw, UserPlus, Users } from "lucide-react";
 import SetupChecklist from "@/components/help/SetupChecklist";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
+import useModules from "@/hooks/useModules";
 import { BranchPicker, branchQuery } from "@/modules/AgentAdmin/Branches/branchShared";
 import { formatDateTime, sourceLabel, statusMeta, timeAgo } from "@/modules/AgentAdmin/Crm/crmShared";
 
@@ -51,6 +52,9 @@ const LeadRow = ({ l, extra, onOpen }: { l: any; extra?: any; onOpen: () => void
 /** Home of the agency panel: what needs doing today, for the person looking at it. */
 const TodayPage = () => {
     const navigate = useNavigate();
+    const { has: hasModule } = useModules();
+    const visaOn = hasModule("visa");
+    const [travel, setTravel] = useState<any>(null);
     const { commonGetAPICalls } = useApiCallUtils();
     const [data, setData] = useState<any>(null);
     const [branch, setBranch] = useState("");
@@ -60,6 +64,11 @@ const TodayPage = () => {
         setLoading(true);
         const { success, data } = await commonGetAPICalls(`/crm/today?${branchQuery(branch).slice(1)}`);
         if (success) setData(data);
+        // travel agencies: departures and open quotes (dashboard widgets follow the CRM type, SA-03)
+        if (hasModule("itinerary") || hasModule("bookings")) {
+            const t = await commonGetAPICalls("/travel/summary");
+            if (t.success) setTravel(t.data);
+        }
         setLoading(false);
     }, [branch]);
     useEffect(() => { load(); }, [load]);
@@ -90,7 +99,9 @@ const TodayPage = () => {
                 <Count icon={CalendarClock} label="Follow-ups today" value={c.follow_ups_today} tone="bg-warning-50 text-warning-600" onPress={() => navigate("/crm/leads?follow_up=today")} />
                 <Count icon={UserPlus} label="New leads" value={c.new_leads} tone="bg-primary-50 text-primary" onPress={() => navigate("/crm/leads?status=new")} />
                 {data.can_manage && <Count icon={Users} label="Not assigned" value={c.unassigned} tone="bg-default-100 text-default-600" onPress={() => navigate("/crm/leads?assigned_to=unassigned")} />}
-                <Count icon={FileCheck2} label="Case steps due / to review" value={`${c.steps_due} / ${c.to_review}`} tone="bg-secondary-50 text-secondary" onPress={() => navigate("/cases/board")} />
+                {visaOn && <Count icon={FileCheck2} label="Case steps due / to review" value={`${c.steps_due} / ${c.to_review}`} tone="bg-secondary-50 text-secondary" onPress={() => navigate("/cases/board")} />}
+                {travel && <Count icon={Plane} label="Departures (30 days)" value={travel.upcoming?.length || 0} tone="bg-primary-50 text-primary" onPress={() => navigate("/travel/bookings")} />}
+                {travel && <Count icon={FileText} label="Open quotes" value={travel.open_quotes} tone="bg-secondary-50 text-secondary" onPress={() => navigate("/travel/quotes")} />}
                 {data.can_bill && <Count icon={IndianRupee} label="Fees due (2 days)" value={c.fees_due} tone="bg-success-50 text-success-600" onPress={() => navigate("/fees?status=due")} />}
             </div>
 
@@ -111,23 +122,35 @@ const TodayPage = () => {
                     ))}
                 </Section>
 
-                <Section title="Visa case steps due" count={data.steps.length} empty="No case steps due today.">
+                {travel && (
+                    <Section title="Upcoming departures" count={travel.upcoming?.length || 0} empty="No trips start in the next 30 days."
+                        action={<Button size="sm" variant="light" onPress={() => navigate("/travel/bookings?view=calendar")}>Calendar</Button>}>
+                        {(travel.upcoming || []).map((b: any) => (
+                            <button key={b.id} type="button" onClick={() => navigate(`/travel/bookings/${b.id}`)} className="text-left rounded-lg hover:bg-default-50 px-1 py-1.5">
+                                <div className="text-sm font-medium truncate">{b.title} - {b.client?.name}</div>
+                                <div className="text-xs text-default-500">{b.booking_no} · starts {fmtDay(b.start_date)}</div>
+                            </button>
+                        ))}
+                    </Section>
+                )}
+
+                {visaOn && <Section title="Visa case steps due" count={data.steps.length} empty="No case steps due today.">
                     {data.steps.map((s: any) => (
                         <button key={s.id} type="button" onClick={() => navigate(`/leads/progress/${s.case_id}`)} className="text-left rounded-lg hover:bg-default-50 px-1 py-1.5">
                             <div className="text-sm font-medium truncate">{s.title} - {s.student}</div>
                             <div className={`text-xs ${String(s.due_date) < new Date().toISOString().slice(0, 10) ? "text-danger" : "text-default-500"}`}>Due {fmtDay(s.due_date)}{s.country ? ` · ${s.country}` : ""}</div>
                         </button>
                     ))}
-                </Section>
+                </Section>}
 
-                <Section title="Documents to review" count={data.review.length} empty="Nothing waiting for review.">
+                {visaOn && <Section title="Documents to review" count={data.review.length} empty="Nothing waiting for review.">
                     {data.review.map((q: any) => (
                         <button key={q.id} type="button" onClick={() => navigate(`/leads/progress/${q.case_id}`)} className="text-left rounded-lg hover:bg-default-50 px-1 py-1.5">
                             <div className="text-sm font-medium truncate">{q.text}</div>
                             <div className="text-xs text-default-500 truncate">{q.student} · {q.step} · {timeAgo(q.at)}</div>
                         </button>
                     ))}
-                </Section>
+                </Section>}
 
                 {data.can_bill && (
                     <Section title="Fees due" count={data.fees.length} empty="No payments due in the next 2 days."

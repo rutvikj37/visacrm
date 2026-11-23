@@ -26,7 +26,7 @@ import { notifyLater, agencyOwnerId } from "../../services/notifications";
  * Amounts travel as rupees in the API and are stored in paise.
  */
 
-const METHODS = ["cash", "upi", "bank_transfer", "card", "cheque", "razorpay", "other"];
+const METHODS = ["cash", "upi", "bank_transfer", "card", "cheque", "razorpay", "cashfree", "other"];
 export const toPaise = (v: any) => Math.round(Number(v || 0) * 100);
 export const toRupees = (v: any) => Number(v || 0) / 100;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -147,6 +147,25 @@ export const razorpayAuth = async (agencyUuid: string) => {
 };
 export const RZP = () => (process.env.RAZORPAY_API_BASE || "https://api.razorpay.com").replace(/\/+$/, "");
 
+/** Cashfree Payment Links on the agency's own Cashfree account (TEST app ids use the sandbox). */
+export const cashfreeAuth = async (agencyUuid: string) => {
+    const agency: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["billing_credentials"] });
+    const c = decryptJson<any>(agency?.dataValues?.billing_credentials);
+    if (!c?.cashfree_app_id || !c?.cashfree_secret) return null;
+    const sandbox = /^TEST/i.test(c.cashfree_app_id);
+    const base = (process.env.CASHFREE_API_BASE || (sandbox ? "https://sandbox.cashfree.com" : "https://api.cashfree.com")).replace(/\/+$/, "");
+    return { base, headers: { "x-client-id": c.cashfree_app_id, "x-client-secret": c.cashfree_secret, "x-api-version": "2023-08-01", "Content-Type": "application/json" } };
+};
+/** Which gateway this agency uses for payment links: their choice, else whichever has keys. */
+export const linkGateway = async (agencyUuid: string): Promise<"razorpay" | "cashfree" | null> => {
+    const agency: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["billing_credentials"] });
+    const c = decryptJson<any>(agency?.dataValues?.billing_credentials) || {};
+    const hasRzp = Boolean(c.key_id && c.key_secret), hasCf = Boolean(c.cashfree_app_id && c.cashfree_secret);
+    if (c.gateway === "cashfree" && hasCf) return "cashfree";
+    if (c.gateway === "razorpay" && hasRzp) return "razorpay";
+    return hasRzp ? "razorpay" : hasCf ? "cashfree" : null;
+};
+
 class FeesController {
     // GET /crm/fees/settings
     async getSettings(req: RequestWithUser, res: Response) {
@@ -158,6 +177,8 @@ class FeesController {
             legal_name: billing.legal_name || agency?.dataValues?.app_name || agency?.dataValues?.username || "",
             address: billing.address || agency?.dataValues?.agency_address || "",
             razorpay_key_id: cred?.key_id || "", razorpay_secret_masked: cred?.key_secret ? maskSecret(cred.key_secret) : null,
+            cashfree_app_id: cred?.cashfree_app_id || "", cashfree_secret_masked: cred?.cashfree_secret ? maskSecret(cred.cashfree_secret) : null,
+            payment_gateway: cred?.gateway || (cred?.key_id ? "razorpay" : cred?.cashfree_app_id ? "cashfree" : "razorpay"),
             can_manage: canManage(req),
         });
     }
@@ -183,17 +204,32 @@ class FeesController {
             try { previousSettings = prev?.dataValues?.billing_settings ? JSON.parse(prev.dataValues.billing_settings) : {}; } catch { previousSettings = {}; }
             if (settings.gstin && settings.gstin.slice(0, 2) !== previousSettings.state_code) previousSettings.state_code = settings.gstin.slice(0, 2);
             const updates: Record<string, any> = { billing_settings: JSON.stringify({ ...previousSettings, ...settings }) };
-            if (b.razorpay_key_id !== undefined || b.razorpay_key_secret) {
-                const keyId = String(b.razorpay_key_id || "").trim();
-                const secret = String(b.razorpay_key_secret || "").trim();
-                if (!keyId) updates.billing_credentials = null;
-                else {
-                    const agency: any = await Agent.findOne({ where: { uuid: a.agencyUuid, role: "agent" }, attributes: ["billing_credentials"] });
-                    const previous = decryptJson<any>(agency?.dataValues?.billing_credentials) || {};
-                    const keySecret = secret || (previous.key_id === keyId ? previous.key_secret : "");
-                    if (!/^rzp_(test|live)_[A-Za-z0-9]+$/.test(keyId) || !keySecret) return returnHelper(res, 200, false, "Please enter both the Razorpay Key ID and Key Secret");
-                    updates.billing_credentials = encryptJson({ key_id: keyId, key_secret: keySecret });
+            if (b.razorpay_key_id !== undefined || b.razorpay_key_secret || b.cashfree_app_id !== undefined || b.cashfree_secret || b.payment_gateway !== undefined) {
+                const agency: any = await Agent.findOne({ where: { uuid: a.agencyUuid, role: "agent" }, attributes: ["billing_credentials"] });
+                const previous = decryptJson<any>(agency?.dataValues?.billing_credentials) || {};
+                const next: any = { ...previous };
+                if (b.razorpay_key_id !== undefined || b.razorpay_key_secret) {
+                    const keyId = String(b.razorpay_key_id || "").trim();
+                    const secret = String(b.razorpay_key_secret || "").trim();
+                    if (!keyId) { delete next.key_id; delete next.key_secret; }
+                    else {
+                        const keySecret = secret || (previous.key_id === keyId ? previous.key_secret : "");
+                        if (!/^rzp_(test|live)_[A-Za-z0-9]+$/.test(keyId) || !keySecret) return returnHelper(res, 200, false, "Please enter both the Razorpay Key ID and Key Secret");
+                        next.key_id = keyId; next.key_secret = keySecret;
+                    }
                 }
+                if (b.cashfree_app_id !== undefined || b.cashfree_secret) {
+                    const appId = String(b.cashfree_app_id || "").trim();
+                    const secret = String(b.cashfree_secret || "").trim();
+                    if (!appId) { delete next.cashfree_app_id; delete next.cashfree_secret; }
+                    else {
+                        const cfSecret = secret || (previous.cashfree_app_id === appId ? previous.cashfree_secret : "");
+                        if (!/^[A-Za-z0-9]{8,}$/.test(appId) || !cfSecret) return returnHelper(res, 200, false, "Please enter both the Cashfree App ID and Secret Key");
+                        next.cashfree_app_id = appId; next.cashfree_secret = cfSecret;
+                    }
+                }
+                if (b.payment_gateway !== undefined) next.gateway = b.payment_gateway === "cashfree" ? "cashfree" : "razorpay";
+                updates.billing_credentials = Object.keys(next).some((k) => ["key_id", "cashfree_app_id"].includes(k)) ? encryptJson(next) : null;
             }
             await Agent.update(updates, { where: { uuid: a.agencyUuid, role: "agent" } });
             return returnHelper(res, 200, true, "Billing settings saved");
@@ -357,7 +393,8 @@ class FeesController {
                     address: bd.address || billing.address || agency?.dataValues?.agency_address, phone: bd.phone || agency?.dataValues?.support_number, email: bd.email || agency?.dataValues?.support_email,
                     upi_id: billing.upi_id, bank_details: billing.bank_details, terms: billing.terms, logo_url: logo,
                 },
-                razorpay_ready: Boolean(decryptJson<any>(agency?.dataValues?.billing_credentials)?.key_id),
+                // any online gateway (Razorpay or Cashfree) can make payment links
+                razorpay_ready: Boolean(await linkGateway(accessOf(req).agencyUuid)),
                 can_manage: canManage(req),
                 history: await invoiceHistory(accessOf(req).agencyUuid, invoice.dataValues.id),
             });
@@ -413,11 +450,31 @@ class FeesController {
             if (!invoice) return returnHelper(res, 200, false, "Invoice not found");
             const balance = Number(invoice.dataValues.total) - Number(invoice.dataValues.amount_paid);
             if (invoice.dataValues.status === "cancelled" || balance <= 0) return returnHelper(res, 200, false, "Nothing is due on this invoice");
-            const amount = req.body?.amount ? toPaise(req.body.amount) : balance;
+            // no amount given: the instalment that is due next (PY-02), else the whole balance
+            const nextDue = presentInvoice(invoice).next_due;
+            const amount = req.body?.amount ? toPaise(req.body.amount) : nextDue?.amount ? Math.min(balance, toPaise(nextDue.amount)) : balance;
             if (!Number.isFinite(amount) || amount < 100 || amount > balance) return returnHelper(res, 200, false, `Enter an amount up to Rs ${toRupees(balance)}`);
+            const gateway = await linkGateway(a.agencyUuid);
+            if (!gateway) return returnHelper(res, 200, false, "Add your Razorpay or Cashfree keys in Fees > Settings to create payment links");
+            const student = invoice.toJSON().student || {};
+            if (gateway === "cashfree") {
+                const cf = await cashfreeAuth(a.agencyUuid);
+                const linkId = `${invoice.dataValues.number}-${Date.now().toString(36)}`.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 45);
+                try {
+                    const { data } = await axios.post(`${cf!.base}/pg/links`, {
+                        link_id: linkId, link_amount: toRupees(amount), link_currency: "INR",
+                        link_purpose: `${invoice.dataValues.number}${invoice.dataValues.title ? ` - ${invoice.dataValues.title}` : ""}`.slice(0, 500),
+                        customer_details: { customer_phone: String(student.phone_number || "").replace(/\D/g, "").slice(-10) || "9999999999", customer_name: student.username || undefined, customer_email: student.email || undefined },
+                        link_notify: { send_sms: false, send_email: false }, link_notes: { invoice_uuid: invoice.dataValues.uuid },
+                    }, { headers: cf!.headers, timeout: 20000 });
+                    await ClientInvoice.update({ payment_link_id: `cf:${data.link_id || linkId}`, payment_link_url: data.link_url }, { where: { id: invoice.dataValues.id } });
+                    return returnHelper(res, 200, true, "Payment link created", { url: data.link_url, amount: toRupees(amount) });
+                } catch (error: any) {
+                    return returnHelper(res, 200, false, `Cashfree said: ${error?.response?.data?.message || error?.message || "request failed"}`);
+                }
+            }
             const auth = await razorpayAuth(a.agencyUuid);
             if (!auth) return returnHelper(res, 200, false, "Add your Razorpay keys in Fees > Settings to create payment links");
-            const student = invoice.toJSON().student || {};
             try {
                 const { data } = await axios.post(`${RZP()}/v1/payment_links`, {
                     amount, currency: "INR", accept_partial: false,
@@ -428,7 +485,7 @@ class FeesController {
                     notes: { invoice_uuid: invoice.dataValues.uuid },
                 }, { auth, timeout: 20000 });
                 await ClientInvoice.update({ payment_link_id: data.id, payment_link_url: data.short_url }, { where: { id: invoice.dataValues.id } });
-                return returnHelper(res, 200, true, "Payment link created", { url: data.short_url });
+                return returnHelper(res, 200, true, "Payment link created", { url: data.short_url, amount: toRupees(amount) });
             } catch (error: any) {
                 return returnHelper(res, 200, false, `Razorpay said: ${error?.response?.data?.error?.description || error?.message || "request failed"}`);
             }
@@ -445,6 +502,29 @@ class FeesController {
             if (!canManage(req)) return returnHelper(res, 200, false, "Only the owner or Accounts can check payments");
             const invoice: any = await ClientInvoice.findOne({ where: { agency_uuid: a.agencyUuid, uuid: req.params.uuid } });
             if (!invoice?.dataValues?.payment_link_id) return returnHelper(res, 200, false, "This invoice has no payment link");
+            if (String(invoice.dataValues.payment_link_id).startsWith("cf:")) {
+                const cf = await cashfreeAuth(a.agencyUuid);
+                if (!cf) return returnHelper(res, 200, false, "Cashfree keys are missing");
+                const linkId = String(invoice.dataValues.payment_link_id).slice(3);
+                let cfLink: any;
+                try {
+                    cfLink = (await axios.get(`${cf.base}/pg/links/${encodeURIComponent(linkId)}`, { headers: cf.headers, timeout: 20000 })).data;
+                } catch (error: any) {
+                    return returnHelper(res, 200, false, `Cashfree said: ${error?.response?.data?.message || error?.message}`);
+                }
+                if (cfLink.link_status !== "PAID") return returnHelper(res, 200, true, "Not paid yet", { paid: false, status: cfLink.link_status });
+                const reference = `cf:${linkId}`;
+                const already = await ClientPayment.findOne({ where: { invoice_id: invoice.dataValues.id, reference }, attributes: ["id"] });
+                if (!already) {
+                    try {
+                        await recordPayment(invoice, toPaise(cfLink.link_amount_paid || cfLink.link_amount), "cashfree", { reference, note: "Paid with Cashfree payment link", userId: null });
+                    } catch (e: any) {
+                        return returnHelper(res, 200, false, e.message);
+                    }
+                }
+                await ClientInvoice.update({ payment_link_id: null, payment_link_url: null }, { where: { id: invoice.dataValues.id } });
+                return returnHelper(res, 200, true, "Payment received and recorded", { paid: true });
+            }
             const auth = await razorpayAuth(a.agencyUuid);
             if (!auth) return returnHelper(res, 200, false, "Razorpay keys are missing");
             let link: any;

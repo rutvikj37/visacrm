@@ -18,6 +18,7 @@ agentRoutes.route("/login_with_number_custom").post(localOnly, validationBodyMw(
 agentRoutes.route("/request_passcode_reset").post(loginRateLimit("agency"), validationBodyMw(loginWithNumberValidation), AgentController.requestPasscodeReset)
 agentRoutes.route("/verify_passcode_reset").post(loginRateLimit("agency"), AgentController.verifyPasscodeReset)
 agentRoutes.route("/set_passcode").post(loginRateLimit("agency"), AgentController.setPasscode)
+agentRoutes.route("/verify_totp").post(loginRateLimit("agency"), AgentController.verifyTotpLogin)
 // agentRoutes.route("/signup").post(validationBodyMw(sinupWithNumberValidation), AgentNumberExistMw, AgentController.signup)
 // agentRoutes.route("/signup_custom").post(validationBodyMw(sinupWithNumberValidation), AgentNumberExistMw, AgentController.signupCustom)
 

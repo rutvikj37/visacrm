@@ -9,7 +9,7 @@ const ClientPayment = sequelize.define('ClientPayment', {
     invoice_id: { type: DataTypes.INTEGER, allowNull: false },
     receipt_number: { type: DataTypes.STRING, allowNull: false },
     amount: { type: DataTypes.BIGINT, allowNull: false },
-    method: { type: DataTypes.ENUM("cash", "upi", "bank_transfer", "card", "cheque", "razorpay", "other"), defaultValue: "upi" },
+    method: { type: DataTypes.ENUM("cash", "upi", "bank_transfer", "card", "cheque", "razorpay", "cashfree", "other"), defaultValue: "upi" },
     reference: { type: DataTypes.STRING, allowNull: true },
     note: { type: DataTypes.TEXT, allowNull: true },
     paid_at: { type: DataTypes.DATE, allowNull: false },

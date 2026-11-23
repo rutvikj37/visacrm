@@ -77,7 +77,7 @@ import MessageTemplate from "../model/MessageTemplate";
 import PlatformSetting from "../model/PlatformSetting";
 import SaasCoupon from "../model/SaasCoupon";
 import AgencyModule from "../model/AgencyModule";
-import { TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller } from "../model/Travel";
+import { TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller, ClientMember, BookingDocument, TravelTarget, CreditNote } from "../model/Travel";
 import Announcement from "../model/Announcement";
 import AnnouncementDismissal from "../model/AnnouncementDismissal";
 import ActivityLog from "../model/ActivityLog";
@@ -186,7 +186,7 @@ class ModelInitializer {
       SaasPlan, SaasSubscription, SaasPayment,
       Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat,
       // Travel CRM
-      AgencyModule, TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller
+      AgencyModule, TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller, ClientMember, BookingDocument, TravelTarget, CreditNote
     ];
 
     // Sync base models first

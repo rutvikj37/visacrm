@@ -22,7 +22,23 @@ export const LEAD_STATUSES: { key: LeadStatus; label: string; color: "default" |
 export const SELECTABLE_STATUSES = LEAD_STATUSES.filter((s) => s.key !== "converted");
 
 /** Status menu items including Converted (opens convert → visa case flow). */
-export const STATUS_MENU_STATUSES = LEAD_STATUSES;
+export const STATUS_MENU_STATUSES = [...LEAD_STATUSES];
+
+const DEFAULT_LABELS: Record<string, string> = Object.fromEntries(LEAD_STATUSES.map((s) => [s.key, s.label]));
+/**
+ * The agency's own stage names and hidden stages (Travel settings → Lead stages; travel agencies default to
+ * New, Contacted, Quoted, Negotiation, Confirmed, Lost). Called at login; relabels in place so every screen follows.
+ */
+export const applyLeadStages = (stages?: { key: string; label: string | null; hidden?: boolean }[] | null) => {
+    for (const s of LEAD_STATUSES) {
+        const given = (stages || []).find((x) => x.key === s.key);
+        s.label = given?.label || DEFAULT_LABELS[s.key];
+    }
+    const hidden = new Set((stages || []).filter((x) => x.hidden).map((x) => x.key));
+    const keep = (list: typeof LEAD_STATUSES, base: typeof LEAD_STATUSES) => { list.splice(0, list.length, ...base.filter((s) => !hidden.has(s.key))); };
+    keep(SELECTABLE_STATUSES, LEAD_STATUSES.filter((s) => s.key !== "converted"));
+    keep(STATUS_MENU_STATUSES, LEAD_STATUSES);
+};
 
 export const LEAD_SOURCES: { key: LeadSource; label: string }[] = [
     { key: "manual", label: "Manual" },

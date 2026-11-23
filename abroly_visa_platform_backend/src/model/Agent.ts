@@ -212,6 +212,9 @@ const Agent = sequelize.define('Agent', {
         allowNull: true,
         defaultValue: null
     },
+    // owner two-step login (authenticator app); secret encrypted with helpers/crypto.ts
+    totp_secret_enc: { type: DataTypes.TEXT, allowNull: true, defaultValue: null },
+    totp_enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // product the agency bought: visa CRM, travel CRM or both (services/modules.ts)
     crm_type: {
         type: DataTypes.ENUM("visa", "travel", "both"),

@@ -14,7 +14,7 @@ export const STATUS: Record<string, { label: string; color: "warning" | "primary
 };
 export const METHODS = [
     { key: "upi", label: "UPI" }, { key: "cash", label: "Cash" }, { key: "bank_transfer", label: "Bank transfer" },
-    { key: "card", label: "Card" }, { key: "cheque", label: "Cheque" }, { key: "razorpay", label: "Razorpay" }, { key: "other", label: "Other" },
+    { key: "card", label: "Card" }, { key: "cheque", label: "Cheque" }, { key: "razorpay", label: "Razorpay" }, { key: "cashfree", label: "Cashfree" }, { key: "other", label: "Other" },
 ];
 export const methodLabel = (k: string) => METHODS.find((m) => m.key === k)?.label || k;
 

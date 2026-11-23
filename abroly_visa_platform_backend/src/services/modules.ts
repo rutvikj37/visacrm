@@ -56,7 +56,8 @@ export const MODULE_PATHS: [RegExp, string][] = [
     [/^\/api\/v1\/crm\/(cases|universities|visa_templates|commissions)(\/|$)/, "visa"],
     [/^\/api\/v1\/job_post(\/|$)/, "jobs"],
     [/^\/api\/v1\/travel\/(library|itineraries|quotes|packages)(\/|$)/, "itinerary"],
-    [/^\/api\/v1\/travel\/bookings(\/|$)/, "bookings"],
+    [/^\/api\/v1\/travel\/(bookings|clients|credit_notes)(\/|$)/, "bookings"],
+    [/^\/api\/v1\/travel\/(reports|targets)(\/|$)/, "itinerary"],
     [/^\/api\/v1\/travel\/suppliers(\/|$)/, "suppliers"],
 ];
 

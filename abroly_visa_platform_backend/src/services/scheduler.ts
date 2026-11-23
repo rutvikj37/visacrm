@@ -5,6 +5,7 @@ import { paymentFailureFollowups } from "./saasFollowups";
 import { monthlyOwnerSummaries } from "./ownerSummary";
 import { dailyDigest, followUpReminders, ruleReminders, stepDueReminders, subscriptionReminders } from "./notifications";
 import { recordSchedulerHeartbeat } from "./platformMonitoring";
+import { supplierDueReminders } from "./travelReminders";
 
 /**
  * Simple in-process scheduler. Started by one cluster worker only (see server.ts),
@@ -48,6 +49,8 @@ const runReminders = async () => {
         // messages to students
         await documentsPendingReminders();
         await feeDueReminders();
+        // Travel CRM: supplier payments due / overdue
+        await supplierDueReminders();
         await dailyDigest();
         await subscriptionReminders();
         await paymentFailureFollowups();

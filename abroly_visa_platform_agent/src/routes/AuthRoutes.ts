@@ -40,6 +40,8 @@ import BookingDetails from "@/modules/AgentAdmin/Travel/BookingDetails"
 import Packages from "@/modules/AgentAdmin/Travel/Packages"
 import { Suppliers, SupplierDetails } from "@/modules/AgentAdmin/Travel/Suppliers"
 import TravelLibrary from "@/modules/AgentAdmin/Travel/Library"
+import TravelReports from "@/modules/AgentAdmin/Travel/TravelReports"
+import TravelSettings from "@/modules/AgentAdmin/Travel/TravelSettings"
 import FeesList from "@/modules/AgentAdmin/Fees/FeesList"
 import CommissionsPage from "@/modules/AgentAdmin/Commissions/CommissionsPage"
 import StudentTimeline from "@/modules/AgentAdmin/Cases/StudentTimeline"
@@ -161,6 +163,8 @@ export const AgentAdminRoutes = [
     { path: "/travel/suppliers", element: Suppliers },
     { path: "/travel/suppliers/:id", element: SupplierDetails },
     { path: "/travel/library", element: TravelLibrary },
+    { path: "/travel/reports", element: TravelReports },
+    { path: "/travel/settings", element: TravelSettings },
     {
         path: "/fees",
         element: FeesList
@@ -479,6 +483,8 @@ export const SubAgentRoutes = [
     { path: "/travel/suppliers", element: Suppliers },
     { path: "/travel/suppliers/:id", element: SupplierDetails },
     { path: "/travel/library", element: TravelLibrary },
+    { path: "/travel/reports", element: TravelReports },
+    { path: "/travel/settings", element: TravelSettings },
     {
         path: "/fees",
         element: FeesList

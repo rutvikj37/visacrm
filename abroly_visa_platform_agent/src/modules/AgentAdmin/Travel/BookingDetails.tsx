@@ -6,6 +6,7 @@ import {
 } from "@heroui/react";
 import { ArrowLeft, Eye, FileText, MessageCircle, Pencil, Plus, Printer, Receipt, Trash2, UserPlus, Wallet } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
+import { BookingCreditNotes, BookingDocuments, ClientProfileCard } from "./BookingExtras";
 import { SuccessToast } from "@/utils/Toaster";
 import {
     BOOKING_STATUS, Field, SERVICE_STATUS, SERVICE_TYPES, Tile, apiBase, fmtDate, fmtRange, printVouchers, rupees, serviceLabel, waLink,
@@ -118,10 +119,12 @@ const BookingDetails = () => {
         if (ok) close();
     };
 
-    const tripKit = () => {
-        const link = b.itinerary?.share_token ? `${apiBase()}/v1/public/travel/itinerary/${b.itinerary.share_token}` : "";
+    // trip kit: one public page with confirmations, day plan and shared documents (VC-02)
+    const tripKit = async (email = false) => {
+        const { success, data } = await commonPostAPICall({ email }, `travel/bookings/${id}/kit`, email);
+        if (!success || email) return;
         const confirmed = (b.services || []).filter((s: any) => s.status === "confirmed").map((s: any) => `• ${serviceLabel(s.type)}: ${s.description}${s.confirmation_no ? ` (Conf. ${s.confirmation_no})` : ""}`).join("\n");
-        const text = `Hi ${String(b.client?.name || "").split(" ")[0]}, your trip ${b.title} (${b.booking_no}) is confirmed for ${fmtRange(b.start_date, b.end_date)}.\n${confirmed}${link ? `\nDay plan: ${link}` : ""}\nVouchers and tickets are attached. Have a great trip!${b.agency?.phone ? `\nHelp: ${b.agency.phone}` : ""}`;
+        const text = `Hi ${String(b.client?.name || "").split(" ")[0]}, your trip ${b.title} (${b.booking_no}) is confirmed for ${fmtRange(b.start_date, b.end_date)}.\n${confirmed}\nTickets, vouchers and your day plan: ${data.url}\nHave a great trip!${b.agency?.phone ? `\nHelp: ${b.agency.phone}` : ""}`;
         window.open(waLink(b.client?.phone, text), "_blank", "noopener");
     };
 
@@ -141,7 +144,8 @@ const BookingDetails = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="flat" color="success" startContent={<MessageCircle size={14} />} onPress={tripKit}>Send trip kit on WhatsApp</Button>
+                <Button size="sm" variant="flat" color="success" startContent={<MessageCircle size={14} />} onPress={() => tripKit(false)}>Send trip kit on WhatsApp</Button>
+                {b.client?.email && <Button size="sm" variant="flat" onPress={() => tripKit(true)}>Email trip kit</Button>}
                 <Button size="sm" variant="flat" startContent={<Printer size={14} />} onPress={() => printVouchers(b)}>Print vouchers</Button>
                 {b.invoice ? <Button size="sm" variant="flat" startContent={<Receipt size={14} />} onPress={() => navigate(`/fees/${b.invoice.id}`)}>Invoice {b.invoice.number}</Button>
                     : (canMoney || teamRole === "branch_manager") && <Button size="sm" variant="flat" color="primary" startContent={<Receipt size={14} />} onPress={openInvoice}>Create GST invoice</Button>}
@@ -207,6 +211,7 @@ const BookingDetails = () => {
                             <div className="text-default-500">Passport {revealed[t.id]?.passport_no || t.passport_masked || "not added"}{t.passport_expiry ? ` · expires ${fmtDate(t.passport_expiry)}` : ""}</div>
                             <div className="text-default-500">PAN {revealed[t.id] ? (revealed[t.id].pan || "-") : t.has_pan ? "added" : "not added"}</div>
                             <div className="ml-auto flex gap-1">
+                                <Button size="sm" variant="light" onPress={() => post({}, `travel/bookings/travellers/${t.id}/save_to_profile`)}>Save to profile</Button>
                                 {(t.passport_masked || t.has_pan) && !revealed[t.id] && <Button isIconOnly size="sm" variant="light" aria-label="Show IDs (logged)" title="Show full passport / PAN (this view is logged)" onPress={() => reveal(t.id)}><Eye size={14} /></Button>}
                                 <Button isIconOnly size="sm" variant="light" aria-label="Edit" onPress={() => { setPax({ ...emptyTraveller, ...t, passport_no: "", pan: "", dob: t.dob || "", passport_expiry: t.passport_expiry || "" }); paxModal.onOpen(); }}><Pencil size={14} /></Button>
                                 {!t.is_lead && <Button isIconOnly size="sm" variant="light" color="danger" aria-label="Remove" onPress={() => post({}, `travel/bookings/travellers/${t.id}/delete`)}><Trash2 size={14} /></Button>}
@@ -215,6 +220,10 @@ const BookingDetails = () => {
                     ))}
                 </div>
             </CardBody></Card>
+
+            <BookingDocuments bookingId={String(id)} />
+            <BookingCreditNotes bookingId={String(id)} hasInvoice={Boolean(b.invoice)} onChanged={load} />
+            {b.client?.id && <ClientProfileCard clientId={b.client.id} bookingId={String(id)} onChanged={load} />}
 
             <Card shadow="sm"><CardBody>
                 <Field label="Operations notes"><Textarea aria-label="Notes" minRows={2} defaultValue={b.notes || ""} onBlur={(e) => e.target.value !== (b.notes || "") && post({ notes: e.target.value }, `travel/bookings/${id}/update`, false)} /></Field>

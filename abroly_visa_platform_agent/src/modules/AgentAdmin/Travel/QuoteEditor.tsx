@@ -55,8 +55,32 @@ const QuoteEditor = () => {
 
     const searchRates = async (text: string) => {
         if (!q?.sees_cost) return;
-        const { success, data } = await commonGetAPICalls(`/travel/suppliers/rates?search=${encodeURIComponent(text)}`);
+        const date = q?.trip?.travel_date ? `&date=${q.trip.travel_date}` : "";
+        const { success, data } = await commonGetAPICalls(`/travel/suppliers/rates?search=${encodeURIComponent(text)}${date}`);
         if (success) setRates(data);
+    };
+
+    /** How many units a rate needs for this group (QT-01): rooms for 2 adults each, per-person counts, nights for per-night rates. */
+    const unitsFor = (r: any) => {
+        const adults = Number(q?.adults) || 0, children = Number(q?.children) || 0, infants = Number(q?.infants) || 0;
+        const nights = Number(q?.trip?.nights) || 0;
+        if (r.pax_type === "per_room") return { qty: Math.max(1, Math.ceil(adults / 2)), nights };
+        if (r.pax_type === "per_adult") return { qty: Math.max(1, adults), nights: 0 };
+        if (r.pax_type === "per_child") return { qty: Math.max(1, children), nights: 0 };
+        if (r.pax_type === "per_infant") return { qty: Math.max(1, infants), nights: 0 };
+        return { qty: 1, nights: 0 };
+    };
+
+    /** Refresh unit costs of lines that came from a rate contract (after a rate or the group size changed). */
+    const repriceFromRates = async () => {
+        const ids = [...new Set(options.flatMap((o) => o.lines.map((l) => l.rate_id)).filter(Boolean))];
+        if (!ids.length) return SuccessToast("No lines are linked to supplier rates yet - pick services from the list to link them");
+        const { success, data } = await commonGetAPICalls(`/travel/suppliers/rates?ids=${ids.join(",")}`);
+        if (!success) return;
+        const byId = new Map((data || []).map((r: any) => [r.db_id, r]));
+        setOptions((prev) => prev.map((o) => ({ ...o, lines: o.lines.map((l) => { const r: any = l.rate_id ? byId.get(l.rate_id) : null; return r ? { ...l, unit_cost: r.cost, ...unitsFor(r) } : l; }) })));
+        setDirty(true);
+        SuccessToast("Prices and quantities updated from supplier rates");
     };
     useEffect(() => { if (q?.sees_cost) searchRates(""); }, [q?.sees_cost]);
 
@@ -200,7 +224,7 @@ const QuoteEditor = () => {
                                                     <Autocomplete aria-label="Service" size="sm" allowsCustomValue inputValue={l.description} items={rates} onInputChange={(v) => { setLine(oi, li, { description: v }); searchRates(v); }}
                                                         onSelectionChange={(key) => {
                                                             const r = rates.find((x) => x.id === key);
-                                                            if (r) setLine(oi, li, { description: `${r.service}${r.room_type ? ` (${r.room_type})` : ""}${r.meal_plan ? ` ${r.meal_plan}` : ""}${r.supplier_name ? ` - ${r.supplier_name}` : ""}`, unit_cost: r.cost, supplier_id: r.supplier_id, rate_id: r.db_id, service_type: r.service_type === "flight" ? "flight" : r.service_type });
+                                                            if (r) setLine(oi, li, { description: `${r.service}${r.room_type ? ` (${r.room_type})` : ""}${r.meal_plan ? ` ${r.meal_plan}` : ""}${r.supplier_name ? ` - ${r.supplier_name}` : ""}`, unit_cost: r.cost, supplier_id: r.supplier_id, rate_id: r.db_id, service_type: r.service_type, ...unitsFor(r) });
                                                         }}>
                                                         {(r: any) => <AutocompleteItem key={r.id} textValue={r.service}>{`${r.service}${r.room_type ? ` · ${r.room_type}` : ""} · ${r.supplier_name || ""} · ${rupees(r.cost)} ${r.pax_type?.replace("per_", "per ")}`}</AutocompleteItem>}
                                                     </Autocomplete>
@@ -223,7 +247,11 @@ const QuoteEditor = () => {
                             </tbody>
                         </table>
                     </div>
-                    {canEdit && <Button size="sm" variant="flat" className="self-start" startContent={<Plus size={14} />} onPress={() => changeLines(oi, (ls) => [...ls, blankLine()])}>Add service</Button>}
+                    {canEdit && <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="flat" startContent={<Plus size={14} />} onPress={() => changeLines(oi, (ls) => [...ls, blankLine()])}>Add service</Button>
+                        <Button size="sm" variant="light" onPress={repriceFromRates}>Update prices from rates</Button>
+                        <span className="text-xs text-default-500 self-center">Picking a supplier rate fills the price, rooms (2 adults per room), people and nights{q.trip?.travel_date ? ` for ${q.trip.travel_date}` : ""}.</span>
+                    </div>}
 
                     {t && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-default-100 pt-3">

@@ -55,6 +55,46 @@ export const cleanTravelLeadFields = (body: any): Record<string, any> => {
     return out;
 };
 
+/**
+ * Travel fields from form answers that were not mapped to a known column (Facebook / Google lead forms,
+ * website webhooks, CSV columns): keys like "travel_date", "no_of_adults", "budget", "destination".
+ * Returns {} unless the answers clearly describe a trip, so visa forms with a "country" question stay visa leads.
+ */
+const norm = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, "");
+const parseDate = (v: any) => {
+    const s = String(v || "").trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/); // dd/mm/yyyy (India)
+    if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+};
+const firstInt = (v: any) => { const m = String(v ?? "").match(/\d+/); return m ? Number(m[0]) : null; };
+export const travelFromExtra = (extra: any): Record<string, any> => {
+    if (!extra || typeof extra !== "object") return {};
+    const out: Record<string, any> = {};
+    let strong = false;
+    for (const [key, value] of Object.entries(extra)) {
+        if (value === null || value === undefined || value === "") continue;
+        const k = norm(key);
+        if (/(traveldate|departuredate|checkin|startdate|dateoftravel|fromdate)/.test(k)) { const d = parseDate(value); if (d) { out.travel_start = d; strong = true; } }
+        else if (/(returndate|checkout|enddate|todate)/.test(k)) { const d = parseDate(value); if (d) { out.travel_end = d; strong = true; } }
+        else if (/(travelmonth|monthoftravel|whenareyou)/.test(k)) { const d = parseDate(`1 ${value}`); if (d) { out.travel_month = d.slice(0, 7); strong = true; } }
+        else if (/(nights|duration|noofdays|days)/.test(k)) { const n = firstInt(value); if (n !== null) { out.nights = /day/.test(k) ? Math.max(0, n - 1) : n; strong = true; } }
+        else if (/(adult|travell?ers|noofpeople|pax|guests)/.test(k)) { const n = firstInt(value); if (n !== null) { out.adults = n; strong = true; } }
+        else if (/(child|kids)/.test(k)) { const n = firstInt(value); if (n !== null) { out.children = n; strong = true; } }
+        else if (/infant/.test(k)) { const n = firstInt(value); if (n !== null) { out.infants = n; strong = true; } }
+        else if (/budget/.test(k)) { const n = Number(String(value).replace(/[^\d.]/g, "")); if (n > 0) { out.budget = toPaise(n); strong = true; } }
+        else if (/(hotel|star)/.test(k)) { strong = true; const v = String(value).toLowerCase(); out.hotel_category = /lux/.test(v) ? "luxury" : /5/.test(v) ? "5_star" : /4/.test(v) ? "4_star" : /3/.test(v) ? "3_star" : /budget/.test(v) ? "budget" : null; }
+        else if (/(triptype|occasion|purpose|holidaytype)/.test(k)) { out.trip_type = String(value).toLowerCase().slice(0, 40); strong = true; }
+        else if (/(departurecity|fromcity|leavingfrom|startingfrom)/.test(k)) { out.departure_city = String(value).slice(0, 255); strong = true; }
+        else if (/(destination|wheretogo|place|package)/.test(k)) { out.destinations = String(value).split(/[,/&]| and /).map((x) => x.trim()).filter(Boolean).slice(0, 10); }
+    }
+    if (!strong) return {};
+    out.business_line = "travel";
+    return out;
+};
+
 export const presentTravelLead = (l: any) => ({
     business_line: l.business_line || "visa",
     destinations: Array.isArray(l.destinations) ? l.destinations : [],
@@ -208,6 +248,9 @@ export const nextTravelNumber = async (model: any, field: string, agencyUuid: st
 // ---------------------------------------------------------------- who sees cost and margin (QT-02)
 
 export const seesCost = (req: RequestWithUser) => {
+    // set by travelGuard from the agency's permission matrix
+    const fromMatrix = (req as any).travelSeesCost;
+    if (typeof fromMatrix === "boolean") return fromMatrix;
     const a = accessOf(req);
     return a.isOwner || a.teamRole === "accounts" || a.teamRole === "branch_manager";
 };

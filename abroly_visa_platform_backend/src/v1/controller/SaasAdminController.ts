@@ -1,4 +1,4 @@
-import { clearModuleCache, CRM_TYPES, moduleDetails, MODULE_KEYS, normalizeCrmType } from "../../services/modules";
+import { clearModuleCache, CRM_TYPES, moduleDetails, MODULE_KEYS, MODULES, normalizeCrmType } from "../../services/modules";
 import AgencyModule from "../../model/AgencyModule";
 import { audit } from "../../services/audit";
 import { Response } from "express";
@@ -895,7 +895,21 @@ class SaasAdminController {
                     : sort === "leads" ? b.leads_30d - a.leads_30d
                         : sort === "name" ? String(a.name).localeCompare(String(b.name))
                             : a.score - b.score); // default: weakest first
-            return returnHelper(res, 200, true, "Usage", { summary, agencies: rows });
+            // Travel CRM (SA-06): agencies by CRM type and paid add-ons switched on by the Super Admin
+            const byType: any[] = await Agent.findAll({ where: { role: "agent" }, attributes: ["crm_type", [fn("COUNT", col("id")), "n"]], group: ["crm_type"], raw: true });
+            const addonRows: any[] = await AgencyModule.findAll({ where: { is_enabled: true }, raw: true });
+            const types: any[] = await Agent.findAll({ where: { role: "agent", uuid: addonRows.map((r) => r.agency_uuid).concat(["-"]) }, attributes: ["uuid", "crm_type"], raw: true });
+            const typeOf = new Map(types.map((t) => [t.uuid, t.crm_type || "visa"]));
+            const addons: Record<string, number> = {};
+            for (const r of addonRows) {
+                const def = MODULES.find((m) => m.key === r.module_key)?.defaults[normalizeCrmType(typeOf.get(r.agency_uuid))];
+                if (def === "addon") addons[r.module_key] = (addons[r.module_key] || 0) + 1;
+            }
+            const products = {
+                by_crm_type: Object.fromEntries(["visa", "travel", "both"].map((k) => [k, Number(byType.find((b) => (b.crm_type || "visa") === k)?.n || 0)])),
+                addons: Object.entries(addons).map(([key, agencies]) => ({ key, label: MODULES.find((m) => m.key === key)?.label || key, agencies })),
+            };
+            return returnHelper(res, 200, true, "Usage", { summary, agencies: rows, products });
         } catch (error) {
             return fail(res, error, "usage");
         }

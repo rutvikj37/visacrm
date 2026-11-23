@@ -1,3 +1,4 @@
+import AgentController from "../controller/AgentController"
 import ServiceOrderController, { orderUpload } from "../controller/ServiceOrderController"
 import ServiceStoreController from "../controller/ServiceStoreController"
 import ActivityLogController from "../controller/ActivityLogController"
@@ -39,6 +40,12 @@ const handleUpload = (req: Request, res: Response, next: NextFunction) => {
         next()
     })
 }
+
+// owner two-step login (authenticator app)
+crmRoutes.route("/security/totp").get(validateAgent, AgentController.totpStatus)
+crmRoutes.route("/security/totp/setup").post(validateAgent, AgentController.totpSetup)
+crmRoutes.route("/security/totp/enable").post(validateAgent, AgentController.totpEnable)
+crmRoutes.route("/security/totp/disable").post(validateAgent, AgentController.totpDisable)
 
 // leads - fixed paths first, then /:uuid
 crmRoutes.route("/leads").get(validateAgent, CrmController.listLeads)

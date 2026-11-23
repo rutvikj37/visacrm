@@ -1,4 +1,8 @@
+import { audit } from "../../services/audit";
+import { newTotpSecret, totpUri, verifyTotp } from "../../helpers/totp";
+import { decryptPii, encryptPii } from "../../helpers/crypto";
 import { labelsFor, modulesFor } from "../../services/modules";
+import { leadStagesFor } from "../../services/travelAccess";
 import { businessFocusOf } from "../../services/businessFocus";
 import { publicFileUrl, saveFile, deleteFile, ownerFromRequest, agencyOwner } from "../../helpers/storage";
 import { Request, Response } from "express";
@@ -58,8 +62,16 @@ const wrongAgencyMessage = async (user: any, agencyHost: unknown) => {
 };
 
 /** Token + profile response for a successful agency login (same shape as the OTP flows). */
-const agentLoginSuccess = async (res: Response, user: any) => {
+const agentLoginSuccess = async (res: Response, user: any, opts: { totpPassed?: boolean } = {}) => {
     const u = user.dataValues;
+    // owners with two-step login: one more screen for the authenticator code before the session is issued
+    if (!opts.totpPassed && u.role === "agent") {
+        const fresh: any = await Agent.findByPk(u.id, { attributes: ["totp_enabled"], raw: true });
+        if (fresh?.totp_enabled) {
+            const totp_token = Jwt.sign({ purpose: "totp", id: u.id, uuid: u.uuid }, secretTokenForJWT, { expiresIn: "10m" });
+            return res.status(200).json({ success: true, message: "Enter the 6-digit code from your authenticator app.", data: { must_totp: true, totp_token, name: u.username, phone: u.phone_number, country_code: u.country_code } });
+        }
+    }
     const accessToken = Jwt.sign({
         user: {
             user: {
@@ -76,6 +88,16 @@ const agentLoginSuccess = async (res: Response, user: any) => {
         message: "Login Success",
         data: { token: accessToken, name: u.username, phone: u.phone_number, country_code: u.country_code, isFirstTime },
     });
+};
+
+/** Older SMS-OTP paths sign their own token: send owners with two-step login to the code screen first. */
+const totpGate = async (res: Response, user: any) => {
+    const u = user?.dataValues;
+    if (!u || u.role !== "agent") return null;
+    const fresh: any = await Agent.findByPk(u.id, { attributes: ["totp_enabled"], raw: true });
+    if (!fresh?.totp_enabled) return null;
+    const totp_token = Jwt.sign({ purpose: "totp", id: u.id, uuid: u.uuid }, secretTokenForJWT, { expiresIn: "10m" });
+    return res.status(200).json({ success: true, message: "Enter the 6-digit code from your authenticator app.", data: { must_totp: true, totp_token, name: u.username, phone: u.phone_number, country_code: u.country_code } });
 };
 
 /** Agency owners / team: invite code or personal passcode instead of SMS OTP. */
@@ -118,6 +140,61 @@ const findAgentByPhone = async (phone_number: string, country_code: string, extr
     Agent.findOne({ where: agentPhoneWhere(phone_number, country_code, extra) });
 
 class AgentController {
+    /** POST /agent/verify_totp { totp_token, code } - second step of the owner login. */
+    async verifyTotpLogin(req: Request, res: Response) {
+        try {
+            let decoded: any = null;
+            try { decoded = Jwt.verify(String(req.body?.totp_token || ""), secretTokenForJWT); } catch { decoded = null; }
+            if (decoded?.purpose !== "totp") return returnHelper(res, 200, false, "Your login session expired. Please log in again.");
+            const user: any = await Agent.findOne({ where: { id: decoded.id, uuid: decoded.uuid, status: "active" } });
+            if (!user?.dataValues.totp_enabled) return returnHelper(res, 200, false, "Please log in again.");
+            const secret = decryptPii(user.dataValues.totp_secret_enc);
+            if (!secret || !verifyTotp(secret, req.body?.code)) return returnHelper(res, 200, false, "That code is not right. Check the time on your phone and try the newest code.");
+            return agentLoginSuccess(res, user, { totpPassed: true });
+        } catch (error: any) {
+            return returnHelper(res, 200, false, "Could not verify the code. Please try again.");
+        }
+    }
+
+    /** GET /crm/security/totp - is two-step login on for me (owner)? */
+    async totpStatus(req: RequestWithUser, res: Response) {
+        const u: any = await Agent.findByPk((req.user?.user as any)?.id, { attributes: ["role", "totp_enabled"], raw: true });
+        return returnHelper(res, 200, true, "Two-step login", { enabled: Boolean(u?.totp_enabled), available: u?.role === "agent" });
+    }
+
+    /** POST /crm/security/totp/setup - new secret to scan; not active until /enable confirms a code. */
+    async totpSetup(req: RequestWithUser, res: Response) {
+        const u: any = await Agent.findByPk((req.user?.user as any)?.id, { attributes: ["id", "role", "totp_enabled", "phone_number", "email", "app_name"] });
+        if (!u || u.dataValues.role !== "agent") return returnHelper(res, 200, false, "Two-step login is for the agency owner");
+        if (u.dataValues.totp_enabled) return returnHelper(res, 200, false, "Two-step login is already on. Turn it off first to set up a new phone.");
+        const secret = newTotpSecret();
+        await Agent.update({ totp_secret_enc: encryptPii(secret) }, { where: { id: u.dataValues.id } });
+        return returnHelper(res, 200, true, "Scan this in your authenticator app", { secret, uri: totpUri(secret, u.dataValues.email || u.dataValues.phone_number || "owner") });
+    }
+
+    /** POST /crm/security/totp/enable { code } */
+    async totpEnable(req: RequestWithUser, res: Response) {
+        const u: any = await Agent.findByPk((req.user?.user as any)?.id, { attributes: ["id", "role", "totp_secret_enc", "parent_uuid", "uuid"] });
+        if (!u || u.dataValues.role !== "agent") return returnHelper(res, 200, false, "Two-step login is for the agency owner");
+        const secret = decryptPii(u.dataValues.totp_secret_enc);
+        if (!secret) return returnHelper(res, 200, false, "Start the setup again");
+        if (!verifyTotp(secret, req.body?.code)) return returnHelper(res, 200, false, "That code is not right. Try the newest code from the app.");
+        await Agent.update({ totp_enabled: true }, { where: { id: u.dataValues.id } });
+        audit(req as any, { entity: "settings", action: "totp_on", summary: "Owner turned on two-step login" });
+        return returnHelper(res, 200, true, "Two-step login is on");
+    }
+
+    /** POST /crm/security/totp/disable { code } */
+    async totpDisable(req: RequestWithUser, res: Response) {
+        const u: any = await Agent.findByPk((req.user?.user as any)?.id, { attributes: ["id", "role", "totp_secret_enc", "totp_enabled"] });
+        if (!u?.dataValues.totp_enabled) return returnHelper(res, 200, false, "Two-step login is not on");
+        const secret = decryptPii(u.dataValues.totp_secret_enc);
+        if (!secret || !verifyTotp(secret, req.body?.code)) return returnHelper(res, 200, false, "Enter the current code from your authenticator app to turn it off");
+        await Agent.update({ totp_enabled: false, totp_secret_enc: null }, { where: { id: u.dataValues.id } });
+        audit(req as any, { entity: "settings", action: "totp_off", summary: "Owner turned off two-step login" });
+        return returnHelper(res, 200, true, "Two-step login is off");
+    }
+
     async validateOTP(req: Request, res: Response) {
         try {
 
@@ -150,6 +227,8 @@ class AgentController {
                             agent_id:user?.dataValues?.role =="agent" ? user?.dataValues?.id :  user?.dataValues?.parent_id
                         },
                     };
+
+                    { const gate = await totpGate(res, user); if (gate) return gate; }
 
                     const accessToken = Jwt.sign({
                         user: sendTokenData
@@ -196,6 +275,8 @@ class AgentController {
                                 agent_id:user?.dataValues?.role =="agent" ? user?.dataValues?.id :  user?.dataValues?.parent_id
                             },
                         };
+
+                        { const gate = await totpGate(res, user); if (gate) return gate; }
 
                         const accessToken = Jwt.sign({
                             user: sendTokenData
@@ -261,6 +342,8 @@ class AgentController {
                                                 agent_id:user?.dataValues?.role == "agent" ? user?.dataValues?.id :  user?.dataValues?.parent_id
                                             },
                                         };
+
+                                        { const gate = await totpGate(res, user); if (gate) return gate; }
 
                                         const accessToken = Jwt.sign({
                                             user: sendTokenData
@@ -372,6 +455,8 @@ class AgentController {
                             agent_id:user?.dataValues?.role =="agent" ? user?.dataValues?.id :  user?.dataValues?.parent_id
                         },
                     };
+
+                    { const gate = await totpGate(res, user); if (gate) return gate; }
 
                     const accessToken = Jwt.sign({
                         user: sendTokenData
@@ -1610,7 +1695,7 @@ class AgentController {
                         // Travel CRM: product type, enabled modules and the words that go with them
                         ...(await (async () => {
                             const m = await modulesFor((req.user?.user as any)?.agent_uuid);
-                            return { crm_type: m.crmType, modules: m.enabled, labels: labelsFor(m.crmType) };
+                            return { crm_type: m.crmType, modules: m.enabled, labels: labelsFor(m.crmType), lead_stages: await leadStagesFor((req.user?.user as any)?.agent_uuid) };
                         })()),
                         // agency colour (Branding settings) - the agency panel uses the same colour as the student portal
                         // agency look for the panel header: colour, name and logo (Branding settings)

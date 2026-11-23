@@ -27,7 +27,7 @@ import { getAgencyUuidFromRequest } from "./tenant";
  * presigned links; set AWS_S3_PUBLIC_URL (e.g. a CloudFront domain) to link public images directly.
  */
 
-export const PRIVATE_FOLDERS = ["student_docs", "subscription_proof", "reports", "service_files"] as const;
+export const PRIVATE_FOLDERS = ["student_docs", "subscription_proof", "reports", "service_files", "travel_docs"] as const;
 export const PUBLIC_FOLDERS = [
     "profiles", "certificates", "event_images", "courses", "course_chapter_items",
     "testimonials", "banners", "service_info", "content_writing_files",

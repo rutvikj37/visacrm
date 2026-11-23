@@ -66,7 +66,7 @@ const FeesList = () => {
 
     const openSettings = async () => {
         const { success, data } = await commonGetAPICalls("/crm/fees/settings");
-        if (success) { setSettings({ ...data, razorpay_key_secret: "" }); settingsModal.onOpen(); }
+        if (success) { setSettings({ ...data, razorpay_key_secret: "", cashfree_secret: "" }); settingsModal.onOpen(); }
     };
     const saveSettings = async (close: () => void) => {
         setSavingSettings(true);
@@ -194,6 +194,23 @@ const FeesList = () => {
                                         <Field label="Key ID"><Input aria-label="Razorpay key id" placeholder="rzp_live_..." value={settings.razorpay_key_id} onValueChange={setS("razorpay_key_id")} /></Field>
                                         <Field label={settings.razorpay_secret_masked ? `Key Secret (saved ${settings.razorpay_secret_masked})` : "Key Secret"}>
                                             <Input aria-label="Razorpay key secret" type="password" autoComplete="off" placeholder={settings.razorpay_secret_masked ? "Leave empty to keep" : ""} value={settings.razorpay_key_secret} onValueChange={setS("razorpay_key_secret")} />
+                                        </Field>
+                                    </div>
+                                </div>
+                                <div className="rounded-xl border border-default-200 p-3 flex flex-col gap-3">
+                                    <div>
+                                        <div className="font-medium text-sm">Or Cashfree (your own Cashfree account)</div>
+                                        <div className="text-xs text-default-500">Cashfree Dashboard → Developers → API Keys (Payment Gateway). Test keys start with TEST and use the sandbox.</div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Field label="App ID"><Input aria-label="Cashfree app id" value={settings.cashfree_app_id || ""} onValueChange={setS("cashfree_app_id")} /></Field>
+                                        <Field label={settings.cashfree_secret_masked ? `Secret Key (saved ${settings.cashfree_secret_masked})` : "Secret Key"}>
+                                            <Input aria-label="Cashfree secret" type="password" autoComplete="off" placeholder={settings.cashfree_secret_masked ? "Leave empty to keep" : ""} value={settings.cashfree_secret || ""} onValueChange={setS("cashfree_secret")} />
+                                        </Field>
+                                        <Field label="Use for payment links" className="sm:col-span-2">
+                                            <select aria-label="Payment gateway" className="h-10 rounded-medium bg-default-100 px-3 text-sm" value={settings.payment_gateway || "razorpay"} onChange={(e) => setS("payment_gateway")(e.target.value)}>
+                                                <option value="razorpay">Razorpay</option><option value="cashfree">Cashfree</option>
+                                            </select>
                                         </Field>
                                     </div>
                                 </div>

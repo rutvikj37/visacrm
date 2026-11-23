@@ -362,6 +362,7 @@ class TravelController {
             const { agencyUuid } = ctx(req);
             const where: any = { agency_uuid: agencyUuid };
             if (req.query.search) where.service = { [Op.like]: `%${req.query.search}%` };
+            if (req.query.ids) where.id = String(req.query.ids).split(",").map(Number).filter(Boolean).slice(0, 60);
             const on = date(req.query.date);
             if (on) Object.assign(where, { [Op.and]: [{ [Op.or]: [{ valid_from: null }, { valid_from: { [Op.lte]: on } }] }, { [Op.or]: [{ valid_to: null }, { valid_to: { [Op.gte]: on } }] }] });
             const rows = await SupplierRate.findAll({ where, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name"], required: false }], limit: 50, order: [["service", "ASC"]] });
@@ -550,9 +551,9 @@ class TravelController {
     async quoteDetails(req: RequestWithUser, res: Response) {
         try {
             const scope = await recordScope(req);
-            const row: any = await Quotation.findOne({ where: { ...scope, uuid: req.params.uuid }, include: [{ model: Itinerary, as: "itinerary", attributes: ["uuid", "title", "share_token"], required: false }] });
+            const row: any = await Quotation.findOne({ where: { ...scope, uuid: req.params.uuid }, include: [{ model: Itinerary, as: "itinerary", attributes: ["uuid", "title", "share_token", "nights", "start_date"], required: false }] });
             if (!row) return no(res, "Quote not found");
-            const lead: any = row.dataValues.crm_lead_id ? await CrmLead.findByPk(row.dataValues.crm_lead_id, { attributes: ["uuid", "name", "country_code", "phone_number", "email"] }) : null;
+            const lead: any = row.dataValues.crm_lead_id ? await CrmLead.findByPk(row.dataValues.crm_lead_id, { attributes: ["uuid", "name", "country_code", "phone_number", "email", "nights", "travel_start"] }) : null;
             const versions = await Quotation.findAll({
                 where: { agency_uuid: ctx(req).agencyUuid, [Op.or]: [{ id: row.dataValues.parent_id || row.dataValues.id }, { parent_id: row.dataValues.parent_id || row.dataValues.id }] },
                 attributes: ["uuid", "version", "status"], order: [["version", "ASC"]],
@@ -565,6 +566,8 @@ class TravelController {
                 versions: versions.map((v: any) => ({ id: v.dataValues.uuid, version: v.dataValues.version, status: v.dataValues.status })),
                 booking: booking ? { id: booking.dataValues.uuid, booking_no: booking.dataValues.booking_no } : null,
                 sees_cost: seesCost(req),
+                // used to price rates automatically: nights for per-night rates, date for the right season
+                trip: { nights: row.dataValues.itinerary?.nights ?? lead?.dataValues.nights ?? 0, travel_date: row.dataValues.itinerary?.start_date || lead?.dataValues.travel_start || null },
                 tax_defaults: { gst_full_value_percent: tax.gst_full_value_percent, gst_margin_percent: tax.gst_margin_percent, tcs_overseas_percent: tax.tcs_overseas_percent },
             };
             return ok(res, "Quote", redactCost(data, req));

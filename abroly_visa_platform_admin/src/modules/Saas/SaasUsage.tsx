@@ -69,6 +69,16 @@ const SaasUsage = () => {
                 <h1 className="text-2xl font-semibold">Usage & health</h1>
                 <p className="text-sm text-default-500">How much each agency uses the CRM in the last 30 days. Reach out to agencies at risk before their plan ends.</p>
             </div>
+            {data?.products && (
+                <div className="rounded-xl border border-default-200 bg-content1 p-3 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                    <div><div className="text-xs text-default-500">Visa CRM</div><div className="text-lg font-semibold">{data.products.by_crm_type.visa}</div></div>
+                    <div><div className="text-xs text-default-500">Travel CRM</div><div className="text-lg font-semibold">{data.products.by_crm_type.travel}</div></div>
+                    <div><div className="text-xs text-default-500">Visa + Travel</div><div className="text-lg font-semibold">{data.products.by_crm_type.both}</div></div>
+                    <div className="min-w-[200px]"><div className="text-xs text-default-500">Paid add-ons switched on</div>
+                        <div className="font-medium">{data.products.addons.length ? data.products.addons.map((a: any) => `${a.label}: ${a.agencies}`).join(" · ") : "None yet"}</div>
+                    </div>
+                </div>
+            )}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                 <Stat icon={HeartPulse} label="Healthy" value={s.healthy} tone="bg-success-50 text-success-600" active={health === "healthy"} onPress={() => setHealth(health === "healthy" ? "all" : "healthy")} />
                 <Stat icon={AlertTriangle} label="At risk" value={s.at_risk} tone="bg-warning-50 text-warning-600" active={health === "at_risk"} onPress={() => setHealth(health === "at_risk" ? "all" : "at_risk")} />

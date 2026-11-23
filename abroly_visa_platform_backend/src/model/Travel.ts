@@ -165,6 +165,7 @@ export const Booking = sequelize.define('Booking', {
     gst_percent: { type: DataTypes.DECIMAL(5, 2), defaultValue: 5 },
     tcs_percent: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0 },
     invoice_id: { type: DataTypes.INTEGER, allowNull: true }, // client_invoices.id
+    share_token: { type: DataTypes.STRING(64), allowNull: true }, // public trip kit link
     ops_owner_id: { type: DataTypes.INTEGER, allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
     branch_id: { type: DataTypes.INTEGER, allowNull: true },
@@ -207,3 +208,62 @@ export const BookingTraveller = sequelize.define('BookingTraveller', {
     seat_pref: { type: DataTypes.STRING(60), allowNull: true },
     is_lead: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, opts('booking_travellers', [{ fields: ['booking_id'] }]));
+
+/** A client's family members, reused as travellers on later trips (CP-01). */
+export const ClientMember = sequelize.define('ClientMember', {
+    ...base,
+    user_id: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING, allowNull: false },
+    relation: { type: DataTypes.STRING(40), allowNull: true },
+    pax_type: { type: DataTypes.ENUM("adult", "child", "infant"), defaultValue: "adult" },
+    dob: { type: DataTypes.DATEONLY, allowNull: true },
+    anniversary: { type: DataTypes.DATEONLY, allowNull: true },
+    nationality: { type: DataTypes.STRING(60), allowNull: true },
+    passport_no_enc: { type: DataTypes.TEXT, allowNull: true },
+    passport_last4: { type: DataTypes.STRING(4), allowNull: true },
+    passport_expiry: { type: DataTypes.DATEONLY, allowNull: true },
+    pan_enc: { type: DataTypes.TEXT, allowNull: true },
+    meal_pref: { type: DataTypes.STRING(60), allowNull: true },
+    seat_pref: { type: DataTypes.STRING(60), allowNull: true },
+}, opts('client_members', [{ fields: ['user_id'] }]));
+
+/** Tickets, visas, insurance and other files on a booking (VC-02). Stored privately (travel_docs). */
+export const BookingDocument = sequelize.define('BookingDocument', {
+    ...base,
+    booking_id: { type: DataTypes.INTEGER, allowNull: false },
+    service_id: { type: DataTypes.INTEGER, allowNull: true },
+    kind: { type: DataTypes.ENUM("ticket", "visa", "insurance", "voucher", "passport", "other"), defaultValue: "other" },
+    name: { type: DataTypes.STRING, allowNull: false },
+    file_ref: { type: DataTypes.STRING(500), allowNull: false },
+    size: { type: DataTypes.INTEGER, allowNull: true },
+    share_with_client: { type: DataTypes.BOOLEAN, defaultValue: true },
+    uploaded_by: { type: DataTypes.INTEGER, allowNull: true },
+}, opts('booking_documents', [{ fields: ['booking_id'] }]));
+
+/** Monthly sales target per team member (RP-02). amount = selling value in paise. */
+export const TravelTarget = sequelize.define('TravelTarget', {
+    ...base,
+    agent_id: { type: DataTypes.INTEGER, allowNull: false },
+    month: { type: DataTypes.STRING(7), allowNull: false }, // YYYY-MM
+    amount: { type: DataTypes.BIGINT, defaultValue: 0 },
+}, opts('travel_targets', [{ unique: true, fields: ['agency_uuid', 'agent_id', 'month'] }]));
+
+/**
+ * GST credit note against a client invoice (PY-03), e.g. after a cancellation or discount.
+ * It lowers the invoice total; anything already paid above the new total is a refund due.
+ */
+export const CreditNote = sequelize.define('CreditNote', {
+    ...base,
+    number: { type: DataTypes.STRING(40), allowNull: false },
+    invoice_id: { type: DataTypes.INTEGER, allowNull: false },
+    booking_id: { type: DataTypes.INTEGER, allowNull: true },
+    amount: { type: DataTypes.BIGINT, allowNull: false },       // total credited, incl. GST
+    taxable_value: { type: DataTypes.BIGINT, defaultValue: 0 },
+    gst_amount: { type: DataTypes.BIGINT, defaultValue: 0 },
+    reason: { type: DataTypes.STRING(500), allowNull: true },
+    refund_due: { type: DataTypes.BIGINT, defaultValue: 0 },
+    refunded: { type: DataTypes.BIGINT, defaultValue: 0 },
+    refund_reference: { type: DataTypes.STRING(120), allowNull: true },
+    issue_date: { type: DataTypes.DATEONLY, allowNull: false },
+    created_by: { type: DataTypes.INTEGER, allowNull: true },
+}, opts('credit_notes', [{ fields: ['invoice_id'] }]));

@@ -70,6 +70,10 @@ const SidebarNavGroup = ({ item, styledLinks = false }: { item: NavItem; styledL
         );
     }
 
+    const bestUrl = subs
+        .filter((sub) => isNavItemActive(sub.url, pathname, search))
+        .sort((a, b) => b.url.length - a.url.length)[0]?.url;
+
     return (
         <Collapsible asChild defaultOpen={item.isActive} className="group/collapsible">
             <SidebarMenuItem>
@@ -83,7 +87,8 @@ const SidebarNavGroup = ({ item, styledLinks = false }: { item: NavItem; styledL
                 <CollapsibleContent>
                     <SidebarMenuSub>
                         {subs.map((sub) => {
-                            const active = isNavItemActive(sub.url, pathname, search);
+                            // only the closest match in a group is highlighted (e.g. "Travel desk" /travel vs "Itineraries" /travel/itineraries)
+                            const active = sub.url === bestUrl;
                             return (
                                 <SidebarMenuSubItem key={sub.title}>
                                     <SidebarMenuSubButton asChild>
