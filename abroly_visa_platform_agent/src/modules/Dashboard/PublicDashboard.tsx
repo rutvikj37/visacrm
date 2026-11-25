@@ -158,6 +158,8 @@ import WhatsAppFloat from '../../components/WhatsAppFloat';
 import aborlyIcon from "../../assets/logo.png"
 
 import { publicAsset } from "@/utils/appBase";
+import { getAgencyHost } from "@/utils/agencyHost";
+const AgencyLanding = React.lazy(() => import("../public/AgencyLanding"));
 const PublicDashboard = () => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const navigate = useNavigate();
@@ -207,6 +209,15 @@ const PublicDashboard = () => {
         }
         return location.pathname === item.to;
     };
+
+    // on an agency's own address (<agency>.techxsolutions.io/agency/) the home page is that agency's, not the TechX sales page
+    if (getAgencyHost() && (location.pathname === "/" || location.pathname === "")) {
+        return (
+            <Suspense fallback={<div className="min-h-screen w-full" aria-busy="true" />}>
+                <AgencyLanding />
+            </Suspense>
+        );
+    }
 
     return (
         <div className="min-h-screen overflow-x-hidden bg-white">

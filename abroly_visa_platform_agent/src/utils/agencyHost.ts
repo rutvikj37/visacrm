@@ -12,6 +12,8 @@ const PLATFORM_HOSTS = ["crm", "admin", "api", "student", "www"];
 
 /** "rutvik.techxsolutions.io" when the panel is opened on that agency's address, else null */
 export const getAgencyHost = (): string | null => {
+    // local dev: VITE_DEV_AGENCY_HOST=rutvik.techxsolutions.io previews the panel as that agency's address
+    if (import.meta.env.DEV && import.meta.env.VITE_DEV_AGENCY_HOST) return String(import.meta.env.VITE_DEV_AGENCY_HOST).toLowerCase();
     let h = window.location.hostname.toLowerCase();
     if (!h.includes(".") || /^[\d.]+$/.test(h) || h.endsWith(".localhost") || h === PLATFORM_DOMAIN) return null;
     if (h.startsWith("crm.") && h.slice(4) !== PLATFORM_DOMAIN) h = h.slice(4); // old crm.<agency> links
@@ -20,7 +22,11 @@ export const getAgencyHost = (): string | null => {
     return h;
 };
 
-export type AgencyBrand = { name: string; logo: string | null; color: string | null };
+export type AgencyBrand = {
+    name: string; logo: string | null; color: string | null;
+    phone?: string | null; email?: string | null; address?: string | null;
+    website?: string | null; tagline?: string | null; focus?: "study" | "travel" | "both";
+};
 
 /** The agency of this panel address (name, logo, colour) for the login page; null on the shared panel. */
 export const useAgencyBrand = () => {
@@ -35,7 +41,14 @@ export const useAgencyBrand = () => {
                 const d = data?.data;
                 if (!data?.success || !d) return;
                 const logo = d.favicon_url_full || d.faviconUrlFull || (/^https?:\/\//.test(String(d.favicon_url || "")) ? d.favicon_url : null);
-                setBrand({ name: d.app_name || d.username || "Agency", logo: logo || null, color: d.primary_color || null });
+                const phone = d.support_number || d.phone_number;
+                setBrand({
+                    name: d.app_name || d.username || "Agency", logo: logo || null, color: d.primary_color || null,
+                    phone: phone ? `${String(phone).startsWith("+") ? "" : `${d.country_code || "+91"} `}${phone}` : null,
+                    email: d.support_email || null, address: d.agency_address || null,
+                    website: d.og_url || null, tagline: d.meta_description || null,
+                    focus: ["study", "travel", "both"].includes(d.business_focus) ? d.business_focus : "study",
+                });
                 if (d.primary_color) applyBrand(d.primary_color, d.primary_foreground_color);
                 if (d.app_name) document.title = `${d.app_name} - Agency panel`;
             })
