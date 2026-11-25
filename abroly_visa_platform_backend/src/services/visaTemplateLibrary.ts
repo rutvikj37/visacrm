@@ -426,6 +426,29 @@ const travelSteps = (business: boolean, extra: TravelExtra = {}): TemplateStep[]
 
 const TRAVEL_TEMPLATES: LibraryTemplate[] = [
     {
+        key: "business-general", name: "Business Visa (any country)", country: "Any", visa_type: "Business Visa",
+        description: "Short business visit to any country - meetings, trade fairs, conferences and site visits.",
+        steps: travelSteps(true, {
+            trip: [text("Country you are visiting and the city of the meeting / event")],
+            work: [file("Trade fair / conference registration (if attending one)")],
+            appointment: [text("Biometrics / interview appointment date (if the country needs one)")],
+        }),
+    },
+    {
+        key: "visitor-family-general", name: "Visitor Visa - visiting family or friends (any country)", country: "Any", visa_type: "Visitor Visa",
+        description: "Visit relatives or friends abroad - invitation from the host, their status proof and your finances.",
+        steps: travelSteps(false, {
+            trip: [text("Country you are visiting, and who you will stay with (name and relation)")],
+            finance: [file("Sponsor's letter and documents (if the host pays for the trip)")],
+            bookings: [
+                file("Invitation letter from the host (address, dates, relation)"),
+                file("Host's passport and visa / residence permit / citizenship proof"),
+                file("Host's address proof abroad"),
+            ],
+            appointment: [text("Biometrics / interview appointment date (if the country needs one)")],
+        }),
+    },
+    {
         key: "schengen-tourist", name: "Schengen Tourist Visa (Europe)", country: "Schengen (Europe)", visa_type: "Tourist Visa",
         description: "Short-stay tourist visa for France, Italy, Switzerland, Germany, Spain and other Schengen countries.",
         steps: travelSteps(false, {

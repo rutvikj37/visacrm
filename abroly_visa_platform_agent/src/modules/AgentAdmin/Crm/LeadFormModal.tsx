@@ -9,6 +9,7 @@ import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import { asArray, formatPhone, statusMeta } from "./crmShared";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 import useModules from "@/hooks/useModules";
+import { getBusinessFocus } from "@/modules/AgentAdmin/Cases/caseShared";
 
 interface Props {
     isOpen: boolean;
@@ -57,7 +58,9 @@ const emptyForm = {
 const HOTEL_CATEGORIES = [{ key: "budget", label: "Budget" }, { key: "3_star", label: "3 star" }, { key: "4_star", label: "4 star" }, { key: "5_star", label: "5 star" }, { key: "luxury", label: "Luxury" }];
 const TRIP_TYPES = ["family", "honeymoon", "group", "solo", "friends", "corporate", "pilgrimage", "adventure"];
 
-const VISA_TYPES = ["Student Visa", "Work Visa", "Tourist Visa", "PR / Immigration", "Business Visa", "Dependent Visa", "Other"];
+const STUDY_VISA_TYPES = ["Student Visa", "Work Visa", "Tourist Visa", "Visitor Visa", "PR / Immigration", "Business Visa", "Dependent Visa", "Other"];
+// tourist & business visa agencies (Branding > what does your agency mainly do): their visas first
+const TRAVEL_VISA_TYPES = ["Tourist Visa", "Visitor Visa", "Business Visa", "Transit Visa", "Student Visa", "Work Visa", "PR / Immigration", "Dependent Visa", "Other"];
 
 type DupState = {
     existing: any;
@@ -66,6 +69,8 @@ type DupState = {
 } | null;
 
 const LeadFormModal = ({ isOpen, onOpenChange, lead, team = [], canAssign = false, onSaved, defaultLine }: Props) => {
+    const travelFocus = getBusinessFocus() === "travel";
+    const VISA_TYPES = travelFocus ? TRAVEL_VISA_TYPES : STUDY_VISA_TYPES;
     const navigate = useNavigate();
     const { crmType, has } = useModules();
     const travelOn = has("itinerary") || has("bookings");
@@ -250,7 +255,9 @@ const LeadFormModal = ({ isOpen, onOpenChange, lead, team = [], canAssign = fals
                                         onChange={set("interested_country")}
                                     />
                                 </FormField>
-                                <FormField label="Course / service"><Input aria-label="Course / service" placeholder="e.g. MBA" value={form.interested_course} onValueChange={set("interested_course")} /></FormField>
+                                {travelFocus
+                                    ? <FormField label="Service"><Input aria-label="Service" placeholder="e.g. USA visitor visa, Dubai tour" value={form.interested_course} onValueChange={set("interested_course")} /></FormField>
+                                    : <FormField label="Course / service"><Input aria-label="Course / service" placeholder="e.g. MBA" value={form.interested_course} onValueChange={set("interested_course")} /></FormField>}
                                 <FormField label="Visa type"><Select
                                     aria-label="Visa type"
                                     selectedKeys={form.visa_type ? [form.visa_type] : []}
@@ -260,7 +267,9 @@ const LeadFormModal = ({ isOpen, onOpenChange, lead, team = [], canAssign = fals
                                         <SelectItem key={v}>{v}</SelectItem>
                                     ))}
                                 </Select></FormField>
-                                <FormField label="Intake"><Input aria-label="Intake" placeholder="e.g. Sep 2026" value={form.intake} onValueChange={set("intake")} /></FormField>
+                                {travelFocus
+                                    ? <FormField label="Travel month"><Input aria-label="Travel month" placeholder="e.g. Jan 2027" value={form.intake} onValueChange={set("intake")} /></FormField>
+                                    : <FormField label="Intake"><Input aria-label="Intake" placeholder="e.g. Sep 2026" value={form.intake} onValueChange={set("intake")} /></FormField>}
                                 </>)}
                                 <FormField label="City"><Input aria-label="City" value={form.city} onValueChange={set("city")} /></FormField>
                                 <FormField label="Campaign"><Input aria-label="Campaign" value={form.campaign} onValueChange={set("campaign")} /></FormField>
