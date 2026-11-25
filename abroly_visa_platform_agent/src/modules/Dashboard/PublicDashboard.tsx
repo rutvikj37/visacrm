@@ -158,12 +158,14 @@ import WhatsAppFloat from '../../components/WhatsAppFloat';
 import aborlyIcon from "../../assets/logo.png"
 
 import { publicAsset } from "@/utils/appBase";
-import { getAgencyHost } from "@/utils/agencyHost";
+import { useAgencyBrand } from "@/utils/agencyHost";
+import { AgencyFooter, AgencyHeader } from "../public/AgencyChrome";
 const AgencyLanding = React.lazy(() => import("../public/AgencyLanding"));
 const PublicDashboard = () => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const { host: agencyHost, brand } = useAgencyBrand();
 
     const SideMenu = [
         {
@@ -210,11 +212,27 @@ const PublicDashboard = () => {
         return location.pathname === item.to;
     };
 
-    // on an agency's own address (<agency>.techxsolutions.io/agency/) the home page is that agency's, not the TechX sales page
-    if (getAgencyHost() && (location.pathname === "/" || location.pathname === "")) {
+    // on an agency's own address (<agency>.techxsolutions.io/agency/...) every public page is in the agency's
+    // name: its own home page, and its header/footer around login etc. The TechX CRM look stays on the shared host.
+    if (agencyHost) {
+        const isHome = location.pathname === "/" || location.pathname === "";
         return (
             <Suspense fallback={<div className="min-h-screen w-full" aria-busy="true" />}>
-                <AgencyLanding />
+                {isHome ? (
+                    <AgencyLanding brand={brand} />
+                ) : (
+                    <div className="flex min-h-screen flex-col bg-white">
+                        <AgencyHeader brand={brand} />
+                        <div className="flex-1">
+                            <Routes>
+                                {PublicRoutes.map((item: any) => (
+                                    <Route key={item.path} path={item.path} element={<item.element />} />
+                                ))}
+                            </Routes>
+                        </div>
+                        <AgencyFooter brand={brand} />
+                    </div>
+                )}
             </Suspense>
         );
     }

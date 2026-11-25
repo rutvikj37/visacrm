@@ -24,6 +24,7 @@ import {
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
 import { useAgencyBrand } from "@/utils/agencyHost";
+import { studentLoginUrl } from "./AgencyChrome";
 
 import { publicAsset } from "@/utils/appBase";
 
@@ -332,13 +333,18 @@ const Login = () => {
           className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100"
         >
           <div className="flex flex-col lg:flex-row h-fit">
-            <div className="hidden lg:block lg:w-1/2 relative bg-gradient-to-br from-indigo-700 to-blue-800">
+            <div
+              className="hidden lg:block lg:w-1/2 relative bg-gradient-to-br from-indigo-700 to-blue-800"
+              style={brand?.color ? { background: `linear-gradient(135deg, ${brand.color}, color-mix(in srgb, ${brand.color} 70%, black))` } : undefined}
+            >
               <div className="absolute inset-0 bg-[url('https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg')] bg-cover bg-center opacity-20" />
               <div className="relative h-full p-12 flex flex-col justify-between text-white">
                 <div className="space-y-8">
                   <div className="flex items-center gap-3">
                     {brand?.logo ? (
-                      <img src={brand.logo} alt="" className="w-12 h-12 rounded-xl shadow-lg object-cover bg-white" />
+                      <span className="rounded-xl bg-white px-3 py-2 shadow-lg">
+                        <img src={brand.logo} alt={brand.name} className="h-12 w-auto max-w-[220px] object-contain" />
+                      </span>
                     ) : brand ? (
                       <span className="w-12 h-12 rounded-xl shadow-lg bg-white text-primary grid place-items-center text-2xl font-bold">
                         {brand.name.slice(0, 1).toUpperCase()}
@@ -346,7 +352,7 @@ const Login = () => {
                     ) : (
                       <img src={publicAsset("logo.png")} alt="" className="w-12 h-12 rounded-xl shadow-lg" />
                     )}
-                    <span className="text-2xl font-semibold tracking-tight">{brand?.name || "TechX CRM"}</span>
+                    {!brand?.logo && <span className="text-2xl font-semibold tracking-tight">{brand?.name || "TechX CRM"}</span>}
                   </div>
                   <div>
                     <h2 className="text-4xl font-extrabold tracking-tight leading-tight">Welcome Back</h2>
@@ -425,6 +431,14 @@ const Login = () => {
                         Continue
                       </Button>
                     </form>
+                    {agencyHost && (
+                      <p className="text-center text-sm text-gray-600">
+                        Are you a student or client?{" "}
+                        <a href={studentLoginUrl()} className="font-semibold text-primary hover:underline">
+                          Student login
+                        </a>
+                      </p>
+                    )}
                   </motion.div>
                 )}
 

@@ -87,8 +87,10 @@ const Index = () => {
 
             const { data, success } = await commonPublicGetApiCalls(apiUrl);
 
-            if (success && data && data.portal_enabled === false && !isLocalHost) {
-                // this agency has no client portal - its address opens the agency panel instead
+            // this agency has no client portal pages - its address opens the agency panel instead.
+            // Student login (/login) and signed-in students still work.
+            const onStudentLogin = /^\/login\/?$/.test(window.location.pathname);
+            if (success && data && data.portal_enabled === false && !isLocalHost && !token && !onStudentLogin) {
                 window.location.replace('/agency/');
                 return;
             }

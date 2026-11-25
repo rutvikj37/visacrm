@@ -12,10 +12,11 @@ import {
   Mail,
   ShieldCheck,
   Users,
-  ExternalLink,
+  GraduationCap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAgencyBrand } from "@/utils/agencyHost";
+import type { AgencyBrand } from "@/utils/agencyHost";
+import { AgencyFooter, AgencyHeader, studentLoginUrl } from "./AgencyChrome";
 
 /**
  * Landing at https://<agency address>/agency/ - the agency's own front door for its team,
@@ -31,17 +32,13 @@ const fadeUp = {
 const TRAVEL_DESTINATIONS = ["USA", "Canada", "UK", "Schengen", "Dubai", "Australia", "Singapore", "Thailand"];
 const STUDY_DESTINATIONS = ["Canada", "UK", "Australia", "USA", "Germany", "Ireland", "New Zealand", "France"];
 
-const AgencyLanding = () => {
+const AgencyLanding = ({ brand }: { brand: AgencyBrand | null }) => {
   const navigate = useNavigate();
-  const { host, brand } = useAgencyBrand();
   const color = brand?.color || "#0f5bd8";
   const name = brand?.name || "";
   const travel = brand?.focus !== "study";
-  const portalUrl = host ? `${window.location.protocol}//${window.location.host}/` : "/";
   const phoneDigits = (brand?.phone || "").replace(/\D/g, "");
   const destinations = travel ? TRAVEL_DESTINATIONS : STUDY_DESTINATIONS;
-  // agencies with the "Client portal" module off have no portal at /, so no link to it
-  const showPortal = brand?.portal === true;
 
   const tools = travel
     ? [
@@ -71,29 +68,7 @@ const AgencyLanding = () => {
         @media (prefers-reduced-motion: reduce) { .agency-landing .al-plane { animation: none; } }
       `}</style>
 
-      {/* top bar */}
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            {brand?.logo ? (
-              <img src={brand.logo} alt={name} className="h-10 w-auto max-w-[160px] object-contain" />
-            ) : (
-              <div className="brand-bg flex h-9 w-9 items-center justify-center rounded-lg text-white"><Plane size={18} /></div>
-            )}
-            {!brand?.logo && <span className="display truncate text-lg font-semibold">{name}</span>}
-          </div>
-          <div className="flex items-center gap-2">
-            {showPortal && (
-              <Button as="a" href={portalUrl} variant="light" className="hidden font-medium text-slate-600 sm:flex">
-                Client portal
-              </Button>
-            )}
-            <Button onPress={() => navigate("/login")} className="brand-bg font-medium text-white" startContent={<LogIn size={17} />}>
-              Staff login
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AgencyHeader brand={brand} />
 
       {/* hero */}
       <section className="relative overflow-hidden">
@@ -117,11 +92,9 @@ const AgencyLanding = () => {
               <Button size="lg" onPress={() => navigate("/login")} className="brand-bg font-semibold text-white shadow-lg" startContent={<LogIn size={18} />}>
                 Login to the panel
               </Button>
-              {showPortal && (
-                <Button size="lg" as="a" href={portalUrl} variant="bordered" className="brand-border bg-white font-semibold text-slate-800" endContent={<ExternalLink size={16} />}>
-                  Client portal
-                </Button>
-              )}
+              <Button size="lg" as="a" href={studentLoginUrl()} variant="bordered" className="brand-border bg-white font-semibold text-slate-800" startContent={<GraduationCap size={18} />}>
+                Student login
+              </Button>
             </div>
             <div className="mt-8 flex flex-wrap gap-2">
               {destinations.map((d) => (
@@ -220,12 +193,7 @@ const AgencyLanding = () => {
         </section>
       )}
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:px-6">
-          <span>© {new Date().getFullYear()} {name}</span>
-          <span>Powered by TechX CRM</span>
-        </div>
-      </footer>
+      <AgencyFooter brand={brand} />
     </main>
   );
 };
