@@ -25,6 +25,7 @@ import ActivityLogPage from "@/modules/AgentAdmin/Activity/ActivityLogPage"
 import LeadDetails from "@/modules/AgentAdmin/Crm/LeadDetails"
 import LeadSources from "@/modules/AgentAdmin/Crm/LeadSources"
 import VisaTemplates from "@/modules/AgentAdmin/Crm/VisaTemplates"
+import ClientForms from "@/modules/AgentAdmin/Crm/ClientForms"
 import ReportsDashboard from "@/modules/AgentAdmin/Reports/ReportsDashboard"
 import CaseBoard from "@/modules/AgentAdmin/Cases/CaseBoard"
 import UnifiedCalendar from "@/modules/AgentAdmin/CalendarAll/UnifiedCalendar"
@@ -210,6 +211,10 @@ export const AgentAdminRoutes = [
     {
         path: "/crm/templates",
         element: VisaTemplates
+    },
+    {
+        path: "/crm/forms",
+        element: ClientForms
     },
     {
         path: "/subscription",
@@ -481,6 +486,10 @@ export const SubAgentRoutes = [
     {
         path: "/crm/leads/:uuid",
         element: LeadDetails
+    },
+    {
+        path: "/crm/forms",
+        element: ClientForms
     },
     {
         path: "/crm/chats",

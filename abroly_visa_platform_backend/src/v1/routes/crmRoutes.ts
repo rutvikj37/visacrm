@@ -12,6 +12,7 @@ import express, { NextFunction, Request, Response } from "express"
 import CrmController from "../controller/CrmController"
 import LeadIntegrationController from "../controller/LeadIntegrationController"
 import VisaTemplateController from "../controller/VisaTemplateController"
+import ClientFormController from "../controller/ClientFormController"
 import MetaController from "../controller/MetaController"
 import SubscriptionSaasController from "../controller/SubscriptionSaasController"
 import NotificationController from "../controller/NotificationController"
@@ -115,6 +116,21 @@ crmRoutes.route("/visa_templates").post(validateAgent, VisaTemplateController.cr
 crmRoutes.route("/visa_templates/:id").get(validateAgent, VisaTemplateController.details)
 crmRoutes.route("/visa_templates/:id/update").post(validateAgent, VisaTemplateController.update)
 crmRoutes.route("/visa_templates/:id/delete").post(validateAgent, VisaTemplateController.remove)
+
+// custom client forms (Google Forms–style; separate from visa templates)
+crmRoutes.route("/forms").get(validateAgent, ClientFormController.list)
+crmRoutes.route("/forms").post(validateAgent, ClientFormController.create)
+crmRoutes.route("/forms/:id").get(validateAgent, ClientFormController.details)
+crmRoutes.route("/forms/:id/update").post(validateAgent, ClientFormController.update)
+crmRoutes.route("/forms/:id/publish").post(validateAgent, ClientFormController.publish)
+crmRoutes.route("/forms/:id/archive").post(validateAgent, ClientFormController.archive)
+crmRoutes.route("/forms/:id/duplicate").post(validateAgent, ClientFormController.duplicate)
+crmRoutes.route("/forms/:id/share").get(validateAgent, ClientFormController.share)
+crmRoutes.route("/forms/:id/assign").post(validateAgent, ClientFormController.assign)
+crmRoutes.route("/forms/:id/assign/email").post(validateAgent, ClientFormController.sendAssignEmail)
+crmRoutes.route("/forms/:id/submissions").get(validateAgent, ClientFormController.listSubmissions)
+crmRoutes.route("/forms/:id/submissions/:subId").get(validateAgent, ClientFormController.submissionDetails)
+crmRoutes.route("/forms/:id/submissions/:subId/create_lead").post(validateAgent, ClientFormController.createLeadFromSubmission)
 
 // team & settings
 crmRoutes.route("/team").get(validateAgent, CrmController.team)

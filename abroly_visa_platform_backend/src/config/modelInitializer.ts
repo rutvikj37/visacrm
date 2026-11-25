@@ -65,6 +65,9 @@ import CrmLead from "../model/CrmLead";
 import CrmLeadActivity from "../model/CrmLeadActivity";
 import LeadIntegration from "../model/LeadIntegration";
 import VisaTemplate from "../model/VisaTemplate";
+import ClientForm from "../model/ClientForm";
+import ClientFormAssignment from "../model/ClientFormAssignment";
+import ClientFormSubmission from "../model/ClientFormSubmission";
 import SaasPlan from "../model/SaasPlan";
 import SaasSubscription from "../model/SaasSubscription";
 import SaasPayment from "../model/SaasPayment";
@@ -181,7 +184,7 @@ class ModelInitializer {
       QuizAnswers, QuizQuestions, SideBannerResponses, StudentBasicDetails,
       StudentCoins, UserDevices,
       // CRM
-      LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate,
+      LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate, ClientForm, ClientFormAssignment, ClientFormSubmission,
       // SaaS billing
       SaasPlan, SaasSubscription, SaasPayment,
       Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, WhatsappPendingChat, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat,
@@ -503,6 +506,11 @@ class ModelInitializer {
 
     CrmLead.belongsTo(LeadIntegration, { foreignKey: "integration_id", targetKey: "id", as: "integration" });
     LeadIntegration.hasMany(CrmLead, { foreignKey: "integration_id", sourceKey: "id", as: "leads" });
+
+    ClientForm.hasMany(ClientFormAssignment, { foreignKey: "form_id", sourceKey: "id", as: "assignments" });
+    ClientFormAssignment.belongsTo(ClientForm, { foreignKey: "form_id", targetKey: "id", as: "form" });
+    ClientForm.hasMany(ClientFormSubmission, { foreignKey: "form_id", sourceKey: "id", as: "submissions" });
+    ClientFormSubmission.belongsTo(ClientForm, { foreignKey: "form_id", targetKey: "id", as: "form" });
   }
 
   private setupAgencyLeadsAssociations(): void {

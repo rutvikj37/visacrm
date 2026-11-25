@@ -90,7 +90,8 @@ const Index = () => {
             // this agency has no client portal pages - its address opens the agency panel instead.
             // Student login (/login) and signed-in students still work.
             const onStudentLogin = /^\/login\/?$/.test(window.location.pathname);
-            if (success && data && data.portal_enabled === false && !isLocalHost && !token && !onStudentLogin) {
+            const onPublicForm = /^\/f\/[^/]+\/?$/.test(window.location.pathname);
+            if (success && data && data.portal_enabled === false && !isLocalHost && !token && !onStudentLogin && !onPublicForm) {
                 window.location.replace('/agency/');
                 return;
             }

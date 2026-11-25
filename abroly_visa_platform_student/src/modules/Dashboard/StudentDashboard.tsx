@@ -1,6 +1,7 @@
 import {
   Briefcase,
   ChevronsUpDown,
+  ClipboardList,
   Contact,
   FileCheck2,
   Home,
@@ -68,6 +69,7 @@ const MAIN_LINKS: NavLink[] = [
     match: (p) => p.startsWith("/my_progress"),
   },
   { title: "Chat with counsellor", url: "/chat", icon: MessagesSquare, match: (p) => p.startsWith("/chat") },
+  { title: "Forms", url: "/forms", icon: ClipboardList, match: (p) => p.startsWith("/forms") },
   { title: "My fees", url: "/my_fees", icon: IndianRupee, match: (p) => p.startsWith("/my_fees") },
   { title: "Services", url: "/services", icon: Store, match: (p) => p === "/services" || p.startsWith("/services/orders") },
   {
