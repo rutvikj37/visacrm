@@ -761,6 +761,30 @@ class AgentController {
     }
 
     /** POST /agent/set_passcode — first login or after forgot; requires setup_token (not a session JWT). */
+    /**
+     * POST /agent/change_passcode { current_passcode, passcode, confirm_passcode } (signed in)
+     * Owner or team member picks a new passcode from inside the panel. Every device is signed out
+     * afterwards (this one too), so they log in again with the new passcode.
+     */
+    async changePasscode(req: RequestWithUser, res: Response) {
+        try {
+            const id = Number((req.user?.user as any)?.id);
+            if (!id) return returnHelper(res, 200, false, "Please log in again.");
+            const current = await checkLoginCode(id, req.body?.current_passcode);
+            if (!current.applies) return returnHelper(res, 200, false, "This account has no passcode yet. Log out and sign in with your login code.");
+            if (!current.ok) return returnHelper(res, 200, false, "Current passcode is wrong.");
+            const shape = validatePasscodeShape(req.body?.passcode, req.body?.confirm_passcode);
+            if (!shape.ok) return returnHelper(res, 200, false, shape.message);
+            if (String(req.body?.current_passcode ?? "").replace(/\D/g, "") === shape.pin) {
+                return returnHelper(res, 200, false, "Choose a passcode different from the current one.");
+            }
+            await setAgentPasscode(id, shape.pin);
+            return returnHelper(res, 200, true, "Passcode changed. Log in again with your new passcode.");
+        } catch (error: any) {
+            return returnHelper(res, 200, false, error.message || "Could not change the passcode.");
+        }
+    }
+
     async setPasscode(req: Request, res: Response) {
         try {
             const setup = verifySetupToken(req.body?.setup_token, "agent");

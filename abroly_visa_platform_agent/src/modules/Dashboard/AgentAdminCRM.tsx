@@ -35,6 +35,7 @@ import { Avatar, Spinner, useDisclosure } from "@heroui/react"
 import { Route, Routes, useNavigate } from "react-router-dom"
 import CommonConfirmation from "@/components/CommonConfirmation"
 import LogoutAllDevicesItem from "@/components/LogoutAllDevicesItem"
+import ChangePasscodeItem, { ChangePasscodeDialog } from "@/components/ChangePasscodeItem"
 import { handleLogout } from "@/utils/LogoutUtils"
 import { AgentAdminRoutes } from "@/routes/AuthRoutes"
 import { useSelector } from "react-redux"
@@ -261,6 +262,7 @@ const AgentCRM = () => {
                       <LogOut />
                       Log out
                     </DropdownMenuItem>
+                    <ChangePasscodeItem />
                     <LogoutAllDevicesItem />
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -278,6 +280,7 @@ const AgentCRM = () => {
           </div>
           <PanelBottomNav />
           <KeyboardShortcuts />
+          <ChangePasscodeDialog />
         </SidebarInset>
       </SidebarProvider>
       <CommonConfirmation
