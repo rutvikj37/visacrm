@@ -293,7 +293,7 @@ class TravelPlusController {
     /** GET /travel/whatsapp/numbers - connected numbers (an agency can connect more than one). */
     async whatsappNumbers(req: RequestWithUser, res: Response) {
         try {
-            const rows: any[] = await LeadIntegration.findAll({ where: { agency_uuid: accessOf(req).agencyUuid, type: "whatsapp" }, attributes: ["id", "uuid", "name", "status", "branch_id", "createdAt"], raw: true });
+            const rows: any[] = await LeadIntegration.findAll({ where: { agency_uuid: accessOf(req).agencyUuid, type: "whatsapp" }, attributes: ["id", "uuid", "name", "status", "branch_id", "settings", "createdAt"], raw: true });
             return ok(res, "WhatsApp numbers", rows);
         } catch (error) { return fail(res, error, "whatsappNumbers"); }
     }

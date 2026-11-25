@@ -1,5 +1,6 @@
 import LeadIntegration from "../model/LeadIntegration";
 import { decryptJson, encryptJson, generatePublicKey } from "../helpers/crypto";
+import { parseJsonValue } from "../helpers/json";
 import { assertSourceAllowed } from "./saas";
 import { verifyWhatsapp } from "./meta";
 
@@ -42,17 +43,25 @@ export const connectWhatsapp = async (agencyUuid: string, body: any): Promise<{ 
         return { ok: false, message: `WhatsApp said: ${error.message}` };
     }
 
-    const values: any = {
-        name: info.verified_name ? `${info.verified_name} (${info.display_phone_number})` : info.display_phone_number || "WhatsApp",
-        external_id: phoneNumberId,
-        settings: { ...info, phone_number_id: phoneNumberId, waba_id: wabaId },
-        status: "active",
-        last_error: null,
-    };
     // "add another number": a second (third...) WhatsApp number; otherwise update the first one
     const existing: any = body?.add_number
         ? await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp", external_id: phoneNumberId } })
         : await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp" }, order: [["id", "ASC"]] });
+    const prevSettings = existing ? (parseJsonValue(existing.dataValues.settings) || {}) : {};
+    const values: any = {
+        name: info.verified_name ? `${info.verified_name} (${info.display_phone_number})` : info.display_phone_number || "WhatsApp",
+        external_id: phoneNumberId,
+        // keep review-first preference when reconnecting the same number
+        settings: {
+            ...prevSettings,
+            ...info,
+            phone_number_id: phoneNumberId,
+            waba_id: wabaId,
+            auto_create_leads: prevSettings.auto_create_leads !== false,
+        },
+        status: "active",
+        last_error: null,
+    };
     const previous = existing ? (decryptJson<any>(existing.dataValues.credentials) || {}) : {};
     values.credentials = encryptJson({
         access_token: accessToken,

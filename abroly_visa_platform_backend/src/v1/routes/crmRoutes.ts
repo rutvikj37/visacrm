@@ -56,6 +56,9 @@ crmRoutes.route("/sample_data").post(validateAgent, OnboardingController.sampleD
 crmRoutes.route("/monthly_summary").get(validateAgent, OnboardingController.monthlySummary).post(validateAgent, OnboardingController.monthlySummaryAction)
 crmRoutes.route("/conversations").get(validateAgent, ConversationController.list)
 crmRoutes.route("/conversations/unread").get(validateAgent, ConversationController.unread)
+crmRoutes.route("/conversations/pending/:uuid").get(validateAgent, ConversationController.pendingThread)
+crmRoutes.route("/conversations/pending/:uuid/promote").post(validateAgent, ConversationController.promotePending)
+crmRoutes.route("/conversations/pending/:uuid/dismiss").post(validateAgent, ConversationController.dismissPending)
 crmRoutes.route("/conversations/:uuid").get(validateAgent, ConversationController.thread)
 // In-app student ↔ counsellor chat (WhatsApp/Instagram inbox kept above but unused in UI for now)
 crmRoutes.route("/portal_chats").get(validateAgent, PortalChatController.agentList)
@@ -126,6 +129,7 @@ crmRoutes.route("/integrations/push").post(validateAgent, LeadIntegrationControl
 crmRoutes.route("/integrations/:uuid/branch").post(validateAgent, TeamController.setSourceBranch)
 crmRoutes.route("/integrations/:uuid/sync").post(validateAgent, LeadIntegrationController.syncNow)
 crmRoutes.route("/integrations/:uuid/toggle").post(validateAgent, LeadIntegrationController.toggle)
+crmRoutes.route("/integrations/:uuid/whatsapp_mode").post(validateAgent, LeadIntegrationController.whatsappMode)
 crmRoutes.route("/integrations/:uuid/regenerate_key").post(validateAgent, LeadIntegrationController.regenerateKey)
 crmRoutes.route("/integrations/:uuid/delete").post(validateAgent, LeadIntegrationController.remove)
 
