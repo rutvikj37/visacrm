@@ -7,6 +7,7 @@ import {
 import { ArrowLeft, CalendarPlus, Gift, Globe, KeyRound, LockKeyhole, Pencil, Repeat, Trash2, XCircle } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import AgencyModulesCard from "./AgencyModulesCard";
+import AgencyWhatsappCard from "./AgencyWhatsappCard";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import { FormField, KIND_LABEL, METHOD_LABEL, STATUS_META, fmtDate, rupees } from "./saasShared";
 import { HEALTH_META, Trend, idleLabel } from "./SaasUsage";
@@ -256,6 +257,8 @@ const SaasAgencyDetails = () => {
             {Array.isArray(data.modules) && data.modules.length > 0 && (
                 <AgencyModulesCard agencyId={String(id)} crmType={data.crm_type} modules={data.modules} onSaved={load} />
             )}
+
+            <AgencyWhatsappCard agencyId={String(id)} />
 
             <div className="flex flex-wrap gap-2">
                 <Button variant="flat" startContent={<Pencil size={16} />} onPress={openEdit}>Edit details</Button>

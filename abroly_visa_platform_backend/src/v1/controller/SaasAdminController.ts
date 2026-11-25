@@ -17,6 +17,10 @@ import { sendFailureReminderNow } from "../../services/saasFollowups";
 import { agencyUsage } from "../../services/saasUsage";
 import { buildMonitoringPayload } from "../../services/platformMonitoring";
 import { sendLoginEmail, setLoginCode, signOutEverywhere } from "../../services/agencyLogin";
+import LeadIntegration from "../../model/LeadIntegration";
+import { connectWhatsapp } from "../../services/whatsappConnect";
+import { assertSourceAllowed } from "../../services/saas";
+import { presentIntegration } from "./LeadIntegrationController";
 import { normalizeCountryCode } from "../../services/phoneMatch";
 import { panelBaseOf } from "../../services/panelUrl";
 import { GST_STATES, couponUses, describeCoupon, getPlatformBilling, issueInvoice, loadInvoice, normalizeCode, savePlatformBilling } from "../../services/saasBilling";
@@ -105,6 +109,12 @@ const statusOf = (agency: any) => {
     if (agency.status !== "active") return "suspended";
     if (!ends || ends.getTime() <= Date.now()) return "expired";
     return agency.saas_kind === "trial" ? "trial" : "active";
+};
+
+/** The agency an admin WhatsApp request is about (owner row), or null. */
+const whatsappAgency = async (req: RequestWithUser) => {
+    const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" }, attributes: ["uuid", "app_name"] });
+    return agency?.dataValues || null;
 };
 
 class SaasAdminController {
@@ -767,6 +777,66 @@ class SaasAdminController {
                 { login_code: code, phone, email_sent: sent, login_url: `${panelBaseOf(a) || ""}/login` });
         } catch (error) {
             return fail(res, error, "resetPasscode");
+        }
+    }
+
+    // ---------------------------------------------- WhatsApp (set up for the agency by the platform admin)
+    // The agency's WhatsApp Cloud API numbers, same data the agency sees in Leads > Lead sources.
+    // GET /saas_admin/agencies/:uuid/whatsapp
+    async agencyWhatsapp(req: RequestWithUser, res: Response) {
+        try {
+            const a = await whatsappAgency(req);
+            if (!a) return returnHelper(res, 200, false, "Agency not found");
+            const rows = await LeadIntegration.findAll({ where: { agency_uuid: a.uuid, type: "whatsapp" }, order: [["id", "ASC"]] });
+            let planAllows = true;
+            try { await assertSourceAllowed(a.uuid, "whatsapp"); } catch { planAllows = false; }
+            return returnHelper(res, 200, true, "WhatsApp", { plan_allows: planAllows, numbers: rows.map((r) => presentIntegration(req, r)) });
+        } catch (error) {
+            return fail(res, error, "agencyWhatsapp");
+        }
+    }
+
+    // POST /saas_admin/agencies/:uuid/whatsapp { access_token, phone_number_id, waba_id, app_secret?, add_number? }
+    async saveAgencyWhatsapp(req: RequestWithUser, res: Response) {
+        try {
+            const a = await whatsappAgency(req);
+            if (!a) return returnHelper(res, 200, false, "Agency not found");
+            const result = await connectWhatsapp(a.uuid, req.body);
+            if (result.ok) {
+                audit(null, {
+                    agencyUuid: a.uuid, entity: "settings", action: "whatsapp_connected",
+                    summary: `Super Admin connected WhatsApp - ${result.message.replace(/^WhatsApp connected: /, "")}`,
+                    meta: { admin_id: Number((req.user?.user as any)?.id) || null },
+                    actor: { type: "system", name: "Super Admin" },
+                });
+            }
+            return returnHelper(res, 200, result.ok, result.message);
+        } catch (error) {
+            return fail(res, error, "saveAgencyWhatsapp");
+        }
+    }
+
+    // POST /saas_admin/agencies/:uuid/whatsapp/:integration/toggle  - on / off (leads stop coming in while off)
+    // POST /saas_admin/agencies/:uuid/whatsapp/:integration/delete  - disconnect (leads already received stay)
+    async agencyWhatsappAction(req: RequestWithUser, res: Response) {
+        try {
+            const a = await whatsappAgency(req);
+            if (!a) return returnHelper(res, 200, false, "Agency not found");
+            const row: any = await LeadIntegration.findOne({ where: { uuid: req.params.integration, agency_uuid: a.uuid, type: "whatsapp" } });
+            if (!row) return returnHelper(res, 200, false, "WhatsApp number not found");
+            const remove = req.path.endsWith("/delete");
+            if (remove) await LeadIntegration.destroy({ where: { id: row.dataValues.id } });
+            else await LeadIntegration.update({ status: row.dataValues.status === "active" ? "inactive" : "active" }, { where: { id: row.dataValues.id } });
+            const now = remove ? "disconnected" : row.dataValues.status === "active" ? "turned off" : "turned on";
+            audit(null, {
+                agencyUuid: a.uuid, entity: "settings", action: "whatsapp_changed",
+                summary: `Super Admin ${now} WhatsApp ${row.dataValues.name || ""}`.trim(),
+                meta: { admin_id: Number((req.user?.user as any)?.id) || null },
+                actor: { type: "system", name: "Super Admin" },
+            });
+            return returnHelper(res, 200, true, remove ? "WhatsApp disconnected. Leads already received are kept." : `WhatsApp ${now}.`);
+        } catch (error) {
+            return fail(res, error, "agencyWhatsappAction");
         }
     }
 

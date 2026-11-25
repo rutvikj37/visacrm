@@ -25,7 +25,7 @@ const publicApiBase = (req: RequestWithUser) => {
     return `${proto}://${host}/api`;
 };
 
-const present = (req: RequestWithUser, integration: any) => {
+export const presentIntegration = (req: RequestWithUser, integration: any) => {
     const data = integration.toJSON ? integration.toJSON() : integration;
     const credentials = decryptJson<Record<string, string>>(data.credentials);
     const base = publicApiBase(req);
@@ -67,7 +67,7 @@ class LeadIntegrationController {
                 where: { agency_uuid: ctx(req).agencyUuid },
                 order: [["createdAt", "ASC"]],
             });
-            return returnHelper(res, 200, true, "Integrations fetched", integrations.map((i) => present(req, i)));
+            return returnHelper(res, 200, true, "Integrations fetched", integrations.map((i) => presentIntegration(req, i)));
         } catch (error) {
             console.error("list integrations failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
@@ -91,7 +91,7 @@ class LeadIntegrationController {
                 public_key: generatePublicKey(),
                 status: "active",
             });
-            return returnHelper(res, 200, true, "Website form created", present(req, integration));
+            return returnHelper(res, 200, true, "Website form created", presentIntegration(req, integration));
         } catch (error) {
             console.error("create website integration failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
@@ -130,14 +130,14 @@ class LeadIntegrationController {
 
             // first pull straight away so the agency sees it working (unless we called IndiaMART very recently)
             if (indiamartWaitMs(integration) > 0) {
-                return returnHelper(res, 200, true, "Key saved. New leads will be fetched within 10 minutes.", present(req, integration));
+                return returnHelper(res, 200, true, "Key saved. New leads will be fetched within 10 minutes.", presentIntegration(req, integration));
             }
             const result = await pullIndiamart(integration);
             const fresh = await LeadIntegration.findByPk(integration.dataValues.id);
             if (!result.ok) {
-                return returnHelper(res, 200, true, `Saved, but IndiaMART said: ${result.message}`, present(req, fresh));
+                return returnHelper(res, 200, true, `Saved, but IndiaMART said: ${result.message}`, presentIntegration(req, fresh));
             }
-            return returnHelper(res, 200, true, `IndiaMART connected - ${result.created || 0} new lead(s) imported`, present(req, fresh));
+            return returnHelper(res, 200, true, `IndiaMART connected - ${result.created || 0} new lead(s) imported`, presentIntegration(req, fresh));
         } catch (error) {
             console.error("save indiamart integration failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
@@ -155,7 +155,7 @@ class LeadIntegrationController {
             const existing: any = await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type } });
             if (existing) {
                 if (existing.dataValues.status !== "active") await LeadIntegration.update({ status: "active" }, { where: { id: existing.dataValues.id } });
-                return returnHelper(res, 200, true, "Already set up", present(req, await LeadIntegration.findByPk(existing.dataValues.id)));
+                return returnHelper(res, 200, true, "Already set up", presentIntegration(req, await LeadIntegration.findByPk(existing.dataValues.id)));
             }
             const label: Record<string, string> = { google: "Google Ads lead forms", justdial: "Justdial", sulekha: "Sulekha" };
             const integration = await LeadIntegration.create({
@@ -163,7 +163,7 @@ class LeadIntegrationController {
                 name: req.body?.name ? String(req.body.name).trim().slice(0, 100) : label[type],
                 credentials: type === "google" ? encryptJson({ google_key: generatePublicKey().slice(0, 24) }) : null,
             });
-            return returnHelper(res, 200, true, `${label[type]} link created`, present(req, integration));
+            return returnHelper(res, 200, true, `${label[type]} link created`, presentIntegration(req, integration));
         } catch (error) {
             console.error("create push integration failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
@@ -181,10 +181,10 @@ class LeadIntegrationController {
                 try {
                     const r = await syncFacebookPage(integration, 7);
                     const fresh = await LeadIntegration.findByPk(integration.dataValues.id);
-                    return returnHelper(res, 200, true, `Sync done (last 7 days) - ${r.created} new, ${r.duplicates} already imported`, present(req, fresh));
+                    return returnHelper(res, 200, true, `Sync done (last 7 days) - ${r.created} new, ${r.duplicates} already imported`, presentIntegration(req, fresh));
                 } catch (error: any) {
                     const fresh = await LeadIntegration.findByPk(integration.dataValues.id);
-                    return returnHelper(res, 200, false, `Facebook said: ${error.message}`, present(req, fresh));
+                    return returnHelper(res, 200, false, `Facebook said: ${error.message}`, presentIntegration(req, fresh));
                 }
             }
             if (integration.dataValues.type !== "indiamart") return returnHelper(res, 200, false, "This source can not be synced manually");
@@ -195,8 +195,8 @@ class LeadIntegrationController {
             }
             const result = await pullIndiamart(integration);
             const fresh = await LeadIntegration.findByPk(integration.dataValues.id);
-            if (!result.ok) return returnHelper(res, 200, false, `IndiaMART said: ${result.message}`, present(req, fresh));
-            return returnHelper(res, 200, true, `Sync done - ${result.created || 0} new, ${result.duplicates || 0} already imported`, present(req, fresh));
+            if (!result.ok) return returnHelper(res, 200, false, `IndiaMART said: ${result.message}`, presentIntegration(req, fresh));
+            return returnHelper(res, 200, true, `Sync done - ${result.created || 0} new, ${result.duplicates || 0} already imported`, presentIntegration(req, fresh));
         } catch (error) {
             console.error("sync integration failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
@@ -228,7 +228,7 @@ class LeadIntegrationController {
             if (integration.dataValues.type === "google") updates.credentials = encryptJson({ google_key: generatePublicKey().slice(0, 24) });
             await LeadIntegration.update(updates, { where: { id: integration.dataValues.id } });
             const fresh = await LeadIntegration.findByPk(integration.dataValues.id);
-            return returnHelper(res, 200, true, "New URL generated - update it on your website", present(req, fresh));
+            return returnHelper(res, 200, true, "New URL generated - update it on your website", presentIntegration(req, fresh));
         } catch (error) {
             console.error("regenerate key failed", error);
             return returnHelper(res, 500, false, "Something went wrong");

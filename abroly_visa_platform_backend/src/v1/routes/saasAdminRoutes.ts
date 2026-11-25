@@ -36,6 +36,10 @@ saasAdminRoutes.route("/agencies/:uuid/end_access").post(validateAdmin, SaasAdmi
 saasAdminRoutes.route("/agencies/:uuid/status").post(validateAdmin, SaasAdminController.setAgencyStatus)
 saasAdminRoutes.route("/agencies/:uuid/send_login").post(validateAdmin, SaasAdminController.sendLoginDetails)
 saasAdminRoutes.route("/agencies/:uuid/reset_passcode").post(validateAdmin, SaasAdminController.resetPasscode)
+saasAdminRoutes.route("/agencies/:uuid/whatsapp").get(validateAdmin, SaasAdminController.agencyWhatsapp)
+saasAdminRoutes.route("/agencies/:uuid/whatsapp").post(validateAdmin, SaasAdminController.saveAgencyWhatsapp)
+saasAdminRoutes.route("/agencies/:uuid/whatsapp/:integration/toggle").post(validateAdmin, SaasAdminController.agencyWhatsappAction)
+saasAdminRoutes.route("/agencies/:uuid/whatsapp/:integration/delete").post(validateAdmin, SaasAdminController.agencyWhatsappAction)
 saasAdminRoutes.route("/agencies/:uuid/portal").post(validateAdmin, SaasAdminController.updatePortal)
 saasAdminRoutes.route("/agencies/:uuid/modules").post(validateAdmin, SaasAdminController.updateModules)
 // Travel CRM tax rates (GST defaults, TCS on overseas packages) - kept as settings, never hard-coded

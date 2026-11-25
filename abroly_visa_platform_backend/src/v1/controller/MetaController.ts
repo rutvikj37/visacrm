@@ -4,6 +4,7 @@ import { assertSourceAllowed } from "../../services/saas";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import LeadIntegration from "../../model/LeadIntegration";
+import { connectWhatsapp } from "../../services/whatsappConnect";
 import CrmLead from "../../model/CrmLead";
 import { decryptJson, encryptJson, generatePublicKey } from "../../helpers/crypto";
 import { logActivity } from "../../services/leadIngestion";
@@ -194,56 +195,8 @@ class MetaController {
         try {
             const { agencyUuid, isOwner } = ctx(req);
             if (!isOwner) return returnHelper(res, 200, false, "Only the agency owner can connect WhatsApp");
-            try { await assertSourceAllowed(ctx(req).agencyUuid, "whatsapp"); } catch (e: any) { return returnHelper(res, 200, false, e.message); }
-
-            const accessToken = String(req.body?.access_token || "").trim();
-            const phoneNumberId = String(req.body?.phone_number_id || "").replace(/\D/g, "");
-            const wabaId = String(req.body?.waba_id || "").replace(/\D/g, "");
-            const appSecretInput = String(req.body?.app_secret || "").trim();
-            if (appSecretInput && !/^[a-f0-9]{16,64}$/i.test(appSecretInput)) return returnHelper(res, 200, false, "The App secret looks wrong - copy it from your Meta app: App settings > Basic");
-            if (accessToken.length < 20 || /\s/.test(accessToken)) return returnHelper(res, 200, false, "Please paste a valid permanent access token");
-            if (!phoneNumberId) return returnHelper(res, 200, false, "Please enter the Phone number ID");
-            if (!wabaId) return returnHelper(res, 200, false, "Please enter the WhatsApp Business Account ID");
-
-            const other = await LeadIntegration.findOne({
-                where: { type: "whatsapp", external_id: phoneNumberId, status: "active" },
-                attributes: ["agency_uuid"],
-            }) as any;
-            if (other && other.dataValues.agency_uuid !== agencyUuid) {
-                return returnHelper(res, 200, false, "This WhatsApp number is already connected to another account");
-            }
-
-            let info;
-            try {
-                info = await verifyWhatsapp(accessToken, phoneNumberId, wabaId);
-            } catch (error: any) {
-                return returnHelper(res, 200, false, `WhatsApp said: ${error.message}`);
-            }
-
-            const values: any = {
-                name: info.verified_name ? `${info.verified_name} (${info.display_phone_number})` : info.display_phone_number || "WhatsApp",
-                external_id: phoneNumberId,
-                credentials: encryptJson({ access_token: accessToken, phone_number_id: phoneNumberId, waba_id: wabaId }),
-                settings: { ...info, phone_number_id: phoneNumberId, waba_id: wabaId },
-                status: "active",
-                last_error: null,
-            };
-            // "add another number": a second (third...) WhatsApp number; otherwise update the first one
-            const existing: any = req.body?.add_number
-                ? await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp", external_id: phoneNumberId } })
-                : await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp" }, order: [["id", "ASC"]] });
-            const previous = existing ? (decryptJson<any>(existing.dataValues.credentials) || {}) : {};
-            values.credentials = encryptJson({
-                access_token: accessToken,
-                phone_number_id: phoneNumberId,
-                waba_id: wabaId,
-                // keep the saved secret when the field is left empty on an update
-                app_secret: appSecretInput || previous.app_secret || null,
-                verify_token: previous.verify_token || generatePublicKey().slice(0, 24),
-            });
-            if (existing) await LeadIntegration.update(values, { where: { id: existing.dataValues.id } });
-            else await LeadIntegration.create({ ...values, agency_uuid: agencyUuid, type: "whatsapp", public_key: generatePublicKey() });
-            return returnHelper(res, 200, true, `WhatsApp connected: ${info.display_phone_number || phoneNumberId}`);
+            const result = await connectWhatsapp(agencyUuid, req.body);
+            return returnHelper(res, 200, result.ok, result.message);
         } catch (error) {
             console.error("save whatsapp failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
