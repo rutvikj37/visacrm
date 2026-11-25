@@ -105,7 +105,7 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
         <Select aria-label="Template" placeholder="No template (add steps later)" selectedKeys={value ? [value] : []} onChange={(e) => onChange(e.target.value)}>
             {[
                 ...(templates.agency.length ? [<SelectSection key="a" title="My templates">{templates.agency.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}</SelectSection>] : []),
-                <SelectSection key="l" title="Built-in templates">{templates.library.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}</SelectSection>,
+                ...(templates.library.length ? [<SelectSection key="l" title="Built-in templates">{templates.library.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}</SelectSection>] : []),
             ]}
         </Select>
     );

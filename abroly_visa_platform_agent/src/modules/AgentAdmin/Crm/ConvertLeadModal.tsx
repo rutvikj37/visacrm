@@ -231,11 +231,13 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
                                                         ))}
                                                     </SelectSection>,
                                                 ] : []),
-                                                <SelectSection key="library" title="Built-in templates">
-                                                    {templates.library.map((t) => (
-                                                        <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>
-                                                    ))}
-                                                </SelectSection>,
+                                                ...(templates.library.length ? [
+                                                    <SelectSection key="library" title="Built-in templates">
+                                                        {templates.library.map((t) => (
+                                                            <SelectItem key={t.id} description={`${t.step_count} steps · ${t.question_count} items`}>{t.name}</SelectItem>
+                                                        ))}
+                                                    </SelectSection>,
+                                                ] : []),
                                             ]}
                                         </Select>
                                     )}

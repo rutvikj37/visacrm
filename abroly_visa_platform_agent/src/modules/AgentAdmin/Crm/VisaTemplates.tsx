@@ -148,6 +148,7 @@ const VisaTemplates = () => {
                 )}
             </section>
 
+            {data.library.length > 0 && (
             <section className="flex flex-col gap-3">
                 <h2 className="font-semibold">Built-in templates</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -159,6 +160,7 @@ const VisaTemplates = () => {
                     ))}
                 </div>
             </section>
+            )}
 
             {/* preview */}
             <Modal isOpen={previewModal.isOpen} onOpenChange={previewModal.onOpenChange} size="2xl" scrollBehavior="inside">

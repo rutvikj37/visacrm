@@ -2,7 +2,20 @@ import { Response } from "express";
 import { RequestWithUser } from "../../utils/types";
 import { returnHelper } from "../../helpers/returnHelper";
 import VisaTemplate from "../../model/VisaTemplate";
-import { VISA_TEMPLATE_LIBRARY, findLibraryTemplate, sanitizeSteps } from "../../services/visaTemplateLibrary";
+import { VISA_TEMPLATE_LIBRARY, findLibraryTemplate as findInLibrary, sanitizeSteps } from "../../services/visaTemplateLibrary";
+import Agent from "../../model/Agent";
+import { readUiPrefs } from "../../services/businessFocus";
+
+/**
+ * Built-in templates can be switched off per agency (agent.ui_prefs.template_library = "off"), e.g. an agency
+ * that only does tourist / business visas and keeps its own copies. Then the library is hidden everywhere.
+ */
+const libraryOn = async (agencyUuid: string) => {
+    const a: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["ui_prefs"] });
+    return readUiPrefs(a?.dataValues?.ui_prefs).template_library !== "off";
+};
+const libraryFor = async (agencyUuid: string) => ((await libraryOn(agencyUuid)) ? VISA_TEMPLATE_LIBRARY : []);
+const findLibraryTemplate = async (agencyUuid: string, key: string) => ((await libraryOn(agencyUuid)) ? findInLibrary(key) : null);
 
 /**
  * Visa process templates: built-in library + the agency's own templates.
@@ -50,7 +63,7 @@ const presentLibrary = (t: any) => ({
 export const resolveTemplate = async (agencyUuid: string, id?: string | null) => {
     if (!id) return null;
     if (id.startsWith("library:")) {
-        const t = findLibraryTemplate(id.slice("library:".length));
+        const t = await findLibraryTemplate(agencyUuid, id.slice("library:".length));
         return t ? { name: t.name, steps: t.steps } : null;
     }
     const own: any = await VisaTemplate.findOne({ where: { uuid: id, agency_uuid: agencyUuid } });
@@ -78,7 +91,7 @@ class VisaTemplateController {
             const own = await VisaTemplate.findAll({ where: { agency_uuid: ctx(req).agencyUuid }, order: [["name", "ASC"]] });
             return returnHelper(res, 200, true, "Templates fetched", {
                 agency: own.map(presentOwn),
-                library: VISA_TEMPLATE_LIBRARY.map(presentLibrary),
+                library: (await libraryFor(ctx(req).agencyUuid)).map(presentLibrary),
             });
         } catch (error) {
             console.error("list visa templates failed", error);
@@ -91,7 +104,7 @@ class VisaTemplateController {
         try {
             const id = String(req.params.id || "");
             if (id.startsWith("library:")) {
-                const t = findLibraryTemplate(id.slice("library:".length));
+                const t = await findLibraryTemplate(ctx(req).agencyUuid, id.slice("library:".length));
                 if (!t) return returnHelper(res, 200, false, "Template not found");
                 return returnHelper(res, 200, true, "Template fetched", presentLibrary(t));
             }
@@ -116,7 +129,7 @@ class VisaTemplateController {
             if (req.body?.copy_from) {
                 const from = String(req.body.copy_from);
                 if (from.startsWith("library:")) {
-                    const t = findLibraryTemplate(from.slice("library:".length));
+                    const t = await findLibraryTemplate(ctx(req).agencyUuid, from.slice("library:".length));
                     if (!t) return returnHelper(res, 200, false, "Template not found");
                     data = { name: t.name, country: t.country, visa_type: t.visa_type, description: t.description, steps: t.steps, based_on: t.key };
                 } else {
