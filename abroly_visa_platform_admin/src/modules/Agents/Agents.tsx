@@ -1,6 +1,7 @@
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { Avatar, Button, Input, Modal, ModalBody, ModalContent, ModalHeader, Pagination, Spinner, Switch, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, getKeyValue, useDisclosure, Chip } from '@nextui-org/react'
-import { Edit, Search, Mail, Phone, Globe, Palette, Building2 } from 'lucide-react'
+import { Edit, Search, Mail, Phone, Globe, Palette, Building2, LockKeyhole } from 'lucide-react'
+import LoginCodeDialog, { LoginCodeInfo } from '@/modules/Saas/LoginCodeDialog'
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { phoneInputProps, phoneOnChange } from "@/utils/phone";
@@ -28,6 +29,17 @@ const Agents = () => {
     const [isLoading, setIsLoading] = useState(true)
     const [debouncedSearch, setDebouncedSearch] = useState("")
     const [togglingUuid, setTogglingUuid] = useState<string | null>(null)
+    const [loginInfo, setLoginInfo] = useState<LoginCodeInfo>(null)
+    const [resettingUuid, setResettingUuid] = useState<string | null>(null)
+
+    // owner forgot passcode / locked out: clear it, sign out everywhere, show a one-time login code (also emailed)
+    const resetPasscode = async (row: any) => {
+        if (!window.confirm(`Reset the passcode for ${row?.app_name || row?.username || "this agency"}? The current passcode stops working and the owner is signed out of all devices.`)) return
+        setResettingUuid(row.uuid)
+        const { success, data } = await commonPostAPICall({}, `saas_admin/agencies/${row.uuid}/reset_passcode`, true)
+        setResettingUuid(null)
+        if (success && data?.login_code) setLoginInfo({ phone: data.phone, code: data.login_code, reset: true, emailedTo: data.email_sent ? row.email : null, loginUrl: data.login_url })
+    }
     const hasLoadedOnce = React.useRef(false)
     const prevDebouncedSearch = React.useRef(debouncedSearch)
 
@@ -407,6 +419,20 @@ const Agents = () => {
                                                     >
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
+                                                    {(getValue("role") || "agent") === "agent" && (
+                                                        <span onClick={(e) => e.stopPropagation()}>
+                                                        <Button
+                                                            variant="flat"
+                                                            color="warning"
+                                                            size="sm"
+                                                            startContent={<LockKeyhole className="h-4 w-4" />}
+                                                            isLoading={resettingUuid === getValue("uuid")}
+                                                            onPress={() => resetPasscode(item)}
+                                                        >
+                                                            Reset passcode
+                                                        </Button>
+                                                        </span>
+                                                    )}
                                                 </div>
                                         </div>
                                     </TableCell>
@@ -485,6 +511,7 @@ const Agents = () => {
                     )}
                 </ModalContent>
             </Modal>
+            <LoginCodeDialog info={loginInfo} onClose={() => setLoginInfo(null)} />
         </div>
     )
 }
