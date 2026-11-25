@@ -21,8 +21,11 @@ import { audit } from "../../services/audit";
 import { agencyBrand, mailEnabled, sendMail } from "../../services/mailer";
 import { hasModule } from "../../services/modules";
 import { DEFAULT_PERMISSIONS, LEAD_STAGE_KEYS, PERM_ACTIONS, PERM_MODULES, PERM_ROLES, can, leadStagesFor, saveTravelSettings, travelSettingsFor } from "../../services/travelAccess";
-import { nextTravelNumber, seesCost, toPaise, toRupees } from "../../services/travel";
+import { seesCost, supplierOwed, toPaise, toRupees } from "../../services/travel";
 import { publicApiBase } from "./TravelController";
+import { pdfBrand } from "./TravelPlusController";
+import { vouchersPdf } from "../../services/travelPdf";
+import { issueCreditNote } from "./TravelFinanceController";
 
 /**
  * Travel CRM, second part: settings and permissions, calendar feed, client profiles, booking documents and
@@ -113,7 +116,7 @@ class TravelExtraController {
             if (!a.isOwner) return no(res, "Only the agency owner can change these settings");
             const b = req.body || {};
             const patch: any = {};
-            for (const k of ["lead_stages", "destination_rules", "discount_approval_pct", "permissions"]) if (b[k] !== undefined) patch[k] = b[k];
+            for (const k of ["lead_stages", "destination_rules", "discount_approval_pct", "permissions", "emergency_contacts"]) if (b[k] !== undefined) patch[k] = b[k];
             const saved = await saveTravelSettings(a.agencyUuid, patch);
             audit(req, { entity: "settings", action: "travel_settings", summary: `Travel settings changed: ${Object.keys(patch).join(", ")}` });
             return ok(res, "Settings saved", saved);
@@ -355,35 +358,7 @@ class TravelExtraController {
             const reason = str(req.body?.reason, 500);
             if (!(amount > 0)) return no(res, "Enter the amount to credit");
             if (!reason) return no(res, "Enter the reason, e.g. hotel cancelled");
-            const note: any = await sequelize.transaction(async (t: any) => {
-                const inv: any = await ClientInvoice.findByPk(booking.dataValues.invoice_id, { transaction: t, lock: t.LOCK.UPDATE });
-                const total = Number(inv.dataValues.total);
-                if (amount > total) throw Object.assign(new Error(`The invoice total is only Rs ${toRupees(total)}`), { expose: true });
-                // split the credit the same way as the invoice: GST share in proportion
-                const gstShare = total > 0 ? Math.round(Number(inv.dataValues.gst_amount) * amount / total) : 0;
-                const newTotal = total - amount;
-                const paid = Number(inv.dataValues.amount_paid);
-                const refundDue = Math.max(0, paid - newTotal);
-                const scale = total > 0 ? newTotal / total : 0;
-                // instalments shrink from the last one backwards
-                let inst = Array.isArray(inv.installments) ? inv.installments.map((i: any) => ({ ...i })) : null;
-                if (inst) {
-                    let left = amount;
-                    for (let i = inst.length - 1; i >= 0 && left > 0; i--) { const cut = Math.min(left, Number(inst[i].amount)); inst[i].amount = Number(inst[i].amount) - cut; left -= cut; }
-                    inst = inst.filter((i: any) => i.amount > 0);
-                    if (!inst.length) inst = null;
-                }
-                await inv.update({
-                    total: newTotal, gst_amount: Number(inv.dataValues.gst_amount) - gstShare,
-                    cgst: Math.round(Number(inv.dataValues.cgst || 0) * scale), sgst: Math.round(Number(inv.dataValues.sgst || 0) * scale), igst: Math.round(Number(inv.dataValues.igst || 0) * scale),
-                    installments: inst, status: newTotal === 0 ? (paid > 0 ? "paid" : "cancelled") : paid >= newTotal ? "paid" : paid > 0 ? "partial" : "unpaid",
-                }, { transaction: t });
-                const number = await nextTravelNumber(CreditNote, "number", a.agencyUuid, "CN", t);
-                return CreditNote.create({
-                    agency_uuid: a.agencyUuid, number, invoice_id: inv.dataValues.id, booking_id: booking.dataValues.id, amount,
-                    gst_amount: gstShare, taxable_value: amount - gstShare, reason, refund_due: refundDue, issue_date: today(), created_by: a.userId,
-                }, { transaction: t });
-            });
+            const note: any = await sequelize.transaction((t: any) => issueCreditNote(t, { agencyUuid: a.agencyUuid, booking, amount, reason, userId: a.userId }));
             audit(req, { entity: "invoice", entityId: booking.dataValues.invoice_id, branchId: booking.dataValues.branch_id, action: "credit_note", summary: `Credit note ${note.dataValues.number}: Rs ${toRupees(amount)} on ${booking.dataValues.booking_no} (${reason})${note.dataValues.refund_due ? ` - refund due Rs ${toRupees(note.dataValues.refund_due)}` : ""}` });
             return ok(res, `Credit note ${note.dataValues.number} issued${note.dataValues.refund_due ? ` - refund Rs ${toRupees(note.dataValues.refund_due)} to the client` : ""}`);
         } catch (error) { return fail(res, error, "createCreditNote"); }
@@ -446,7 +421,7 @@ class TravelExtraController {
             return {
                 booking_no: b.booking_no, created: String(b.createdAt).slice(0, 10), month: new Date(b.createdAt).toISOString().slice(0, 7), client: clientOf.get(b.user_id) || "",
                 title: b.title, destination: b.destination || "Not set", source: lead.source || "manual", agent_id: agentId, agent: nameOf.get(agentId) || "Unassigned",
-                start_date: b.start_date, sell: Number(b.total_sell), cost: Number(b.total_cost), tax: Number(b.tax_total), profit: Number(b.total_sell) - Number(b.total_cost), international: Boolean(b.is_international),
+                start_date: b.start_date, sell: Number(b.total_sell) - Number(b.credited || 0), cost: Number(b.total_cost), tax: Number(b.tax_total), profit: Number(b.total_sell) - Number(b.credited || 0) - Number(b.total_cost), international: Boolean(b.is_international),
             };
         });
         const group = (key: "agent" | "destination" | "source" | "month") => {
@@ -471,13 +446,14 @@ class TravelExtraController {
             const targets: any[] = await TravelTarget.findAll({ where: { agency_uuid: a.agencyUuid, month }, raw: true });
             const byAgent = d.group("agent");
             const dues: any[] = await BookingService.findAll({
-                where: { agency_uuid: a.agencyUuid, status: { [Op.ne]: "cancelled" }, supplier_id: { [Op.ne]: null } },
-                include: [{ model: TravelSupplier, as: "supplier", attributes: ["name"], required: false }, { model: Booking, as: "booking", attributes: ["booking_no"], required: false }],
+                where: { agency_uuid: a.agencyUuid, supplier_id: { [Op.ne]: null } },
+                include: [{ model: TravelSupplier, as: "supplier", attributes: ["name"], required: false }, { model: Booking, as: "booking", attributes: ["booking_no", "status"], required: false }],
             });
             const supplierDues = new Map<string, { name: string; due: number; overdue: number; services: number }>();
             for (const s of dues) {
                 const x = s.toJSON() as any;
-                const due = Math.max(0, Number(x.cost) - Number(x.supplier_paid));
+                if (x.booking?.status === "cancelled" && x.status !== "cancelled") continue;
+                const due = supplierOwed(x);
                 if (!due) continue;
                 const k = x.supplier?.name || "Supplier";
                 const g = supplierDues.get(k) || { name: k, due: 0, overdue: 0, services: 0 };
@@ -485,9 +461,9 @@ class TravelExtraController {
             }
             const converted = d.enquiries.filter((e: any) => e.status === "converted").length;
             // package-wise sales: bookings quoted from a fixed package
-            const pkgBookings: any[] = await Booking.findAll({ where: { agency_uuid: a.agencyUuid, status: { [Op.ne]: "cancelled" }, package_id: { [Op.ne]: null }, createdAt: { [Op.between]: [new Date(`${d.from}T00:00:00+05:30`), new Date(`${d.to}T23:59:59+05:30`)] } }, attributes: ["package_id", "total_sell", "total_cost"], raw: true });
+            const pkgBookings: any[] = await Booking.findAll({ where: { agency_uuid: a.agencyUuid, status: { [Op.ne]: "cancelled" }, package_id: { [Op.ne]: null }, createdAt: { [Op.between]: [new Date(`${d.from}T00:00:00+05:30`), new Date(`${d.to}T23:59:59+05:30`)] } }, attributes: ["package_id", "total_sell", "total_cost", "credited"], raw: true });
             const pkgs: any[] = await TourPackage.findAll({ where: { id: [...new Set(pkgBookings.map((b) => b.package_id))].concat([-1]) }, attributes: ["id", "title"], raw: true });
-            const byPackage = pkgs.map((p) => { const rows = pkgBookings.filter((b) => b.package_id === p.id); return { name: p.title, bookings: rows.length, sell: toRupees(rows.reduce((s, r) => s + Number(r.total_sell), 0)), ...(cost ? { profit: toRupees(rows.reduce((s, r) => s + Number(r.total_sell) - Number(r.total_cost), 0)) } : {}) }; }).sort((x, y) => y.sell - x.sell);
+            const byPackage = pkgs.map((p) => { const rows = pkgBookings.filter((b) => b.package_id === p.id); return { name: p.title, bookings: rows.length, sell: toRupees(rows.reduce((s, r) => s + Number(r.total_sell), 0)), ...(cost ? { profit: toRupees(rows.reduce((s, r) => s + Number(r.total_sell) - Number(r.credited || 0) - Number(r.total_cost), 0)) } : {}) }; }).sort((x, y) => y.sell - x.sell);
             // payment links: links created on invoices and online payments received in the period
             const onlinePays: any[] = await ClientPayment.findAll({ where: { agency_uuid: a.agencyUuid, method: ["razorpay", "cashfree"], paid_at: { [Op.between]: [new Date(`${d.from}T00:00:00+05:30`), new Date(`${d.to}T23:59:59+05:30`)] } }, attributes: ["invoice_id", "amount", "method", "paid_at", "reference"], raw: true });
             const openLinks: any[] = await ClientInvoice.findAll({ where: { agency_uuid: a.agencyUuid, payment_link_url: { [Op.ne]: null }, status: { [Op.in]: ["unpaid", "partial"] } }, attributes: ["uuid", "number", "total", "amount_paid", "payment_link_url", "student_id"], raw: true });
@@ -537,11 +513,12 @@ class TravelExtraController {
                 for (const r of d.rows) ws.addRow({ ...r, sell: toRupees(r.sell), cost: toRupees(r.cost), tax: toRupees(r.tax), profit: toRupees(r.profit) });
             } else if (type === "supplier_dues") {
                 ws.columns = [{ header: "Supplier", key: "supplier", width: 24 }, { header: "Booking", key: "booking", width: 12 }, { header: "Service", key: "service", width: 32 }, { header: "Date", key: "date", width: 12 }, { header: "Cost (Rs)", key: "cost", width: 12 }, { header: "Paid (Rs)", key: "paid", width: 12 }, { header: "Due (Rs)", key: "due", width: 12 }, { header: "Pay by", key: "pay_by", width: 12 }];
-                const rows = await BookingService.findAll({ where: { agency_uuid: a.agencyUuid, status: { [Op.ne]: "cancelled" }, supplier_id: { [Op.ne]: null } }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name"], required: false }, { model: Booking, as: "booking", attributes: ["booking_no"], required: false }], order: [["supplier_due_date", "ASC"]] });
+                const rows = await BookingService.findAll({ where: { agency_uuid: a.agencyUuid, supplier_id: { [Op.ne]: null } }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name"], required: false }, { model: Booking, as: "booking", attributes: ["booking_no", "status"], required: false }], order: [["supplier_due_date", "ASC"]] });
                 for (const s of rows) {
                     const x = s.toJSON() as any;
-                    const due = Math.max(0, Number(x.cost) - Number(x.supplier_paid));
-                    if (due) ws.addRow({ supplier: x.supplier?.name, booking: x.booking?.booking_no, service: x.description, date: x.service_date, cost: toRupees(x.cost), paid: toRupees(x.supplier_paid), due: toRupees(due), pay_by: x.supplier_due_date });
+                    if (x.booking?.status === "cancelled" && x.status !== "cancelled") continue;
+                    const due = supplierOwed(x);
+                    if (due) ws.addRow({ supplier: x.supplier?.name, booking: x.booking?.booking_no, service: `${x.description}${x.status === "cancelled" ? " (cancellation charge)" : ""}`, date: x.service_date, cost: toRupees(x.status === "cancelled" ? x.cancel_charge : x.cost), paid: toRupees(Number(x.supplier_paid) - Number(x.supplier_refunded || 0)), due: toRupees(due), pay_by: x.supplier_due_date });
                 }
             } else if (type === "tcs") {
                 // TCS collected on overseas packages, by invoice date - for the CA's quarterly TCS return
@@ -621,37 +598,173 @@ const kitBooking = async (token: string) => {
     return b;
 };
 
-/** GET /public/travel/kit/:token - confirmations, day plan and documents in one page (VC-02, VC-03). */
+const ICON: Record<string, string> = { hotel: "🏨", sightseeing: "📍", transfer: "🚐", meal: "🍽️", flight: "✈️", activity: "🎟️", note: "•", visa: "🛂", insurance: "🛡️", forex: "💱", other: "•" };
+const inr = (paise: number) => `₹${(Math.round(Number(paise || 0)) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+const telHref = (p: string) => `tel:${String(p || "").replace(/[^\d+]/g, "")}`;
+const waNumber = (p: string) => String(p || "").replace(/\D/g, "");
+const dayDate = (start: string | null, i: number) => (start ? new Date(Date.parse(`${start}T00:00:00Z`) + i * 864e5).toISOString().slice(0, 10) : null);
+
+/** Next amount the client has to pay: first instalment not yet covered, else the invoice balance. */
+const nextDue = (inv: any) => {
+    if (!inv) return null;
+    const paid = Number(inv.amount_paid || 0), total = Number(inv.total || 0);
+    if (paid >= total) return null;
+    const inst = Array.isArray(inv.installments) ? inv.installments : [];
+    let run = 0;
+    for (const i of inst) {
+        run += Number(i.amount || 0);
+        if (run > paid) return { amount: Math.min(Number(i.amount || 0), run - paid), date: i.due_date || null, label: i.label || null };
+    }
+    return { amount: total - paid, date: inv.due_date || null, label: null };
+};
+
+/** GET /public/travel/kit/:token - the client's one link for the trip: plan, bookings, documents, payment and contacts (VC-02, VC-03). */
 export const publicTripKit = async (req: Request, res: Response) => {
     try {
         const b = await kitBooking(String(req.params.token || ""));
         if (!b) return res.status(404).send("This link is not available. Please ask your travel consultant for a new one.");
         const x = b.toJSON();
-        const [services, docs, itinerary, agency]: any[] = await Promise.all([
-            BookingService.findAll({ where: { booking_id: x.id, status: { [Op.ne]: "cancelled" } }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name", "phone"], required: false }], order: [["service_date", "ASC"]] }),
-            BookingDocument.findAll({ where: { booking_id: x.id, share_with_client: true }, order: [["kind", "ASC"]] }),
-            x.itinerary_id ? Itinerary.findByPk(x.itinerary_id, { attributes: ["days", "inclusions"] }) : null,
+        const [services, docs, itinerary, agency, pax, inv, ops, settings]: any[] = await Promise.all([
+            BookingService.findAll({ where: { booking_id: x.id, status: { [Op.ne]: "cancelled" } }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name", "phone", "city", "type"], required: false }], order: [["service_date", "ASC"], ["id", "ASC"]] }),
+            BookingDocument.findAll({ where: { booking_id: x.id, share_with_client: true }, order: [["kind", "ASC"], ["id", "ASC"]] }),
+            x.itinerary_id ? Itinerary.findByPk(x.itinerary_id, { attributes: ["days", "inclusions", "exclusions", "cover_image", "share_token"] }) : null,
             Agent.findOne({ where: { uuid: x.agency_uuid, role: "agent" }, attributes: ["app_name", "username", "primary_color", "support_number", "support_email", "favicon_url", "billing_settings"], raw: true }),
+            BookingTraveller.findAll({ where: { booking_id: x.id }, attributes: ["name", "pax_type", "is_lead"], order: [["is_lead", "DESC"], ["id", "ASC"]], raw: true }),
+            x.invoice_id ? ClientInvoice.findByPk(x.invoice_id, { attributes: ["number", "total", "amount_paid", "installments", "due_date", "payment_link_url", "status"] }) : null,
+            x.ops_owner_id ? Agent.findOne({ where: { id: x.ops_owner_id }, attributes: ["username", "country_code", "phone_number"], raw: true }) : null,
+            travelSettingsFor(x.agency_uuid),
         ]);
         let billing: any = {}; try { billing = agency?.billing_settings ? JSON.parse(agency.billing_settings) : {}; } catch { billing = {}; }
-        const review = /^https:\/\//.test(String(billing.google_review_url || "")) ? `<div class="c" style="text-align:center"><b>Loved your trip?</b><br><a href="${esc(billing.google_review_url)}" target="_blank" rel="noopener">Leave us a Google review${billing.google_rating ? ` (rated ${esc(billing.google_rating)}★)` : ""}</a></div>` : "";
         const color = /^#[0-9a-f]{3,8}$/i.test(agency?.primary_color || "") ? agency.primary_color : "#0f5bd8";
         const logo = agency?.favicon_url ? (String(agency.favicon_url).startsWith("http") ? agency.favicon_url : publicFileUrl("profiles", agency.favicon_url)) : null;
-        const svc = services.map((s: any) => { const j = s.toJSON(); const det = Object.entries(j.details || {}).filter(([k, v]) => v && !["qty", "nights"].includes(k)).map(([k, v]) => `${esc(k.replace(/_/g, " "))}: ${esc(v)}`).join(" · "); return `<tr><td><b>${esc(LABEL[j.type] || j.type)}</b><br>${esc(j.description)}${det ? `<br><small>${det}</small>` : ""}</td><td>${esc(fmt(j.service_date))}</td><td>${j.confirmation_no ? `<b>${esc(j.confirmation_no)}</b>` : `<span class="m">${j.status === "confirmed" ? "Confirmed" : "Being confirmed"}</span>`}${j.supplier?.phone ? `<br><small>${esc(j.supplier.name)} · ${esc(j.supplier.phone)}</small>` : ""}</td></tr>`; }).join("");
-        const docHtml = docs.map((d: any) => `<li><a href="${esc(`${req.originalUrl.split("?")[0].replace(/\/$/, "")}/doc/${d.dataValues.uuid}`)}">${esc(d.dataValues.name)}</a> <small class="m">${esc(d.dataValues.kind)}</small></li>`).join("");
-        const days = (Array.isArray(itinerary?.days) ? itinerary.days : []).map((d: any, i: number) => `<li><b>Day ${i + 1}: ${esc(d.title)}</b>${(d.items || []).length ? `<br><small>${(d.items || []).map((it: any) => esc(it.text)).join(" · ")}</small>` : ""}</li>`).join("");
-        const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(x.title)} - trip kit</title>
-<style>body{margin:0;font:15px/1.55 system-ui,sans-serif;color:#111827;background:#f8fafc}.w{max-width:780px;margin:0 auto;padding:16px}header{background:${color};color:#fff;border-radius:16px;padding:18px 20px;display:flex;gap:12px;align-items:center}header img{width:48px;height:48px;border-radius:10px;background:#fff;object-fit:contain}h1{margin:0;font-size:21px}.c{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px 18px;margin-top:12px}h2{font-size:16px;margin:0 0 8px}table{width:100%;border-collapse:collapse}td{padding:8px 4px;border-top:1px solid #f1f5f9;vertical-align:top}small,.m{color:#6b7280}ul{padding-left:18px;margin:0}li{margin:6px 0}a{color:${color};font-weight:600}footer{color:#6b7280;font-size:13px;text-align:center;padding:16px}</style></head>
-<body><div class="w"><header>${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><h1>${esc(x.title)}</h1><div>${esc(x.booking_no)} · ${esc(fmt(x.start_date))}${x.end_date ? ` – ${esc(fmt(x.end_date))}` : ""}</div></div></header>
-${svc ? `<div class="c"><h2>Your bookings</h2><table>${svc}</table></div>` : ""}
-${docHtml ? `<div class="c"><h2>Tickets, vouchers and documents</h2><ul>${docHtml}</ul></div>` : ""}
-${days ? `<div class="c"><h2>Day plan</h2><ul>${days}</ul></div>` : ""}
+        const agencyName = agency?.app_name || agency?.username || "";
+        const base = req.originalUrl.split("?")[0].replace(/\/$/, "");
+        const t = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); // the client's day in India
+
+        // trip status line
+        let when = "";
+        if (x.start_date && t < x.start_date) { const n = Math.round((Date.parse(x.start_date) - Date.parse(t)) / 864e5); when = n === 1 ? "Your trip starts tomorrow" : `Your trip starts in ${n} days`; }
+        else if (x.start_date && (!x.end_date || t <= x.end_date)) { const n = Math.round((Date.parse(t) - Date.parse(x.start_date)) / 864e5) + 1; when = `Enjoy your trip! Today is day ${n}`; }
+        else if (x.end_date && t > x.end_date) when = "Welcome back! We hope you had a wonderful trip";
+
+        // payment
+        const invj = inv ? inv.toJSON() : null;
+        const due = nextDue(invj);
+        const balance = invj ? Math.max(0, Number(invj.total) - Number(invj.amount_paid)) : 0;
+        const payLink = invj && balance > 0 && /^https:\/\//.test(String(invj.payment_link_url || "")) ? invj.payment_link_url : null;
+        const payment = invj ? `<section class="c" id="pay"><h2>Payment</h2>
+<div class="row"><span>Trip total</span><b>${inr(invj.total)}</b></div><div class="row"><span>Paid</span><b>${inr(invj.amount_paid)}</b></div>
+${balance > 0 ? `<div class="row big"><span>Balance</span><b>${inr(balance)}</b></div>${due ? `<p class="due${due.date && due.date < t ? " late" : ""}">Next payment ${inr(due.amount)}${due.label ? ` (${esc(due.label)})` : ""}${due.date ? ` ${due.date < t ? "was due" : "due by"} <b>${esc(fmt(due.date))}</b>` : ""}</p>` : ""}${payLink ? `<a class="btn" href="${esc(payLink)}" target="_blank" rel="noopener">Pay ${inr(due?.amount || balance)} now</a>` : ""}` : `<p class="paid">✓ Fully paid. Thank you!</p>`}
+</section>` : "";
+
+        // day plan with photos
+        const days = Array.isArray(itinerary?.days) ? itinerary.days : [];
+        const dayHtml = days.map((d: any, i: number) => {
+            const on = dayDate(x.start_date, i);
+            const pics = (Array.isArray(d.images) && d.images.length ? d.images : d.image ? [d.image] : []).filter((u: any) => /^https?:\/\//.test(String(u))).slice(0, 3);
+            const items = (d.items || []).map((it: any) => `<li><span class="ic">${ICON[it.type] || "•"}</span><span>${esc(it.text)}</span></li>`).join("");
+            return `<article class="day${on === t ? " today" : ""}" id="d${i + 1}"><div class="dh"><span class="dn">Day ${i + 1}</span>${on ? `<span class="dd">${esc(fmt(on))}${on === t ? " · today" : ""}</span>` : ""}</div>
+<h3>${esc(d.title)}${d.city ? ` <small>${esc(d.city)}</small>` : ""}</h3>
+${pics.length ? `<div class="pics p${pics.length}">${pics.map((u: string) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="" loading="lazy"></a>`).join("")}</div>` : ""}
+${d.notes ? `<p>${esc(d.notes).replace(/\n/g, "<br>")}</p>` : ""}${items ? `<ul class="items">${items}</ul>` : ""}</article>`;
+        }).join("");
+
+        // bookings
+        const svcHtml = services.map((s: any) => {
+            const j = s.toJSON();
+            const det = Object.entries(j.details || {}).filter(([k, v]) => v && !["qty", "nights"].includes(k)).map(([k, v]) => `${esc(k.replace(/_/g, " "))}: ${esc(v)}`).join(" · ");
+            return `<div class="svc"><div class="si">${ICON[j.type] || "•"}</div><div class="sb"><div class="st"><b>${esc(LABEL[j.type] || j.type)}</b>${j.service_date ? `<span>${esc(fmt(j.service_date))}${j.end_date && j.end_date !== j.service_date ? ` – ${esc(fmt(j.end_date))}` : ""}</span>` : ""}</div>
+<div>${esc(j.description)}</div>${det ? `<small>${det}</small>` : ""}
+<div class="conf">${j.confirmation_no ? `Confirmation <b>${esc(j.confirmation_no)}</b>` : `<span class="m">${j.status === "confirmed" ? "Confirmed" : "Being confirmed"}</span>`}</div></div></div>`;
+        }).join("");
+
+        const docHtml = [
+            services.some((s: any) => ["hotel", "transfer", "activity", "other"].includes(s.dataValues.type)) ? `<li><a href="${esc(`${base}/vouchers.pdf`)}">📄 All vouchers (PDF)</a></li>` : "",
+            itinerary?.share_token ? `<li><a href="${esc(`${base.replace(/\/kit\/[^/]+$/, "")}/itinerary/${itinerary.share_token}/pdf`)}">🗺️ Full itinerary (PDF)</a></li>` : "",
+            ...docs.map((d: any) => `<li><a href="${esc(`${base}/doc/${d.dataValues.uuid}`)}">📎 ${esc(d.dataValues.name)}</a> <small class="m">${esc(d.dataValues.kind)}</small></li>`),
+        ].join("");
+
+        // contacts
+        const contact = (label: string, name: string, phone?: string | null, wa = false) => phone ? `<div class="ct"><div><b>${esc(label)}</b>${name ? `<br><span class="m">${esc(name)}</span>` : ""}</div><div class="cta"><a class="pill" href="${esc(telHref(phone))}">Call</a>${wa && waNumber(phone).length >= 10 ? `<a class="pill wa" href="https://wa.me/${waNumber(phone)}" target="_blank" rel="noopener">WhatsApp</a>` : ""}</div></div>` : "";
+        const opsPhone = ops?.phone_number ? `${ops.country_code || ""}${ops.phone_number}` : null;
+        const supplierContacts = new Map<string, any>();
+        for (const s of services) { const sp = s.dataValues.supplier; if (sp?.phone && !supplierContacts.has(sp.name)) supplierContacts.set(sp.name, sp); }
+        const contacts = [
+            ...(settings?.emergency_contacts || []).map((c: any) => contact(c.label, "", c.phone, true)),
+            opsPhone ? contact("Your trip manager", ops.username || "", opsPhone, true) : "",
+            agency?.support_number ? contact(agencyName || "Travel desk", agency?.support_email || "", agency.support_number, true) : "",
+            ...[...supplierContacts.values()].map((sp: any) => contact(sp.name, [sp.city, LABEL[sp.type] || ""].filter(Boolean).join(" · "), sp.phone)),
+        ].join("");
+
+        const paxHtml = pax.length ? `<p class="pax">${pax.map((p: any) => `<span>${esc(p.name)}${p.pax_type !== "adult" ? ` <small>(${esc(p.pax_type)})</small>` : ""}</span>`).join("")}</p>` : "";
+        const review = /^https:\/\//.test(String(billing.google_review_url || "")) && (!x.start_date || t >= x.start_date) ? `<section class="c center"><b>Loved your trip?</b><br><a href="${esc(billing.google_review_url)}" target="_blank" rel="noopener">Leave us a Google review${billing.google_rating ? ` (rated ${esc(billing.google_rating)}★)` : ""}</a></section>` : "";
+        const support = waNumber(agency?.support_number || "");
+        const cover = /^https?:\/\//.test(String(itinerary?.cover_image || "")) ? itinerary.cover_image : null;
+        const nav = [dayHtml && `<a href="#plan">Plan</a>`, svcHtml && `<a href="#bookings">Bookings</a>`, docHtml && `<a href="#docs">Documents</a>`, payment && `<a href="#pay">Payment</a>`, contacts && `<a href="#help">Contacts</a>`].filter(Boolean).join("");
+        const details = (title: string, body: any) => (body ? `<details><summary>${title}</summary><p>${esc(body).replace(/\n/g, "<br>")}</p></details>` : "");
+
+        const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="theme-color" content="${esc(color)}"><title>${esc(x.title)} · ${esc(agencyName)}</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;color:#111827;background:#f3f5f9}
+.w{max-width:760px;margin:0 auto;padding:0 12px 24px}
+.hero{position:relative;color:#fff;background:${color};${cover ? `background-image:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.65)),url('${esc(cover)}');background-size:cover;background-position:center;` : ""}border-radius:0 0 20px 20px;padding:18px 16px 20px;margin:0 -12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;opacity:.95}.brand img{width:36px;height:36px;border-radius:9px;background:#fff;object-fit:contain}
+h1{margin:${cover ? "70px" : "18px"} 0 4px;font-size:24px;line-height:1.2}.sub{opacity:.92;font-size:14px}.when{display:inline-block;margin-top:10px;background:rgba(255,255,255,.2);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600}
+.acts{display:flex;gap:8px;margin:12px 0 0;flex-wrap:wrap}.acts a{flex:1;min-width:120px;text-align:center;background:#fff;color:${color};border-radius:12px;padding:10px;font-weight:600;text-decoration:none;font-size:14px}
+nav{position:sticky;top:0;z-index:5;background:#f3f5f9;display:flex;gap:6px;overflow-x:auto;padding:10px 0;margin-top:4px;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav a{white-space:nowrap;background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:6px 14px;color:#374151;text-decoration:none;font-size:13px;font-weight:600}
+.c{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:12px;scroll-margin-top:60px}h2{font-size:17px;margin:0 0 10px}.center{text-align:center}
+.pax{display:flex;flex-wrap:wrap;gap:6px;margin:0}.pax span{background:#f3f4f6;border-radius:999px;padding:3px 10px;font-size:13px}
+.day{border-top:1px solid #f1f5f9;padding:14px 0}.day:first-of-type{border-top:0;padding-top:0}.day.today{background:#fffbeb;margin:0 -16px;padding:14px 16px;border-radius:12px}
+.dh{display:flex;gap:8px;align-items:center;font-size:12px}.dn{background:${color};color:#fff;border-radius:6px;padding:2px 8px;font-weight:700}.dd{color:#6b7280}
+h3{margin:6px 0;font-size:16px}h3 small{color:#6b7280;font-weight:500}
+.pics{display:grid;gap:6px;margin:8px 0}.pics.p1{grid-template-columns:1fr}.pics.p2{grid-template-columns:1fr 1fr}.pics.p3{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr}.pics.p3 a:first-child{grid-row:span 2}
+.pics img{width:100%;height:100%;min-height:90px;max-height:220px;object-fit:cover;border-radius:10px;display:block}.pics.p1 img{max-height:260px}
+.items{list-style:none;padding:0;margin:6px 0 0}.items li{display:flex;gap:8px;margin:5px 0}.ic{width:20px;flex:none;text-align:center}
+.svc{display:flex;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9}.svc:first-of-type{border-top:0}.si{font-size:20px;width:28px;flex:none;text-align:center}.sb{flex:1;min-width:0}.st{display:flex;justify-content:space-between;gap:8px;font-size:13px}.st span{color:#6b7280}.conf{margin-top:2px;font-size:13px}
+small,.m{color:#6b7280}ul.docs{list-style:none;padding:0;margin:0}ul.docs li{padding:8px 0;border-top:1px solid #f1f5f9}ul.docs li:first-child{border-top:0}
+a{color:${color};font-weight:600}
+.row{display:flex;justify-content:space-between;padding:4px 0}.row.big{font-size:18px;border-top:1px dashed #e5e7eb;margin-top:4px;padding-top:8px}.due{background:#eff6ff;border-radius:10px;padding:8px 10px;margin:10px 0 0}.due.late{background:#fef2f2;color:#991b1b}.paid{color:#15803d;font-weight:600;margin:8px 0 0}
+.btn{display:block;text-align:center;background:${color};color:#fff;border-radius:12px;padding:12px;margin-top:12px;text-decoration:none}
+.ct{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9}.ct>div:first-child{min-width:0;overflow-wrap:anywhere}.ct:first-of-type{border-top:0}.cta{display:flex;gap:6px;flex:none}.pill{border:1px solid #e5e7eb;border-radius:999px;padding:5px 12px;text-decoration:none;font-size:13px}.pill.wa{background:#16a34a;border-color:#16a34a;color:#fff}
+details{border-top:1px solid #f1f5f9;padding:10px 0}details:first-of-type{border-top:0}summary{font-weight:600;cursor:pointer}
+footer{color:#6b7280;font-size:13px;text-align:center;padding:20px 8px}
+</style></head>
+<body><div class="w"><header class="hero"><div class="brand">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<span>${esc(agencyName)}</span></div>
+<h1>${esc(x.title)}</h1><div class="sub">${esc(x.booking_no)}${x.start_date ? ` · ${esc(fmt(x.start_date))}${x.end_date ? ` – ${esc(fmt(x.end_date))}` : ""}` : ""}${pax.length ? ` · ${pax.length} traveller${pax.length > 1 ? "s" : ""}` : ""}</div>
+${when ? `<div class="when">${esc(when)}</div>` : ""}
+<div class="acts">${support.length >= 10 ? `<a href="https://wa.me/${support}?text=${encodeURIComponent(`Hi, about my trip ${x.booking_no}`)}" target="_blank" rel="noopener">💬 WhatsApp us</a>` : ""}${agency?.support_number ? `<a href="${esc(telHref(agency.support_number))}">📞 Call</a>` : ""}${payLink ? `<a href="${esc(payLink)}" target="_blank" rel="noopener">💳 Pay now</a>` : ""}</div></header>
+${nav ? `<nav>${nav}</nav>` : ""}
+${paxHtml ? `<section class="c"><h2>Travellers</h2>${paxHtml}</section>` : ""}
+${dayHtml ? `<section class="c" id="plan"><h2>Day by day</h2>${dayHtml}</section>` : ""}
+${svcHtml ? `<section class="c" id="bookings"><h2>Your bookings</h2>${svcHtml}</section>` : ""}
+${docHtml ? `<section class="c" id="docs"><h2>Tickets, vouchers and documents</h2><ul class="docs">${docHtml}</ul></section>` : ""}
+${payment}
+${contacts ? `<section class="c" id="help"><h2>Contacts and emergencies</h2>${contacts}</section>` : ""}
+${itinerary?.inclusions || itinerary?.exclusions ? `<section class="c">${details("What's included", itinerary.inclusions)}${details("Not included", itinerary.exclusions)}</section>` : ""}
 ${review}
-<footer>${esc(agency?.app_name || agency?.username || "")}${agency?.support_number ? ` · ${esc(agency.support_number)}` : ""}${agency?.support_email ? ` · ${esc(agency.support_email)}` : ""}<br>Keep this page handy during your trip.</footer></div></body></html>`;
+<footer>${esc(agencyName)}${agency?.support_email ? ` · ${esc(agency.support_email)}` : ""}<br>Keep this page handy during your trip. It always shows the latest details.</footer></div></body></html>`;
         res.setHeader("Content-Security-Policy", "default-src 'none'; img-src * data:; style-src 'unsafe-inline'");
+        res.setHeader("Cache-Control", "no-store");
         return res.status(200).send(html);
     } catch (error) {
         console.error("publicTripKit", error);
+        return res.status(500).send("Something went wrong");
+    }
+};
+
+/** GET /public/travel/kit/:token/vouchers.pdf - every hotel, transfer and activity voucher for the trip. */
+export const publicTripVouchers = async (req: Request, res: Response) => {
+    try {
+        const b = await kitBooking(String(req.params.token || ""));
+        if (!b) return res.status(404).send("Not found");
+        const [services, pax, client]: any[] = await Promise.all([
+            BookingService.findAll({ where: { booking_id: b.dataValues.id, status: { [Op.ne]: "cancelled" }, type: ["hotel", "transfer", "activity", "other"] }, include: [{ model: TravelSupplier, as: "supplier", attributes: ["name", "phone", "city"], required: false }], order: [["service_date", "ASC"], ["id", "ASC"]] }),
+            BookingTraveller.findAll({ where: { booking_id: b.dataValues.id }, attributes: ["name", "pax_type", "is_lead"], order: [["is_lead", "DESC"], ["id", "ASC"]], raw: true }),
+            User.findByPk(b.dataValues.user_id, { attributes: ["username", "phone_number", "country_code"], raw: true }),
+        ]);
+        return vouchersPdf(res, await pdfBrand(b.dataValues.agency_uuid), b, services, pax, client);
+    } catch (error) {
+        console.error("publicTripVouchers", error);
         return res.status(500).send("Something went wrong");
     }
 };

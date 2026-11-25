@@ -41,6 +41,7 @@ import Packages from "@/modules/AgentAdmin/Travel/Packages"
 import { Suppliers, SupplierDetails } from "@/modules/AgentAdmin/Travel/Suppliers"
 import TravelLibrary from "@/modules/AgentAdmin/Travel/Library"
 import TravelReports from "@/modules/AgentAdmin/Travel/TravelReports"
+import TripFinance from "@/modules/AgentAdmin/Travel/TripFinance"
 import Pipeline from "@/modules/AgentAdmin/Travel/Pipeline"
 import { ClientPage, Clients } from "@/modules/AgentAdmin/Travel/Clients"
 import WhatsappInbox from "@/modules/AgentAdmin/Messages/WhatsappInbox"
@@ -167,6 +168,7 @@ export const AgentAdminRoutes = [
     { path: "/travel/suppliers/:id", element: SupplierDetails },
     { path: "/travel/library", element: TravelLibrary },
     { path: "/travel/reports", element: TravelReports },
+    { path: "/travel/finance", element: TripFinance },
     { path: "/travel/pipeline", element: Pipeline },
     { path: "/travel/clients", element: Clients },
     { path: "/travel/clients/:id", element: ClientPage },
@@ -491,6 +493,7 @@ export const SubAgentRoutes = [
     { path: "/travel/suppliers/:id", element: SupplierDetails },
     { path: "/travel/library", element: TravelLibrary },
     { path: "/travel/reports", element: TravelReports },
+    { path: "/travel/finance", element: TripFinance },
     { path: "/travel/pipeline", element: Pipeline },
     { path: "/travel/clients", element: Clients },
     { path: "/travel/clients/:id", element: ClientPage },

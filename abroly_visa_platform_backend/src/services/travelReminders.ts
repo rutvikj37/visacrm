@@ -3,6 +3,7 @@ import Agent from "../model/Agent";
 import { Booking, BookingService, TravelSupplier } from "../model/Travel";
 import { activeAgencyUuids, agencyOwnerId, notify } from "./notifications";
 import { hasModule } from "./modules";
+import { supplierOwed } from "./travel";
 
 /**
  * Supplier payment reminders (SP-03): once a day per service, the owner and Accounts hear about supplier
@@ -17,15 +18,15 @@ export const supplierDueReminders = async () => {
     const day = istDay();
     const soon = new Date(Date.parse(day) + 3 * 864e5).toISOString().slice(0, 10);
     const rows: any[] = await BookingService.findAll({
-        where: { agency_uuid: agencies, status: { [Op.ne]: "cancelled" }, supplier_id: { [Op.ne]: null }, supplier_due_date: { [Op.lte]: soon } },
+        where: { agency_uuid: agencies, supplier_id: { [Op.ne]: null }, supplier_due_date: { [Op.lte]: soon } },
         include: [{ model: TravelSupplier, as: "supplier", attributes: ["name"], required: false }, { model: Booking, as: "booking", attributes: ["uuid", "booking_no", "status"], required: false }],
         limit: 1000,
     });
     const recipientsBy = new Map<string, number[]>();
     for (const r of rows) {
         const x = r.toJSON() as any;
-        const due = Number(x.cost) - Number(x.supplier_paid);
-        if (due <= 0 || !x.booking || x.booking.status === "cancelled") continue;
+        const due = supplierOwed(x);
+        if (due <= 0 || !x.booking || (x.booking.status === "cancelled" && x.status !== "cancelled")) continue;
         if (!(await hasModule(x.agency_uuid, "suppliers"))) continue;
         let ids = recipientsBy.get(x.agency_uuid);
         if (!ids) {

@@ -4,7 +4,8 @@ import TravelController from "../controller/TravelController"
 import PublicTravelController from "../controller/PublicTravelController"
 import { travelGuard } from "../../services/travelAccess"
 import TravelPlusController, { publicCatalogue, publicPackage, publicPackageEnquiry, travelImageUpload } from "../controller/TravelPlusController"
-import TravelExtraController, { publicTripKit, publicTripKitDoc, travelUpload } from "../controller/TravelExtraController"
+import TravelFinanceController from "../controller/TravelFinanceController"
+import TravelExtraController, { publicTripKit, publicTripKitDoc, publicTripVouchers, travelUpload } from "../controller/TravelExtraController"
 
 /**
  * Travel CRM: /api/v1/travel/...
@@ -34,6 +35,8 @@ travelRoutes.get("/whatsapp/numbers", validateAgent, pl("whatsappNumbers"))
 // settings, permissions, calendar link (settings are owner-only to save)
 const X: any = TravelExtraController
 const x = (name: string) => (req: any, res: any) => travelGuard(req, res, () => X[name](req, res))
+const F: any = TravelFinanceController
+const f = (name: string) => (req: any, res: any) => travelGuard(req, res, () => F[name](req, res))
 travelRoutes.get("/settings", validateAgent, x("getSettings"))
 travelRoutes.post("/settings", validateAgent, x("saveSettings"))
 
@@ -100,8 +103,14 @@ travelRoutes.get("/bookings/travellers/:uuid/reveal", validateAgent, h("revealTr
 travelRoutes.post("/bookings/travellers/:uuid/save_to_profile", validateAgent, x("travellerToMember"))
 travelRoutes.post("/bookings/documents/:uuid/delete", validateAgent, x("deleteDocument"))
 travelRoutes.post("/credit_notes/:uuid/refund", validateAgent, x("recordRefund"))
+travelRoutes.post("/bookings/services/:uuid/cancel", validateAgent, f("cancelService"))
+travelRoutes.post("/bookings/services/:uuid/supplier_refund", validateAgent, f("supplierRefund"))
+travelRoutes.get("/finance/payables", validateAgent, f("payables"))
+travelRoutes.get("/finance/profit", validateAgent, f("profit"))
 travelRoutes.get("/bookings/:uuid", validateAgent, h("bookingDetails"))
 travelRoutes.get("/bookings/:uuid/documents", validateAgent, x("listDocuments"))
+travelRoutes.get("/bookings/:uuid/finance", validateAgent, f("bookingFinance"))
+travelRoutes.post("/bookings/:uuid/cancel", validateAgent, f("cancelBooking"))
 travelRoutes.post("/bookings/:uuid/documents", validateAgent, travelUpload, x("uploadDocuments"))
 travelRoutes.post("/bookings/:uuid/kit", validateAgent, x("tripKit"))
 travelRoutes.get("/bookings/:uuid/credit_notes", validateAgent, x("listCreditNotes"))
@@ -123,5 +132,6 @@ publicTravelRoutes.get("/package/:slug", publicPackage)
 publicTravelRoutes.post("/package/:slug", publicPackageEnquiry)
 publicTravelRoutes.get("/itinerary/:token/pdf", (req, res) => PublicTravelController.pdf(req, res))
 publicTravelRoutes.get("/kit/:token/doc/:docId", publicTripKitDoc)
+publicTravelRoutes.get("/kit/:token/vouchers.pdf", publicTripVouchers)
 
 export default travelRoutes

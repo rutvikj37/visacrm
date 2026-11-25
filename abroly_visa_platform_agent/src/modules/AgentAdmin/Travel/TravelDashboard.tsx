@@ -64,7 +64,7 @@ const TravelDashboard = ({ compact = false }: { compact?: boolean }) => {
                 <Kpi icon={Plane} label="Departures" value={`${k.departures_7} / ${k.departures_30}`} hint="Next 7 / 30 days" onPress={() => navigate("/travel/bookings?view=calendar")} />
                 <Kpi icon={CalendarClock} label="Travelling now" value={k.travelling_now} hint="Clients on a trip today" onPress={() => navigate("/travel/bookings")} />
                 <Kpi icon={AlertTriangle} label="Trips not ready" value={d.trips_attention.length} hint="Leaving within 14 days" tone={d.trips_attention.length ? "text-warning-600" : ""} onPress={() => navigate("/travel/bookings")} />
-                {d.sees_cost ? <Kpi icon={Wallet} label="Supplier payments due" value={d.supplier_due.length} hint={d.supplier_due.some((s: any) => s.overdue) ? "Some overdue" : "Next 7 days"} tone={d.supplier_due.some((s: any) => s.overdue) ? "text-danger" : ""} onPress={() => navigate("/travel/reports")} />
+                {d.sees_cost ? <Kpi icon={Wallet} label="Supplier payments due" value={d.supplier_due.length} hint={d.supplier_due.some((s: any) => s.overdue) ? "Some overdue" : "Next 7 days"} tone={d.supplier_due.some((s: any) => s.overdue) ? "text-danger" : ""} onPress={() => navigate("/travel/finance")} />
                     : <Kpi icon={Wallet} label="Client payments due" value={d.payments_due.length} hint="Next 7 days" onPress={() => navigate("/fees?status=due")} />}
             </div>
 

@@ -18,6 +18,7 @@ const TravelSettings = () => {
     const [stages, setStages] = useState<Record<string, { label: string; hidden: boolean }>>({});
     const [rules, setRules] = useState<{ match: string; agent_id: number | null }[]>([]);
     const [perms, setPerms] = useState<any>({});
+    const [contacts, setContacts] = useState<{ label: string; phone: string }[]>([]);
     const [saving, setSaving] = useState("");
 
     const load = async () => {
@@ -27,6 +28,7 @@ const TravelSettings = () => {
         setStages(Object.fromEntries((data.stages || []).map((s: any) => [s.key, { label: s.label || "", hidden: Boolean(s.hidden) }])));
         setRules(data.destination_rules || []);
         setPerms(data.permissions || {});
+        setContacts(data.emergency_contacts || []);
     };
     useEffect(() => { load(); }, []);
 
@@ -63,6 +65,20 @@ const TravelSettings = () => {
                         </div>
                     ))}
                     <div className="flex justify-end"><Button color="primary" isLoading={saving === "stages"} onPress={() => save("stages", { lead_stages: stages })}>Save stages</Button></div>
+                </CardBody></Card>
+
+                <Card shadow="sm"><CardHeader className="flex flex-col items-start"><div className="font-semibold">Emergency contacts on trip pages</div><div className="text-xs text-default-500">Shown with Call and WhatsApp buttons on every client's trip page, above the trip manager and hotel numbers. Add your 24x7 helpline or ground team.</div></CardHeader><CardBody className="gap-2">
+                    {contacts.map((c, i) => (
+                        <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+                            <Input aria-label="Label" size="sm" className="sm:max-w-xs" placeholder="e.g. 24x7 trip helpline" value={c.label} onValueChange={(v) => setContacts((x) => x.map((y, j) => (j === i ? { ...y, label: v } : y)))} />
+                            <Input aria-label="Phone" size="sm" className="flex-1" type="tel" placeholder="+91 98200 11223" value={c.phone} onValueChange={(v) => setContacts((x) => x.map((y, j) => (j === i ? { ...y, phone: v } : y)))} />
+                            <Button isIconOnly size="sm" variant="light" aria-label="Remove contact" onPress={() => setContacts((x) => x.filter((_, j) => j !== i))}><Trash2 size={14} /></Button>
+                        </div>
+                    ))}
+                    <div className="flex justify-between">
+                        <Button size="sm" variant="flat" startContent={<Plus size={14} />} isDisabled={contacts.length >= 8} onPress={() => setContacts((x) => [...x, { label: "", phone: "" }])}>Add contact</Button>
+                        <Button color="primary" isLoading={saving === "contacts"} onPress={() => save("contacts", { emergency_contacts: contacts })}>Save contacts</Button>
+                    </div>
                 </CardBody></Card>
 
                 <Card shadow="sm"><CardHeader className="flex flex-col items-start"><div className="font-semibold">Assign by destination</div><div className="text-xs text-default-500">A new travel enquiry for a matching destination goes straight to that person. Other enquiries use your normal auto-assign.</div></CardHeader><CardBody className="gap-2">

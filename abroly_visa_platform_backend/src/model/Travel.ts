@@ -171,6 +171,10 @@ export const Booking = sequelize.define('Booking', {
     tcs_percent: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0 },
     invoice_id: { type: DataTypes.INTEGER, allowNull: true }, // client_invoices.id
     share_token: { type: DataTypes.STRING(64), allowNull: true }, // public trip kit link
+    credited: { type: DataTypes.BIGINT, defaultValue: 0 },        // selling value taken off by credit notes (excl. GST)
+    cancel_reason: { type: DataTypes.STRING(500), allowNull: true },
+    cancelled_at: { type: DataTypes.DATEONLY, allowNull: true },
+    cancel_charge: { type: DataTypes.BIGINT, allowNull: true },  // what the client still pays after cancelling (incl. GST)
     ops_owner_id: { type: DataTypes.INTEGER, allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
     branch_id: { type: DataTypes.INTEGER, allowNull: true },
@@ -194,6 +198,10 @@ export const BookingService = sequelize.define('BookingService', {
     supplier_due_date: { type: DataTypes.DATEONLY, allowNull: true },
     supplier_paid: { type: DataTypes.BIGINT, defaultValue: 0 },
     supplier_payments: { type: DataTypes.JSON, allowNull: true, get: jsonGetter('supplier_payments') }, // [{ amount, paid_at, method, reference }]
+    cancel_charge: { type: DataTypes.BIGINT, allowNull: true },   // once cancelled: what the supplier keeps
+    cancelled_at: { type: DataTypes.DATEONLY, allowNull: true },
+    supplier_refunded: { type: DataTypes.BIGINT, defaultValue: 0 },  // money the supplier has paid back
+    supplier_refunds: { type: DataTypes.JSON, allowNull: true, get: jsonGetter('supplier_refunds') }, // [{ amount, received_at, reference }]
 }, opts('booking_services', [{ fields: ['booking_id'] }, { fields: ['supplier_id'] }]));
 
 /** Pax on a booking. */

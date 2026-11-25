@@ -17,6 +17,7 @@ import { hasModule } from "../../services/modules";
 import {
     cleanLines, getTravelTax, lineCost, lineMarkup, nextTravelNumber, quoteTotals, redactCost, seesCost,
     SERVICE_TYPES, splitGst, stateOfGstin, toPaise, toRupees, totalsInRupees,
+    SUPPLIER_MONEY_COLS, serviceCost, supplierOwed, supplierRefundDue,
 } from "../../services/travel";
 import { nextNumber, readBilling } from "./FeesController";
 import { travelDashboard } from "../../services/travelDashboard";
@@ -177,8 +178,11 @@ const presentService = (x: any) => ({
     id: x.uuid, type: x.type, description: x.description, supplier_id: x.supplier_id, supplier_name: x.supplier?.name || null,
     confirmation_no: x.confirmation_no, status: x.status, service_date: x.service_date, end_date: x.end_date,
     cost: toRupees(x.cost), sell: toRupees(x.sell), details: x.details || {}, supplier_due_date: x.supplier_due_date,
-    supplier_paid: toRupees(x.supplier_paid), supplier_due: toRupees(Math.max(0, Number(x.cost) - Number(x.supplier_paid))),
+    supplier_paid: toRupees(x.supplier_paid), supplier_due: toRupees(supplierOwed(x)),
     supplier_payments: (Array.isArray(x.supplier_payments) ? x.supplier_payments : []).map((p: any) => ({ ...p, amount: toRupees(p.amount) })),
+    cancelled_at: x.cancelled_at || null, supplier_cancel_charge: x.status === "cancelled" ? toRupees(x.cancel_charge || 0) : null,
+    supplier_refunded: toRupees(x.supplier_refunded || 0), supplier_refund_due: toRupees(supplierRefundDue(x)),
+    supplier_refunds: (Array.isArray(x.supplier_refunds) ? x.supplier_refunds : []).map((p: any) => ({ ...p, amount: toRupees(p.amount) })),
 });
 
 const presentTraveller = (x: any) => ({
@@ -192,7 +196,8 @@ const bookingTax = (b: any) => {
     const taxable = b.billing_mode === "margin" ? Math.max(0, sell - cost) : sell;
     const gst = Math.round(taxable * Number(b.gst_percent || 0) / 100);
     const tcs = b.is_international ? Math.round((sell + gst) * Number(b.tcs_percent || 0) / 100) : 0;
-    return { taxable, gst, tcs, total: sell + gst + tcs, profit: sell - cost };
+    // real profit: selling value less credit notes, less what suppliers really keep (cancellation charges included)
+    return { taxable, gst, tcs, total: sell + gst + tcs, profit: sell - Number(b.credited || 0) - cost };
 };
 
 const presentBooking = (x: any) => {
@@ -203,10 +208,18 @@ const presentBooking = (x: any) => {
         total_sell: toRupees(x.total_sell), total_cost: toRupees(x.total_cost), discount: toRupees(x.discount),
         billing_mode: x.billing_mode, gst_percent: Number(x.gst_percent), tcs_percent: Number(x.tcs_percent),
         gst: toRupees(t.gst), tcs: toRupees(t.tcs), client_total: toRupees(t.total), profit: toRupees(t.profit),
+        credited: toRupees(x.credited || 0), cancel_reason: x.cancel_reason || null, cancelled_at: x.cancelled_at || null,
+        cancel_charge: x.cancel_charge === null || x.cancel_charge === undefined ? null : toRupees(x.cancel_charge),
         client: x.client ? { id: x.client.id, name: x.client.username, phone: `${x.client.country_code || ""} ${x.client.phone_number || ""}`.trim(), email: x.client.email } : undefined,
         ops_owner_id: x.ops_owner_id, invoice_id: x.invoice?.uuid || null, invoice_number: x.invoice?.number || null,
         lead_id: x.lead?.uuid || null, quotation_id: x.quotation?.uuid || null, itinerary_id: x.itinerary?.uuid || null, createdAt: x.createdAt,
     };
+};
+
+/** total_cost = what suppliers really keep: full cost of live services plus cancellation charges of cancelled ones. */
+export const recalcBookingCost = async (bookingId: number, t?: any) => {
+    const rows: any[] = await BookingService.findAll({ where: { booking_id: bookingId }, attributes: ["status", "cost", "cancel_charge"], raw: true, transaction: t });
+    await Booking.update({ total_cost: rows.reduce((a, r) => a + serviceCost(r), 0) }, { where: { id: bookingId }, transaction: t });
 };
 
 // ---------------------------------------------------------------- controller
@@ -231,13 +244,13 @@ class TravelController {
                 CrmLead.count({ where: { ...leadScope(req), business_line: "travel", createdAt: { [Op.gte]: new Date(monthStart) } } }),
             ]);
             const sell = monthBookings.reduce((a: number, b: any) => a + Number(b.total_sell || 0), 0);
-            const cost = monthBookings.reduce((a: number, b: any) => a + Number(b.total_cost || 0), 0);
+            const cost = monthBookings.reduce((a: number, b: any) => a + Number(b.total_cost || 0) + Number(b.credited || 0), 0);
             const dueRows: any[] = await BookingService.findAll({
-                where: { agency_uuid: agencyUuid, status: { [Op.ne]: "cancelled" }, supplier_id: { [Op.ne]: null } },
-                attributes: ["cost", "supplier_paid", "supplier_due_date"], raw: true,
+                where: { agency_uuid: agencyUuid, supplier_id: { [Op.ne]: null } },
+                attributes: SUPPLIER_MONEY_COLS, raw: true,
             });
-            const supplierDue = dueRows.reduce((a, r) => a + Math.max(0, Number(r.cost) - Number(r.supplier_paid)), 0);
-            const supplierOverdue = dueRows.filter((r) => r.supplier_due_date && r.supplier_due_date < today).reduce((a, r) => a + Math.max(0, Number(r.cost) - Number(r.supplier_paid)), 0);
+            const supplierDue = dueRows.reduce((a, r) => a + supplierOwed(r), 0);
+            const supplierOverdue = dueRows.filter((r) => r.supplier_due_date && r.supplier_due_date < today).reduce((a, r) => a + supplierOwed(r), 0);
             const data = {
                 enquiries_this_month: enquiries,
                 bookings_this_month: monthBookings.length,
@@ -311,11 +324,11 @@ class TravelController {
             if (req.query.search) where.name = { [Op.like]: `%${req.query.search}%` };
             const rows: any[] = await TravelSupplier.findAll({ where, order: [["name", "ASC"]], limit: 500 });
             const dues: any[] = await BookingService.findAll({
-                where: { agency_uuid: agencyUuid, status: { [Op.ne]: "cancelled" }, supplier_id: { [Op.in]: rows.map((r) => r.dataValues.id).concat([-1]) } },
-                attributes: ["supplier_id", "cost", "supplier_paid"], raw: true,
+                where: { agency_uuid: agencyUuid, supplier_id: { [Op.in]: rows.map((r) => r.dataValues.id).concat([-1]) } },
+                attributes: ["supplier_id", ...SUPPLIER_MONEY_COLS], raw: true,
             });
             const dueBy = new Map<number, number>();
-            for (const d of dues) dueBy.set(d.supplier_id, (dueBy.get(d.supplier_id) || 0) + Math.max(0, Number(d.cost) - Number(d.supplier_paid)));
+            for (const d of dues) dueBy.set(d.supplier_id, (dueBy.get(d.supplier_id) || 0) + supplierOwed(d));
             const data = rows.map((r) => ({ ...presentSupplier(r.toJSON()), supplier_due: toRupees(dueBy.get(r.dataValues.id) || 0) }));
             return ok(res, "Suppliers", redactCost(data, req));
         } catch (error) { return fail(res, error, "listSuppliers"); }
@@ -329,7 +342,7 @@ class TravelController {
             const [rates, services] = await Promise.all([
                 SupplierRate.findAll({ where: { agency_uuid: agencyUuid, supplier_id: s.dataValues.id }, order: [["service", "ASC"], ["valid_from", "ASC"]] }),
                 BookingService.findAll({
-                    where: { agency_uuid: agencyUuid, supplier_id: s.dataValues.id, status: { [Op.ne]: "cancelled" } },
+                    where: { agency_uuid: agencyUuid, supplier_id: s.dataValues.id },
                     include: [{ model: Booking, as: "booking", attributes: ["uuid", "booking_no", "title", "start_date"], required: false }],
                     order: [["service_date", "DESC"]], limit: 200,
                 }),
@@ -342,8 +355,10 @@ class TravelController {
                 supplier: presentSupplier(s.toJSON()),
                 rates: rates.map((r: any) => presentRate(r.toJSON())),
                 ledger,
-                supplier_payable: toRupees(services.reduce((a: number, x: any) => a + Number(x.dataValues.cost), 0)),
-                supplier_paid_total: toRupees(services.reduce((a: number, x: any) => a + Number(x.dataValues.supplier_paid), 0)),
+                supplier_payable: toRupees(services.reduce((a: number, x: any) => a + serviceCost(x.dataValues), 0)),
+                supplier_paid_total: toRupees(services.reduce((a: number, x: any) => a + Number(x.dataValues.supplier_paid) - Number(x.dataValues.supplier_refunded || 0), 0)),
+                supplier_due: toRupees(services.reduce((a: number, x: any) => a + supplierOwed(x.dataValues), 0)),
+                supplier_refund_due: toRupees(services.reduce((a: number, x: any) => a + supplierRefundDue(x.dataValues), 0)),
             };
             return ok(res, "Supplier", redactCost(data, req));
         } catch (error) { return fail(res, error, "supplierDetails"); }
@@ -877,7 +892,8 @@ class TravelController {
             if (b.destination !== undefined) u.destination = str(b.destination);
             if (b.start_date !== undefined) u.start_date = date(b.start_date);
             if (b.end_date !== undefined) u.end_date = date(b.end_date);
-            if (b.status !== undefined && ["confirmed", "in_progress", "completed", "cancelled"].includes(b.status)) u.status = b.status;
+            if (b.status === "cancelled" && row.dataValues.status !== "cancelled") return no(res, "Use Cancel booking, so charges, the credit note and refunds are worked out");
+            if (b.status !== undefined && ["confirmed", "in_progress", "completed"].includes(b.status) && row.dataValues.status !== "cancelled") u.status = b.status;
             if (b.notes !== undefined) u.notes = str(b.notes, 5000);
             if (b.ops_owner_id !== undefined) u.ops_owner_id = b.ops_owner_id ? Number(b.ops_owner_id) : null;
             if (seesCost(req)) {
@@ -893,8 +909,7 @@ class TravelController {
     }
 
     private async recalcBooking(bookingId: number) {
-        const rows: any[] = await BookingService.findAll({ where: { booking_id: bookingId, status: { [Op.ne]: "cancelled" } }, attributes: ["cost"], raw: true });
-        await Booking.update({ total_cost: rows.reduce((a, r) => a + Number(r.cost), 0) }, { where: { id: bookingId } });
+        await recalcBookingCost(bookingId);
     }
 
     private async serviceValues(req: RequestWithUser, b: any, existing?: any) {
@@ -902,7 +917,12 @@ class TravelController {
         if (b.type !== undefined) v.type = ["flight", "hotel", "transfer", "activity", "visa", "insurance", "forex", "other"].includes(b.type) ? b.type : "other";
         if (b.description !== undefined) { v.description = str(b.description, 500); if (!v.description) throw new UserError("Please describe the service"); }
         if (b.confirmation_no !== undefined) v.confirmation_no = str(b.confirmation_no, 80);
-        if (b.status !== undefined && ["requested", "confirmed", "cancelled"].includes(b.status)) v.status = b.status;
+        if (b.status !== undefined && ["requested", "confirmed", "cancelled"].includes(b.status)) {
+            v.status = b.status;
+            const was = existing?.dataValues?.status;
+            if (b.status === "cancelled" && was !== "cancelled") v.cancelled_at = new Date().toISOString().slice(0, 10);
+            if (b.status !== "cancelled" && was === "cancelled") { v.cancel_charge = null; v.cancelled_at = null; }
+        }
         if (b.service_date !== undefined) v.service_date = date(b.service_date);
         if (b.end_date !== undefined) v.end_date = date(b.end_date);
         if (b.details !== undefined && b.details && typeof b.details === "object") {
@@ -961,7 +981,7 @@ class TravelController {
         try {
             const found = await this.scopedService(req, req.params.uuid);
             if (!found) return no(res, "Service not found");
-            if (Number(found.service.dataValues.supplier_paid) > 0) return no(res, "A supplier payment is recorded on this service. Cancel it instead.");
+            if (Number(found.service.dataValues.supplier_paid) > 0) return no(res, "A supplier payment is recorded on this service. Cancel it instead, with the supplier's cancellation charge.");
             await found.service.destroy();
             await this.recalcBooking(found.booking.dataValues.id);
             return ok(res, "Service removed");
@@ -977,7 +997,7 @@ class TravelController {
             if (!found) return no(res, "Service not found");
             const amount = toPaise(req.body?.amount);
             const s = found.service.dataValues;
-            const due = Number(s.cost) - Number(s.supplier_paid);
+            const due = supplierOwed(s);
             if (!(amount > 0)) return no(res, "Enter the amount paid");
             if (amount > due) return no(res, `Only Rs ${toRupees(due)} is due to the supplier on this service`);
             const payments = Array.isArray(found.service.supplier_payments) ? found.service.supplier_payments : [];

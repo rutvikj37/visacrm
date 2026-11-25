@@ -158,26 +158,26 @@ const ItineraryBuilder = () => {
                             if (s.kind === "item" && s.item !== undefined) moveItem(s.day, s.item, di, d.items.length);
                         }}>
                         <CardBody className="gap-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                                 <span draggable onDragStart={() => { drag.current = { kind: "day", day: di }; }} className="cursor-grab text-default-400 hidden sm:block" title="Drag to reorder days"><GripVertical size={18} /></span>
                                 <Chip color="primary" variant="flat" className="shrink-0">Day {di + 1}</Chip>
-                                <Input aria-label="Day title" size="sm" value={d.title} onValueChange={(v) => change((x) => { x[di].title = v; return x; })} className="flex-1" />
-                                <Input aria-label="City" size="sm" placeholder="City" value={d.city || ""} onValueChange={(v) => change((x) => { x[di].city = v; return x; })} className="w-32 hidden sm:block" />
-                                <Button isIconOnly size="sm" variant="light" aria-label="Move day up" isDisabled={di === 0} onPress={() => moveDay(di, di - 1)}><ArrowUp size={14} /></Button>
+                                <Input aria-label="Day title" size="sm" value={d.title} onValueChange={(v) => change((x) => { x[di].title = v; return x; })} className="order-last w-full sm:order-none sm:w-auto sm:flex-1" />
+                                <Input aria-label="City" size="sm" placeholder="City" value={d.city || ""} onValueChange={(v) => change((x) => { x[di].city = v; return x; })} className="order-last w-full sm:order-none sm:w-32" />
+                                <Button isIconOnly size="sm" variant="light" className="ml-auto sm:ml-0" aria-label="Move day up" isDisabled={di === 0} onPress={() => moveDay(di, di - 1)}><ArrowUp size={14} /></Button>
                                 <Button isIconOnly size="sm" variant="light" aria-label="Move day down" isDisabled={di === days.length - 1} onPress={() => moveDay(di, di + 1)}><ArrowDown size={14} /></Button>
                                 <Button isIconOnly size="sm" variant="light" color="danger" aria-label="Remove day" isDisabled={days.length <= 1} onPress={() => change((x) => { x.splice(di, 1); return x; })}><Trash2 size={14} /></Button>
                             </div>
                             <div className="flex flex-col gap-1.5 sm:pl-7">
                                 {d.items.map((item, ii) => (
-                                    <div key={ii} className="flex items-start gap-2"
+                                    <div key={ii} className="grid grid-cols-[1fr_auto_auto] items-start gap-2 pb-2 border-b border-default-100 last:border-0 sm:flex sm:pb-0 sm:border-0"
                                         draggable onDragStart={(e) => { e.stopPropagation(); drag.current = { kind: "item", day: di, item: ii }; }}
                                         onDragOver={(e) => e.preventDefault()}
                                         onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const s = drag.current; drag.current = null; if (s?.kind === "item" && s.item !== undefined) moveItem(s.day, s.item, di, ii); }}>
                                         <span className="cursor-grab text-default-300 pt-2 hidden sm:block"><GripVertical size={14} /></span>
-                                        <Select aria-label="Type" size="sm" className="w-32 shrink-0" selectedKeys={[item.type]} onChange={(e) => change((x) => { x[di].items[ii].type = e.target.value || "note"; return x; })}>
+                                        <Select aria-label="Type" size="sm" className="w-full sm:w-32 shrink-0" selectedKeys={[item.type]} onChange={(e) => change((x) => { x[di].items[ii].type = e.target.value || "note"; return x; })}>
                                             {DAY_ITEM_TYPES.map((t) => <SelectItem key={t.key}>{t.label}</SelectItem>)}
                                         </Select>
-                                        <Textarea aria-label="Details" size="sm" minRows={1} value={item.text} onValueChange={(v) => change((x) => { x[di].items[ii].text = v; return x; })} className="flex-1" />
+                                        <Textarea aria-label="Details" size="sm" minRows={1} value={item.text} onValueChange={(v) => change((x) => { x[di].items[ii].text = v; return x; })} className="col-span-3 order-last sm:order-none sm:flex-1" />
                                         <MultiImageUpload compact value={item.images} max={6} onChange={(urls) => change((x) => { x[di].items[ii].images = urls; return x; })} label="Photos" />
                                         <Button isIconOnly size="sm" variant="light" aria-label="Remove" onPress={() => change((x) => { x[di].items.splice(ii, 1); return x; })}><Trash2 size={14} /></Button>
                                     </div>

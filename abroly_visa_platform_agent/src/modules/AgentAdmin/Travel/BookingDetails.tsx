@@ -4,9 +4,10 @@ import { useSelector } from "react-redux";
 import {
     Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Spinner, Textarea, useDisclosure,
 } from "@heroui/react";
-import { ArrowLeft, Eye, FileText, MessageCircle, Pencil, Plus, Printer, Receipt, Trash2, UserPlus, Wallet } from "lucide-react";
+import { ArrowLeft, Ban, ExternalLink, Eye, FileText, MessageCircle, Pencil, Plus, Printer, Receipt, Trash2, Undo2, UserPlus, Wallet, XCircle } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { BookingCreditNotes, BookingDocuments, ClientProfileCard } from "./BookingExtras";
+import { BookingMoneyCard, CancelBookingModal, CancelServiceModal, SupplierRefundModal } from "./BookingMoney";
 import { useOpenPdf, useSendWhatsapp } from "./travelActions";
 import { SuccessToast } from "@/utils/Toaster";
 import {
@@ -35,10 +36,15 @@ const BookingDetails = () => {
     const [inv, setInv] = useState<any>({ plan: "full", place_of_supply: "", due_date: "", rows: [] });
     const [busy, setBusy] = useState(false);
     const [revealed, setRevealed] = useState<Record<string, any>>({});
+    const [rev, setRev] = useState(0); // bumps after money changes so the money and credit note cards reload
+    const cancelModal = useDisclosure();
+    const cancelSvcModal = useDisclosure();
+    const refundModal = useDisclosure();
+    const [money, setMoney] = useState<any>(null); // service picked for cancel / supplier refund
 
     const load = async () => {
         const { success, data } = await commonGetAPICalls(`/travel/bookings/${id}`);
-        if (success) setB(data);
+        if (success) { setB(data); setRev((r) => r + 1); }
     };
     useEffect(() => { load(); }, [id]);
     const loadSuppliers = async () => {
@@ -141,19 +147,31 @@ const BookingDetails = () => {
                     <div className="text-xs text-default-500">{b.booking_no} · {b.client?.name} · {b.client?.phone}</div>
                     <h1 className="text-xl font-semibold truncate">{b.title}</h1>
                 </div>
-                <Select aria-label="Status" size="sm" className="w-40" selectedKeys={[b.status]} onChange={(e) => e.target.value && post({ status: e.target.value }, `travel/bookings/${id}/update`)}>
-                    {Object.entries(BOOKING_STATUS).map(([k, v]) => <SelectItem key={k}>{v.label}</SelectItem>)}
-                </Select>
+                {b.status === "cancelled" ? <Chip color="danger" variant="flat">Cancelled</Chip> : (
+                    <Select aria-label="Status" size="sm" className="w-40" selectedKeys={[b.status]} onChange={(e) => e.target.value && post({ status: e.target.value }, `travel/bookings/${id}/update`)}>
+                        {Object.entries(BOOKING_STATUS).filter(([k]) => k !== "cancelled").map(([k, v]) => <SelectItem key={k}>{v.label}</SelectItem>)}
+                    </Select>
+                )}
             </div>
+            {b.status === "cancelled" && (
+                <div className="rounded-xl border border-danger-200 bg-danger-50 p-3 text-sm">
+                    <b>Cancelled{b.cancelled_at ? ` on ${fmtDate(b.cancelled_at)}` : ""}.</b> {b.cancel_reason}
+                    {b.cancel_charge !== null && b.cancel_charge !== undefined && <span className="text-default-600"> · Client cancellation charge {rupees(b.cancel_charge)}</span>}
+                </div>
+            )}
 
             <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="flat" color="success" startContent={<MessageCircle size={14} />} onPress={() => tripKit(false)}>Send trip kit on WhatsApp</Button>
-                {b.client?.email && <Button size="sm" variant="flat" onPress={() => tripKit(true)}>Email trip kit</Button>}
+                {b.status !== "cancelled" && <>
+                    <Button size="sm" variant="flat" color="success" startContent={<MessageCircle size={14} />} onPress={() => tripKit(false)}>Send trip page on WhatsApp</Button>
+                    {b.client?.email && <Button size="sm" variant="flat" onPress={() => tripKit(true)}>Email trip page</Button>}
+                    <Button size="sm" variant="flat" startContent={<ExternalLink size={14} />} onPress={async () => { const w = window.open("", "_blank"); const { success, data } = await commonPostAPICall({}, `travel/bookings/${id}/kit`, false); if (success && w) w.location.href = data.url; else w?.close(); }}>Open trip page</Button>
+                </>}
                 <Button size="sm" variant="flat" startContent={<Printer size={14} />} onPress={() => openPdf(`travel/bookings/${id}/vouchers.pdf`)}>Vouchers PDF</Button>
                 {b.invoice ? <Button size="sm" variant="flat" startContent={<Receipt size={14} />} onPress={() => navigate(`/fees/${b.invoice.id}`)}>Invoice {b.invoice.number}</Button>
                     : (canMoney || teamRole === "branch_manager") && <Button size="sm" variant="flat" color="primary" startContent={<Receipt size={14} />} onPress={openInvoice}>Create GST invoice</Button>}
                 {b.itinerary && <Button size="sm" variant="light" startContent={<FileText size={14} />} onPress={() => navigate(`/travel/itineraries/${b.itinerary.id}`)}>Itinerary</Button>}
                 {b.lead_id && <Button size="sm" variant="light" onPress={() => navigate(`/crm/leads/${b.lead_id}`)}>Lead</Button>}
+                {b.status !== "cancelled" && (canMoney || teamRole === "branch_manager") && <Button size="sm" variant="light" color="danger" className="sm:ml-auto" startContent={<Ban size={14} />} onPress={cancelModal.onOpen}>Cancel booking</Button>}
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
@@ -161,7 +179,7 @@ const BookingDetails = () => {
                 <Tile label="Client pays" value={rupees(b.client_total)} hint={`GST ${rupees(b.gst)}${b.tcs ? ` · TCS ${rupees(b.tcs)}` : ""}`} />
                 {b.invoice ? <Tile label="Received" value={rupees(b.invoice.paid)} hint={`of ${rupees(b.invoice.total)}`} tone={b.invoice.paid >= b.invoice.total ? "success" : undefined} />
                     : <Tile label="Invoice" value={<span className="text-base">Not raised</span>} />}
-                {b.sees_cost ? <Tile label="Profit" value={rupees(b.profit)} hint={`Cost ${rupees(b.total_cost)} · Sell ${rupees(b.total_sell)}`} tone={b.profit >= 0 ? "success" : "danger"} />
+                {b.sees_cost ? <Tile label="Real profit" value={rupees(b.profit)} hint={`Cost ${rupees(b.total_cost)} · Sell ${rupees(b.total_sell - (b.credited || 0))}`} tone={b.profit >= 0 ? "success" : "danger"} />
                     : <Tile label="Services" value={(b.services || []).length} />}
             </div>
 
@@ -181,17 +199,21 @@ const BookingDetails = () => {
                                         <td className="p-2">{s.supplier_name || <span className="text-default-400">-</span>}</td>
                                         <td className="p-2 whitespace-nowrap">{fmtDate(s.service_date)}</td>
                                         <td className="p-2">{s.confirmation_no || <span className="text-default-400">Pending</span>}</td>
-                                        <td className="p-2"><Chip size="sm" variant="flat" color={SERVICE_STATUS[s.status]?.color}>{SERVICE_STATUS[s.status]?.label}</Chip></td>
+                                        <td className="p-2"><Chip size="sm" variant="flat" color={SERVICE_STATUS[s.status]?.color}>{SERVICE_STATUS[s.status]?.label}</Chip>{s.status === "cancelled" && s.cancelled_at && <div className="text-[11px] text-default-400 mt-0.5">{fmtDate(s.cancelled_at)}</div>}</td>
                                         {b.sees_cost && <>
-                                            <td className="p-2 text-right">{rupees(s.cost)}</td>
+                                            <td className="p-2 text-right">{s.status === "cancelled" ? <><span className="line-through text-default-400">{rupees(s.cost)}</span><div className="text-[11px] text-warning-600">keeps {rupees(s.supplier_cancel_charge || 0)}</div></> : rupees(s.cost)}</td>
                                             <td className={`p-2 text-right ${s.supplier_due > 0 && s.supplier_due_date && s.supplier_due_date < new Date().toISOString().slice(0, 10) ? "text-danger font-medium" : ""}`}>
-                                                {s.supplier_id ? rupees(s.supplier_due) : "-"}{s.supplier_due > 0 && s.supplier_due_date ? <div className="text-[11px] text-default-500">by {fmtDate(s.supplier_due_date)}</div> : null}
+                                                {s.supplier_refund_due > 0 ? <span className="text-success-600">{rupees(s.supplier_refund_due)} back</span> : s.supplier_id ? rupees(s.supplier_due) : "-"}
+                                                {s.supplier_due > 0 && s.supplier_due_date ? <div className="text-[11px] text-default-500">by {fmtDate(s.supplier_due_date)}</div> : null}
+                                                {s.supplier_refunded > 0 && <div className="text-[11px] text-default-500">{rupees(s.supplier_refunded)} refunded</div>}
                                             </td>
                                         </>}
                                         <td className="p-2 whitespace-nowrap text-right">
-                                            {["hotel", "transfer", "activity", "other"].includes(s.type) && <Button isIconOnly size="sm" variant="light" aria-label="Voucher" onPress={() => openPdf(`travel/bookings/${id}/vouchers.pdf?service=${s.id}`)}><Printer size={14} /></Button>}
-                                            {canMoney && s.supplier_id && s.supplier_due > 0 && <Button isIconOnly size="sm" variant="light" aria-label="Pay supplier" onPress={() => { setPay({ service: s, amount: String(s.supplier_due), reference: "", paid_at: new Date().toISOString().slice(0, 10) }); payModal.onOpen(); }}><Wallet size={14} /></Button>}
-                                            <Button isIconOnly size="sm" variant="light" aria-label="Edit" onPress={() => openService(s)}><Pencil size={14} /></Button>
+                                            {s.status !== "cancelled" && ["hotel", "transfer", "activity", "other"].includes(s.type) && <Button isIconOnly size="sm" variant="light" aria-label="Voucher" onPress={() => openPdf(`travel/bookings/${id}/vouchers.pdf?service=${s.id}`)}><Printer size={14} /></Button>}
+                                            {canMoney && s.supplier_id && s.supplier_due > 0 && <Button isIconOnly size="sm" variant="light" aria-label="Pay supplier" title="Pay supplier" onPress={() => { setPay({ service: s, amount: String(s.supplier_due), reference: "", paid_at: new Date().toISOString().slice(0, 10) }); payModal.onOpen(); }}><Wallet size={14} /></Button>}
+                                            {canMoney && s.supplier_refund_due > 0 && <Button isIconOnly size="sm" variant="light" color="success" aria-label="Refund received" title="Supplier refund received" onPress={() => { setMoney(s); refundModal.onOpen(); }}><Undo2 size={14} /></Button>}
+                                            {s.status !== "cancelled" && b.status !== "cancelled" && <Button isIconOnly size="sm" variant="light" color="danger" aria-label="Cancel service" title="Cancel service" onPress={() => { setMoney(s); cancelSvcModal.onOpen(); }}><XCircle size={14} /></Button>}
+                                            {s.status !== "cancelled" && <Button isIconOnly size="sm" variant="light" aria-label="Edit" onPress={() => openService(s)}><Pencil size={14} /></Button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -225,7 +247,8 @@ const BookingDetails = () => {
             </CardBody></Card>
 
             <BookingDocuments bookingId={String(id)} />
-            <BookingCreditNotes bookingId={String(id)} hasInvoice={Boolean(b.invoice)} onChanged={load} />
+            <BookingMoneyCard bookingId={String(id)} rev={rev} />
+            <BookingCreditNotes key={rev} bookingId={String(id)} hasInvoice={Boolean(b.invoice)} onChanged={load} />
             {b.client?.id && <ClientProfileCard clientId={b.client.id} bookingId={String(id)} onChanged={load} />}
 
             <Card shadow="sm"><CardBody>
@@ -238,7 +261,7 @@ const BookingDetails = () => {
                     <ModalHeader>{svc.id ? "Edit service" : "Add service"}</ModalHeader>
                     <ModalBody className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field label="Type"><Select aria-label="Type" selectedKeys={[svc.type]} onChange={(e) => setSvc((v: any) => ({ ...v, type: e.target.value || "other" }))}>{SERVICE_TYPES.filter((s) => s.key !== "meal").map((s) => <SelectItem key={s.key}>{s.label}</SelectItem>)}</Select></Field>
-                        <Field label="Status"><Select aria-label="Status" selectedKeys={[svc.status]} onChange={(e) => setSvc((v: any) => ({ ...v, status: e.target.value || "requested" }))}>{Object.entries(SERVICE_STATUS).map(([k, v]) => <SelectItem key={k}>{v.label}</SelectItem>)}</Select></Field>
+                        <Field label="Status"><Select aria-label="Status" selectedKeys={[svc.status]} description={svc.id ? "To cancel, use the cancel button on the service so the supplier's charge is recorded." : undefined} onChange={(e) => setSvc((v: any) => ({ ...v, status: e.target.value || "requested" }))}>{Object.entries(SERVICE_STATUS).filter(([k]) => k !== "cancelled").map(([k, v]) => <SelectItem key={k}>{v.label}</SelectItem>)}</Select></Field>
                         <Field label="Description" className="sm:col-span-2"><Input aria-label="Description" value={svc.description} onValueChange={(x) => setSvc((v: any) => ({ ...v, description: x }))} /></Field>
                         <Field label="Supplier"><Select aria-label="Supplier" placeholder={suppliers.length ? "Choose supplier" : "Add suppliers under Travel → Suppliers"} selectedKeys={svc.supplier_id ? [svc.supplier_id] : []} onChange={(e) => setSvc((v: any) => ({ ...v, supplier_id: e.target.value }))}>{suppliers.map((s) => <SelectItem key={s.id}>{s.name}</SelectItem>)}</Select></Field>
                         <Field label={svc.type === "flight" ? "PNR / ticket no." : "Confirmation no."}><Input aria-label="Confirmation" value={svc.confirmation_no || ""} onValueChange={(x) => setSvc((v: any) => ({ ...v, confirmation_no: x }))} /></Field>
@@ -296,6 +319,10 @@ const BookingDetails = () => {
                     <ModalFooter><Button variant="light" onPress={close}>Cancel</Button><Button color="primary" isLoading={busy} onPress={async () => { if (await post({ amount: Number(pay.amount), paid_at: pay.paid_at, reference: pay.reference }, `travel/bookings/services/${pay.service.id}/supplier_payment`)) close(); }}>Record payment</Button></ModalFooter>
                 </>)}</ModalContent>
             </Modal>
+
+            <CancelBookingModal booking={{ ...b, can_money: canMoney }} isOpen={cancelModal.isOpen} onOpenChange={cancelModal.onOpenChange} onDone={load} />
+            <CancelServiceModal service={money} booking={{ ...b, can_money: canMoney }} isOpen={cancelSvcModal.isOpen} onOpenChange={cancelSvcModal.onOpenChange} onDone={load} />
+            <SupplierRefundModal service={money} isOpen={refundModal.isOpen} onOpenChange={refundModal.onOpenChange} onDone={load} />
 
             {/* invoice */}
             <Modal isOpen={invModal.isOpen} onOpenChange={invModal.onOpenChange} size="xl">

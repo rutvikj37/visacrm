@@ -65,7 +65,11 @@ const clean = (raw: any) => {
         }
         permissions[role] = out;
     }
-    return { lead_stages: stages, destination_rules: rules, discount_approval_pct: Number.isFinite(pct) && pct >= 0 && pct <= 100 ? pct : 10, permissions };
+    // shown on every client trip page: 24x7 helpline, ground handler, etc.
+    const emergency_contacts = (Array.isArray(t.emergency_contacts) ? t.emergency_contacts : []).slice(0, 8)
+        .map((c: any) => ({ label: String(c?.label || "").trim().slice(0, 60), phone: String(c?.phone || "").replace(/[^\d+ ()-]/g, "").trim().slice(0, 24) }))
+        .filter((c: any) => c.label && c.phone);
+    return { lead_stages: stages, destination_rules: rules, discount_approval_pct: Number.isFinite(pct) && pct >= 0 && pct <= 100 ? pct : 10, permissions, emergency_contacts };
 };
 export type TravelSettings = ReturnType<typeof clean>;
 
@@ -129,7 +133,7 @@ export const travelPermFor = (method: string, path: string): { module: PermModul
     const p = path.split("?")[0].replace(/^\/api\/v1\/travel/, "");
     let module: PermModule | null = null;
     if (/^\/(library|itineraries|quotes|packages|pipeline|media)(\/|$)/.test(p)) module = "itinerary";
-    else if (/^\/(bookings|clients|credit_notes)(\/|$)/.test(p)) module = "bookings";
+    else if (/^\/(bookings|clients|credit_notes|finance)(\/|$)/.test(p)) module = "bookings";
     else if (/^\/suppliers(\/|$)/.test(p)) module = "suppliers";
     else if (/^\/(reports|targets)(\/|$)/.test(p)) module = "reports";
     if (!module) return null;

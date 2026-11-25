@@ -6,7 +6,7 @@ import { Booking, BookingService, BookingTraveller, Quotation, TravelSupplier } 
 import { accessOf, leadScope } from "../helpers/access";
 import { RequestWithUser } from "../utils/types";
 import { hasModule } from "./modules";
-import { seesCost, toRupees } from "./travel";
+import { seesCost, supplierOwed, toRupees } from "./travel";
 import { presentInvoice } from "../v1/controller/FeesController";
 
 /**
@@ -54,9 +54,9 @@ export const travelDashboard = async (req: RequestWithUser) => {
     const leadBy = new Map(chaseLeads.map((l) => [l.id, l]));
 
     // ---- bookings
-    const monthBookings: any[] = await Booking.findAll({ where: { ...scope, status: { [Op.ne]: "cancelled" }, createdAt: { [Op.gte]: monthStartDate } }, attributes: ["total_sell", "total_cost"], raw: true });
+    const monthBookings: any[] = await Booking.findAll({ where: { ...scope, status: { [Op.ne]: "cancelled" }, createdAt: { [Op.gte]: monthStartDate } }, attributes: ["total_sell", "total_cost", "credited"], raw: true });
     const sales = monthBookings.reduce((s, b) => s + Number(b.total_sell), 0);
-    const profit = monthBookings.reduce((s, b) => s + Number(b.total_sell) - Number(b.total_cost), 0);
+    const profit = monthBookings.reduce((s, b) => s + Number(b.total_sell) - Number(b.credited || 0) - Number(b.total_cost), 0);
 
     const soon: any[] = bookingsOn ? await Booking.findAll({
         where: { ...scope, status: { [Op.in]: ["confirmed", "in_progress"] }, start_date: { [Op.between]: [today, in30] } },
@@ -109,17 +109,17 @@ export const travelDashboard = async (req: RequestWithUser) => {
     let supplierDue: any[] = [];
     if (cost && (await hasModule(a.agencyUuid, "suppliers"))) {
         const rows: any[] = await BookingService.findAll({
-            where: { agency_uuid: a.agencyUuid, status: { [Op.ne]: "cancelled" }, supplier_id: { [Op.ne]: null }, supplier_due_date: { [Op.lte]: in7 } },
+            where: { agency_uuid: a.agencyUuid, supplier_id: { [Op.ne]: null }, supplier_due_date: { [Op.lte]: in7 } },
             include: [{ model: TravelSupplier, as: "supplier", attributes: ["name"], required: false }, { model: Booking, as: "booking", attributes: ["uuid", "booking_no", "status"], required: false }],
             order: [["supplier_due_date", "ASC"]], limit: 50,
         });
-        supplierDue = rows.map((r) => r.toJSON() as any).filter((x) => x.booking && x.booking.status !== "cancelled" && Number(x.cost) > Number(x.supplier_paid))
-            .map((x) => ({ booking_id: x.booking.uuid, booking_no: x.booking.booking_no, supplier: x.supplier?.name, service: x.description, due: toRupees(Number(x.cost) - Number(x.supplier_paid)), due_date: x.supplier_due_date, overdue: x.supplier_due_date < today })).slice(0, 10);
+        supplierDue = rows.map((r) => r.toJSON() as any).filter((x) => x.booking && !(x.booking.status === "cancelled" && x.status !== "cancelled") && supplierOwed(x) > 0)
+            .map((x) => ({ booking_id: x.booking.uuid, booking_no: x.booking.booking_no, supplier: x.supplier?.name, service: x.description, due: toRupees(supplierOwed(x)), due_date: x.supplier_due_date, overdue: x.supplier_due_date < today })).slice(0, 10);
     }
 
     // ---- top destinations (90 days) and sales by month (6 months)
     const since90 = new Date(Date.now() - 90 * 864e5);
-    const recent: any[] = await Booking.findAll({ where: { ...scope, status: { [Op.ne]: "cancelled" }, createdAt: { [Op.gte]: new Date(Date.now() - 183 * 864e5) } }, attributes: ["destination", "total_sell", "total_cost", "createdAt"], raw: true });
+    const recent: any[] = await Booking.findAll({ where: { ...scope, status: { [Op.ne]: "cancelled" }, createdAt: { [Op.gte]: new Date(Date.now() - 183 * 864e5) } }, attributes: ["destination", "total_sell", "total_cost", "credited", "createdAt"], raw: true });
     const destMap = new Map<string, { name: string; bookings: number; sales: number }>();
     for (const b of recent.filter((r) => new Date(r.createdAt) >= since90)) {
         const k = (b.destination || "Not set").split(",")[0].trim();
@@ -131,7 +131,7 @@ export const travelDashboard = async (req: RequestWithUser) => {
         const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
         const key = d.toISOString().slice(0, 7);
         const rows = recent.filter((r) => new Date(r.createdAt).toISOString().slice(0, 7) === key);
-        months.push({ month: key, bookings: rows.length, sales: toRupees(rows.reduce((s, r) => s + Number(r.total_sell), 0)), ...(cost ? { profit: toRupees(rows.reduce((s, r) => s + Number(r.total_sell) - Number(r.total_cost), 0)) } : {}) });
+        months.push({ month: key, bookings: rows.length, sales: toRupees(rows.reduce((s, r) => s + Number(r.total_sell), 0)), ...(cost ? { profit: toRupees(rows.reduce((s, r) => s + Number(r.total_sell) - Number(r.credited || 0) - Number(r.total_cost), 0)) } : {}) });
     }
 
     const trip = (b: any) => { const x = b.toJSON ? b.toJSON() : b; return { id: x.uuid, booking_no: x.booking_no, title: x.title, destination: x.destination, client: x.client?.username, phone: `${String(x.client?.country_code || "").replace(/\D/g, "")}${x.client?.phone_number || ""}`, start_date: x.start_date, end_date: x.end_date, status: x.status }; };

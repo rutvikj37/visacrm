@@ -35,8 +35,11 @@ const Pipeline = () => {
     };
     const save = async (close: () => void) => {
         const { success } = await commonPostAPICall({ deal_value: deal.value_edit === "" ? null : Number(deal.value_edit), priority: deal.priority, expected_close: deal.expected_close || null }, `travel/pipeline/${deal.id}`, true);
+        // phones can not drag cards, so the stage is changed here too
+        if (success && deal.stage_edit && deal.stage_edit !== deal.stage) await move(deal.id, deal.stage_edit);
         if (success) { close(); load(); }
     };
+    const openDeal = (x: any) => { setDeal({ ...x, stage_edit: x.stage, value_edit: x.value_from === "set" ? String(x.value) : "" }); edit.onOpen(); };
 
     if (!d) return <div className="py-16 grid place-items-center"><Spinner /></div>;
     const s = d.stats;
@@ -44,9 +47,9 @@ const Pipeline = () => {
 
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
-            <PageHead title="Sales pipeline" sub="Every open travel deal by stage. Drag a card to move it; booking a quote marks it won."
+            <PageHead title="Sales pipeline" sub="Every open travel deal by stage. Drag a card, or tap Edit / move, to change its stage. Booking a quote marks it won."
                 actions={<>
-                    <Select aria-label="Owner" size="sm" className="w-48" placeholder="Everyone" selectedKeys={owner ? [owner] : []} onChange={(e) => setOwner(e.target.value)}>
+                    <Select aria-label="Owner" size="sm" className="w-full sm:w-48" placeholder="Everyone" selectedKeys={owner ? [owner] : []} onChange={(e) => setOwner(e.target.value)}>
                         {d.team.map((t: any) => <SelectItem key={String(t.id)}>{t.name}</SelectItem>)}
                     </Select>
                     <Button color="primary" size="sm" startContent={<Plus size={14} />} onPress={() => navigate("/crm/leads?new=travel")}>New enquiry</Button>
@@ -58,7 +61,7 @@ const Pipeline = () => {
                 <Tile label="Closing this month" value={s.closing_this_month} />
                 <Tile label="Past close date" value={s.overdue_close} tone={s.overdue_close ? "danger" : undefined} />
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:snap-none -mx-1 px-1">
                 {[...d.stages, "lost"].map((stage: string) => {
                     const deals = stage === "lost" ? [] : d.deals.filter((x: any) => x.stage === stage);
                     const label = LEAD_STATUSES.find((l) => l.key === stage)?.label || stage;
@@ -66,7 +69,7 @@ const Pipeline = () => {
                     return (
                         <div key={stage} onDragOver={(e) => { e.preventDefault(); setOver(stage); }} onDragLeave={() => setOver("")}
                             onDrop={(e) => { e.preventDefault(); setOver(""); const id = dragged.current; dragged.current = null; if (id) move(id, stage); }}
-                            className={`shrink-0 w-72 rounded-xl p-2 flex flex-col gap-2 ${stage === "lost" ? "bg-danger-50/60 border border-dashed border-danger-200 w-48" : "bg-default-100/70"} ${over === stage ? "ring-2 ring-primary" : ""}`}>
+                            className={`shrink-0 snap-start rounded-xl p-2 flex flex-col gap-2 ${stage === "lost" ? "hidden sm:flex bg-danger-50/60 border border-dashed border-danger-200 w-48" : "w-[82vw] max-w-72 sm:w-72 bg-default-100/70"} ${over === stage ? "ring-2 ring-primary" : ""}`}>
                             <div className="flex items-center justify-between px-1">
                                 <span className="font-semibold text-sm">{stage === "lost" ? "Drop here: lost" : label}</span>
                                 {stage !== "lost" && <span className="text-xs text-default-500">{deals.length} · {short(total)}</span>}
@@ -80,14 +83,14 @@ const Pipeline = () => {
                                     </div>
                                     <div className="text-xs text-default-500 truncate">{[x.destination, x.pax ? `${x.pax} pax` : "", x.travel_start ? day(x.travel_start) : ""].filter(Boolean).join(" · ") || "Trip details not set"}</div>
                                     <div className="flex items-center gap-2">
-                                        <button type="button" className="font-semibold text-sm hover:underline" title={x.value_from === "quote" ? "From the latest quote" : x.value_from === "budget" ? "From the budget" : "Deal value"} onClick={() => { setDeal({ ...x, value_edit: x.value_from === "set" ? String(x.value) : "" }); edit.onOpen(); }}>{x.value ? rupees(x.value) : "Set value"}</button>
+                                        <button type="button" className="font-semibold text-sm hover:underline" title={x.value_from === "quote" ? "From the latest quote" : x.value_from === "budget" ? "From the budget" : "Deal value"} onClick={() => openDeal(x)}>{x.value ? rupees(x.value) : "Set value"}</button>
                                         {x.value_from !== "set" && x.value > 0 && <span className="text-[10px] text-default-400">{x.value_from}</span>}
                                         {x.expected_close && <span className={`ml-auto text-[11px] flex items-center gap-1 ${x.expected_close < today ? "text-danger" : "text-default-500"}`}><CalendarClock size={11} />{day(x.expected_close)}</span>}
                                     </div>
                                     <div className="flex items-center gap-2 text-[11px] text-default-500">
                                         <span className="truncate flex-1">{x.owner}</span>
                                         {x.phone && <a href={`https://wa.me/${x.phone}`} target="_blank" rel="noopener" className="text-success" aria-label="WhatsApp"><MessageCircle size={13} /></a>}
-                                        <button type="button" className="text-primary" onClick={() => { setDeal({ ...x, value_edit: x.value_from === "set" ? String(x.value) : "" }); edit.onOpen(); }}>Edit</button>
+                                        <button type="button" className="text-primary py-1 px-1 -my-1" onClick={() => openDeal(x)}>Edit / move</button>
                                     </div>
                                 </div>
                             ))}
@@ -101,6 +104,7 @@ const Pipeline = () => {
                     <ModalHeader>{deal.name}</ModalHeader>
                     <ModalBody className="gap-3">
                         <Field label="Deal value ₹ (leave empty to use the latest quote or budget)"><Input aria-label="Deal value" type="number" min={0} value={deal.value_edit} onValueChange={(v) => setDeal((x: any) => ({ ...x, value_edit: v }))} /></Field>
+                        <Field label="Stage"><Select aria-label="Stage" selectedKeys={[deal.stage_edit || deal.stage]} onChange={(e) => e.target.value && setDeal((x: any) => ({ ...x, stage_edit: e.target.value }))}>{[...d.stages, "lost"].map((st: string) => <SelectItem key={st}>{st === "lost" ? "Lost" : LEAD_STATUSES.find((l) => l.key === st)?.label || st}</SelectItem>)}</Select></Field>
                         <Field label="Priority"><Select aria-label="Priority" selectedKeys={[deal.priority]} onChange={(e) => setDeal((x: any) => ({ ...x, priority: e.target.value || "medium" }))}>{Object.entries(PRIORITY).map(([k, v]) => <SelectItem key={k}>{v.label}</SelectItem>)}</Select></Field>
                         <Field label="Expected close date"><Input aria-label="Expected close" type="date" value={deal.expected_close || ""} onValueChange={(v) => setDeal((x: any) => ({ ...x, expected_close: v }))} /></Field>
                     </ModalBody>

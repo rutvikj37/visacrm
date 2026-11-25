@@ -238,6 +238,19 @@ export const splitGst = (gst: number, agencyState: string | null, placeOfSupply:
     return { cgst: gst - half, sgst: half, igst: 0 };
 };
 
+// ---------------------------------------------------------------- supplier money on a booking service
+
+/** What a service really costs: the full cost, or only the supplier's cancellation charge once cancelled. */
+export const serviceCost = (s: any) => (s?.status === "cancelled" ? Number(s.cancel_charge || 0) : Number(s?.cost || 0));
+/** Paid to the supplier, less anything they paid back. */
+export const supplierNetPaid = (s: any) => Number(s?.supplier_paid || 0) - Number(s?.supplier_refunded || 0);
+/** Still to pay the supplier. */
+export const supplierOwed = (s: any) => Math.max(0, serviceCost(s) - supplierNetPaid(s));
+/** The supplier owes us this back (paid more than they keep after a cancellation). */
+export const supplierRefundDue = (s: any) => Math.max(0, supplierNetPaid(s) - serviceCost(s));
+/** Columns the helpers above need. */
+export const SUPPLIER_MONEY_COLS = ["status", "cost", "cancel_charge", "supplier_paid", "supplier_refunded", "supplier_due_date"];
+
 // ---------------------------------------------------------------- numbering
 
 export const nextTravelNumber = async (model: any, field: string, agencyUuid: string, prefix: string, t?: any) => {
@@ -256,7 +269,7 @@ export const seesCost = (req: RequestWithUser) => {
 };
 
 /** Remove cost, markup and profit from an object tree for roles that may not see them. */
-const COST_KEYS = new Set(["unit_cost", "cost", "markup", "markup_type", "markup_value", "profit", "cost_total", "total_cost", "supplier_paid", "supplier_payments", "supplier_due", "supplier_overdue", "profit_this_month", "supplier_payable", "supplier_paid_total", "line_cost", "line_markup"]);
+const COST_KEYS = new Set(["unit_cost", "cost", "markup", "markup_type", "markup_value", "profit", "cost_total", "total_cost", "supplier_paid", "supplier_payments", "supplier_due", "supplier_overdue", "profit_this_month", "supplier_payable", "supplier_paid_total", "line_cost", "line_markup", "supplier_refunded", "supplier_refunds", "supplier_cancel_charge", "supplier_refund_due", "supplier_cost", "real_profit", "gross_profit", "net_cost", "cost_breakdown", "supplier_side", "margin_pct", "payables", "cancel_charges", "cash_position", "supplier_owed"]);
 export const redactCost = <T>(value: T, req: RequestWithUser): T => {
     if (seesCost(req)) return value;
     const walk = (v: any): any => {
