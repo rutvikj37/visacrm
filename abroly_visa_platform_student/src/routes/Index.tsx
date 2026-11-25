@@ -120,7 +120,8 @@ const Index = () => {
                     OG_IMAGE: data.og_image_full || data.ogImageFull || data.og_image || data.ogImage || '/logo.png',
                     OG_URL: ensureFullUrl(data.og_url || data.ogUrl || ''),
                     ADDONS: JSON.stringify(data.addons ?? null),
-                    BUSINESS_FOCUS: data.business_focus || 'study'
+                    BUSINESS_FOCUS: data.business_focus || 'study',
+                    PORTAL_ENABLED: data.portal_enabled === false ? 'false' : 'true'
                 };
 
                 addToLocal('app_config', JSON.stringify(config));

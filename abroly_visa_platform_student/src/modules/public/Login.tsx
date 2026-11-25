@@ -237,7 +237,7 @@ const Login = () => {
             </div>
             <Card className="w-full max-w-md shadow-lg p-6 bg-white rounded-xl">
                 <CardHeader className="flex flex-col items-center gap-3">
-                    <AgencyLogo size={56} />
+                    <AgencyLogo size={56} wide />
                     <div className="text-center">
                         <h1 className="text-2xl font-semibold text-gray-800">{agencyName}</h1>
                         <p className="text-sm text-gray-500 mt-1">{isTravelFocus() ? "Client login — track your visa application and documents" : "Student login — track your visa case and documents"}</p>

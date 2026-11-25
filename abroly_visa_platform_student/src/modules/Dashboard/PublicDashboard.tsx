@@ -7,7 +7,7 @@ import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { PublicRoutes } from '@/routes/AuthRoutes';
 import Footer from '@/components/Footer';
 import { GraduationCap, LogIn, MessageCircleQuestion } from 'lucide-react';
-import { getAppName } from '@/utils/config'
+import { getAppName, isPortalEnabled } from '@/utils/config'
 import { AgencyLogo } from '@/components/AgencyBrand'
 
 const PublicDashboard = () => {
@@ -15,6 +15,9 @@ const PublicDashboard = () => {
     const [isScrolled, setIsScrolled] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    // client portal pages switched off: only the login page is here, so no portal menu and the brand leads to the agency page
+    const portalOn = isPortalEnabled();
+    const [logoIsWordmark, setLogoIsWordmark] = useState(false);
 
     // Handle scroll effect
     useEffect(() => {
@@ -25,7 +28,7 @@ const PublicDashboard = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const menuItems = [
+    const menuItems = !portalOn ? [] : [
         {
             title: "Home",
             to: "/",
@@ -55,21 +58,25 @@ const PublicDashboard = () => {
                 maxWidth="xl"
             >
                 <NavbarContent>
-                    <NavbarMenuToggle
-                        icon={<HiOutlineMenuAlt4 className="text-2xl" />}
-                        className="sm:hidden"
-                    />
+                    {portalOn && (
+                        <NavbarMenuToggle
+                            icon={<HiOutlineMenuAlt4 className="text-2xl" />}
+                            className="sm:hidden"
+                        />
+                    )}
                     <NavbarBrand>
                         <motion.div
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate("/")}
+                            onClick={() => (portalOn ? navigate("/") : window.location.assign("/agency/"))}
                             className="flex items-center gap-2 cursor-pointer min-w-0"
                         >
-                            <AgencyLogo size={40} />
-                            <span className="font-bold text-lg text-primary truncate max-w-[160px] sm:max-w-none">
-                                {getAppName() || "Student portal"}
-                            </span>
+                            <AgencyLogo size={40} wide onShape={setLogoIsWordmark} />
+                            {!logoIsWordmark && (
+                                <span className="font-bold text-lg text-primary truncate max-w-[160px] sm:max-w-none">
+                                    {getAppName() || "Student portal"}
+                                </span>
+                            )}
                         </motion.div>
                     </NavbarBrand>
                 </NavbarContent>
@@ -106,15 +113,27 @@ const PublicDashboard = () => {
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                         >
-                            <Button
-                                color="primary"
-                                variant="solid"
-                                className='bg-primary'
-                                onPress={() => navigate("/login")}
-                                startContent={<LogIn className="text-lg" />}
-                            >
-                                Login
-                            </Button>
+                            {portalOn ? (
+                                <Button
+                                    color="primary"
+                                    variant="solid"
+                                    className='bg-primary'
+                                    onPress={() => navigate("/login")}
+                                    startContent={<LogIn className="text-lg" />}
+                                >
+                                    Login
+                                </Button>
+                            ) : (
+                                <Button
+                                    as="a"
+                                    href="/agency/login"
+                                    variant="flat"
+                                    className="font-medium"
+                                    startContent={<LogIn className="text-lg" />}
+                                >
+                                    Agency login
+                                </Button>
+                            )}
                         </motion.div>
                     </NavbarItem>
                 </NavbarContent>
@@ -149,7 +168,14 @@ const PublicDashboard = () => {
                 </Suspense>
             </main>
 
-            <Footer />
+            {portalOn ? <Footer /> : (
+                <footer className="border-t border-default-200 bg-background">
+                    <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-default-500 sm:flex-row">
+                        <span>© {new Date().getFullYear()} {getAppName()}</span>
+                        <span>Powered by TechX CRM</span>
+                    </div>
+                </footer>
+            )}
         </div>
     );
 };

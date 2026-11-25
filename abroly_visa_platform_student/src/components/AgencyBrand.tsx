@@ -5,15 +5,28 @@ import { Link } from "react-router-dom";
 import { MessagesSquare } from "lucide-react";
 import { getAppName, getConfig } from "@/utils/config";
 
-/** Agency logo, or its first letter in the brand colour when there is no logo (or it fails to load). */
-export const AgencyLogo = ({ size = 32 }: { size?: number }) => {
+/**
+ * Agency logo, or its first letter in the brand colour when there is no logo (or it fails to load).
+ * wide: keep the logo's own shape at this height (wordmark logos stay whole instead of being cropped square);
+ * onShape tells the caller whether the loaded logo is a wide wordmark, e.g. to skip repeating the name next to it.
+ */
+export const AgencyLogo = ({ size = 32, wide = false, onShape }: { size?: number; wide?: boolean; onShape?: (wordmark: boolean) => void }) => {
     const [broken, setBroken] = useState(false);
     const url = getConfig("FAVICON_URL");
     const name = getAppName() || "A";
     const ok = url && !broken && url !== "/logo.png";
-    return ok
-        ? <img src={url} alt="" onError={() => setBroken(true)} className="rounded-lg object-cover shrink-0" style={{ width: size, height: size }} />
-        : <div className="rounded-lg bg-primary text-primary-foreground grid place-items-center font-bold shrink-0" style={{ width: size, height: size, fontSize: size * 0.45 }}>{name.slice(0, 1).toUpperCase()}</div>;
+    if (!ok) {
+        return <div className="rounded-lg bg-primary text-primary-foreground grid place-items-center font-bold shrink-0" style={{ width: size, height: size, fontSize: size * 0.45 }}>{name.slice(0, 1).toUpperCase()}</div>;
+    }
+    return wide
+        ? <img
+            src={url} alt={name}
+            onError={() => { setBroken(true); onShape?.(false); }}
+            onLoad={(e) => { const i = e.currentTarget; onShape?.(i.naturalWidth > i.naturalHeight * 1.6); }}
+            className="object-contain shrink-0"
+            style={{ height: size, width: "auto", maxWidth: size * 5 }}
+        />
+        : <img src={url} alt="" onError={() => setBroken(true)} className="rounded-lg object-cover shrink-0" style={{ width: size, height: size }} />;
 };
 
 const TITLES: [string, string][] = [
