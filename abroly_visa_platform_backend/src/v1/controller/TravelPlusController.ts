@@ -303,19 +303,58 @@ class TravelPlusController {
 
 const esc = (v: any) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 const inr = (paise: number) => `₹${Math.round(Number(paise) / 100).toLocaleString("en-IN")}`;
-const shell = (title: string, color: string, body: string, desc = "") => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
-<style>:root{--b:${color}}*{box-sizing:border-box}body{margin:0;font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111827;background:#f8fafc}.w{max-width:960px;margin:0 auto;padding:16px}
-header{background:var(--b);color:#fff;border-radius:16px;padding:18px 20px;display:flex;gap:12px;align-items:center}header img{width:46px;height:46px;border-radius:10px;background:#fff;object-fit:contain}h1{margin:0;font-size:22px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:14px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;text-decoration:none;color:inherit;display:block}
-.card img,.hero{width:100%;height:170px;object-fit:cover;background:#e5e7eb;display:block}.hero{height:260px;border-radius:14px;margin-top:14px}.p{padding:14px 16px}.price{font-size:20px;font-weight:700}.m{color:#6b7280;font-size:13px}
-.box{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px 18px;margin-top:14px}.cols{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}@media(max-width:760px){.cols{grid-template-columns:1fr}}
-label{display:block;font-size:13px;color:#374151;margin:8px 0 4px}input,textarea{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px;font:inherit}button{margin-top:12px;width:100%;border:0;border-radius:10px;padding:12px;background:var(--b);color:#fff;font:600 15px system-ui;cursor:pointer}
-.ok{background:#ecfdf5;border-color:#a7f3d0}.day{border-top:1px solid #f1f5f9;padding:8px 0}.hp{position:absolute;left:-9999px}footer{color:#6b7280;font-size:13px;text-align:center;padding:18px}</style></head><body><div class="w">${body}</div></body></html>`;
+const tagOf = (n: number) => (Number(n) > 0 ? `${Number(n) + 1}D${n}N` : "1 DAY");
+const listLines = (t?: string | null) => String(t || "").split(/\n+/).map((x) => x.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+const tagsOf = (h?: string | null) => String(h || "").split(/\n|,|•|·|\|/).map((x) => x.replace(/^[-*\s]+/, "").trim()).filter(Boolean);
+/** Lucide line icons (ISC) as inline SVG. */
+const svg = (paths: string, size = 16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const I = {
+    pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+    cal: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    spark: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+    arrow: '<path d="M5 12h14M12 5l7 7-7 7"/>',
+    palm: '<path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/>',
+};
+const shell = (title: string, color: string, body: string, desc = "", image = "") => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ""}<meta name="theme-color" content="${esc(color)}">
+<style>:root{--b:${color};--bt:color-mix(in srgb,var(--b) 10%,#fff);--bd:color-mix(in srgb,var(--b) 75%,#000)}*{box-sizing:border-box}body{margin:0;font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111827;background:#f6f7fb}a{color:inherit}
+.w{max-width:1080px;margin:0 auto;padding:0 18px}.m{color:#6b7280;font-size:13px}svg{flex-shrink:0;vertical-align:middle}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0}.brand{display:flex;align-items:center;gap:10px;text-decoration:none}.brand img{width:42px;height:42px;border-radius:12px;background:#fff;object-fit:contain;border:1px solid #e5e7eb}.brand b{font-size:17px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:10px 18px;background:var(--b);color:#fff;font:600 14px system-ui,sans-serif;text-decoration:none;cursor:pointer}.btn.ghost{background:#fff;color:#111827;border:1px solid #e5e7eb}.btn.wa{background:#16a34a}
+.hero{position:relative;overflow:hidden;border-radius:28px;background:var(--b);color:#fff;padding:44px 34px;margin-top:4px}.hero h1{margin:6px 0 8px;font-size:clamp(30px,5vw,52px);line-height:1.05;letter-spacing:-.02em}.hero p{margin:0;max-width:560px;opacity:.9}
+.kick{font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}.palm{position:absolute;right:-30px;bottom:-40px;opacity:.14;color:#fff}.dots{position:absolute;right:40px;top:30px;width:120px;height:60px;background-image:radial-gradient(#fff 1.2px,transparent 1.3px);background-size:10px 10px;opacity:.35}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:6px 12px;font-size:13px;text-decoration:none;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:20px;margin:26px 0}
+.card{background:#fff;border-radius:22px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;box-shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);transition:transform .2s,box-shadow .2s}.card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(15,23,42,.14)}
+.ph{position:relative;height:220px;background:linear-gradient(135deg,var(--b),var(--bd));overflow:hidden}.ph img{width:100%;height:100%;object-fit:cover;display:block}.ph:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,0) 60%)}
+.ph .palm{right:-20px;bottom:-30px;opacity:.18}.tag{position:absolute;left:14px;top:14px;z-index:1;background:#fff;color:var(--b);font-weight:800;border-radius:999px;padding:4px 12px;font-size:14px;letter-spacing:-.01em;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.cap{position:absolute;left:16px;right:16px;bottom:14px;z-index:1;color:#fff}.cap .kick{font-size:11px;opacity:.9;display:flex;align-items:center;gap:5px}.cap h3{margin:2px 0 0;font-size:19px;line-height:1.25}
+.cb{padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px;flex:1}.price{font-size:24px;font-weight:800;color:var(--b);line-height:1.1}.price small{font-size:12px;font-weight:500;color:#6b7280}
+.pills{display:flex;flex-wrap:wrap;gap:6px}.pill{display:inline-flex;align-items:center;gap:5px;background:var(--bt);color:var(--bd);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+.go{margin-top:auto;display:flex;align-items:center;justify-content:space-between;font-weight:600;color:var(--b);font-size:14px;padding-top:6px;border-top:1px solid #f1f5f9}
+.banner{position:relative;height:clamp(260px,42vw,420px);border-radius:28px;overflow:hidden;background:linear-gradient(135deg,var(--b),var(--bd))}.banner img{width:100%;height:100%;object-fit:cover;display:block}.banner:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.75),rgba(0,0,0,0) 55%)}
+.banner .tag{font-size:18px;padding:6px 16px;left:22px;top:22px}.banner .cap{left:26px;right:26px;bottom:24px}.banner .cap h1{margin:4px 0;font-size:clamp(26px,4.4vw,44px);line-height:1.1;letter-spacing:-.02em}
+.cols{display:grid;grid-template-columns:1fr 360px;gap:22px;margin:22px 0 10px;align-items:start}@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.box{background:#fff;border-radius:22px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.05);margin-bottom:18px}.box h2{margin:0 0 14px;font-size:20px;display:flex;align-items:center;gap:10px}.ic{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--b);color:#fff}
+.tl{position:relative;padding-left:46px}.tl:before{content:"";position:absolute;left:15px;top:8px;bottom:8px;border-left:2px dashed color-mix(in srgb,var(--b) 40%,#fff)}
+.day{position:relative;border:1px solid #eef0f4;border-radius:18px;padding:14px 16px;margin-bottom:14px;background:#fff}.day .dot{position:absolute;left:-46px;top:12px;width:32px;height:32px;border-radius:50%;background:var(--b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;box-shadow:0 0 0 4px #fff}
+.dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.dp{background:var(--b);color:#fff;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.06em}.dt{font-weight:800;color:var(--b);text-transform:uppercase;font-size:14px;letter-spacing:.02em}
+.day ul{margin:8px 0 0;padding:0;list-style:none}.day li{display:flex;gap:10px;padding:3px 0;font-size:14px;color:#374151}.day li i{font-style:normal;font-weight:700;color:#111827;min-width:46px;font-size:13px}.dimg{display:flex;gap:8px;margin-top:10px;overflow:auto}.dimg img{height:110px;width:170px;object-fit:cover;border-radius:12px;flex-shrink:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:600px){.two{grid-template-columns:1fr}}.li{display:flex;gap:8px;align-items:flex-start;padding:4px 0;font-size:14px;color:#374151}.li svg{margin-top:3px}.ok-i{color:#16a34a}.no-i{color:#dc2626}
+.side{position:sticky;top:16px}.pc{background:var(--b);color:#fff;border-radius:22px;padding:22px;position:relative;overflow:hidden;margin-bottom:16px}.pc .dots{top:18px;right:16px;width:80px;height:40px}.pc .big{font-size:34px;font-weight:800;line-height:1.1}.pc .m{color:rgba(255,255,255,.85)}
+label{display:block;font-size:13px;color:#374151;margin:10px 0 4px;font-weight:500}input,textarea{width:100%;border:1px solid #d1d5db;border-radius:12px;padding:11px 12px;font:inherit;background:#fff}input:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--b) 40%,#fff);border-color:var(--b)}form .btn{width:100%;margin-top:14px;padding:13px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.okbox{background:#ecfdf5;border:1px solid #a7f3d0}.hp{position:absolute;left:-9999px}footer{color:#6b7280;font-size:13px;text-align:center;padding:26px 0 34px}</style></head><body><div class="w">${body}</div></body></html>`;
 
 const agencyFor = async (where: any) => Agent.findOne({ where: { ...where, role: "agent" }, attributes: ["uuid", "app_name", "username", "primary_color", "support_number", "support_email", "favicon_url"], raw: true }) as Promise<any>;
-const head = (ag: any) => {
-    const logo = ag?.favicon_url ? (String(ag.favicon_url).startsWith("http") ? ag.favicon_url : publicFileUrl("profiles", ag.favicon_url)) : null;
-    return `<header>${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><h1>${esc(ag?.app_name || ag?.username || "Holiday packages")}</h1><div>${esc([ag?.support_number, ag?.support_email].filter(Boolean).join(" · "))}</div></div></header>`;
+const logoOf = (ag: any) => (ag?.favicon_url ? (String(ag.favicon_url).startsWith("http") ? ag.favicon_url : publicFileUrl("profiles", ag.favicon_url)) : null);
+const nameOf = (ag: any) => ag?.app_name || ag?.username || "Holiday packages";
+const waOf = (ag: any, text: string) => { const digits = String(ag?.support_number || "").replace(/\D/g, ""); return digits ? `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}?text=${encodeURIComponent(text)}` : ""; };
+const topBar = (ag: any, home: string) => {
+    const logo = logoOf(ag);
+    return `<div class="top"><a class="brand" href="${esc(home)}">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<b>${esc(nameOf(ag))}</b></a>${ag?.support_number ? `<a class="btn ghost" href="tel:${esc(String(ag.support_number).replace(/[^\d+]/g, ""))}">${svg(I.phone, 15)}<span>${esc(ag.support_number)}</span></a>` : ""}</div>`;
 };
 const colorOf = (ag: any) => (/^#[0-9a-f]{3,8}$/i.test(ag?.primary_color || "") ? ag.primary_color : "#0f5bd8");
 
@@ -326,8 +365,20 @@ export const publicCatalogue = async (req: Request, res: Response) => {
         if (!ag || !(await hasModule(ag.uuid, "itinerary"))) return res.status(404).send("Not found");
         const today = new Date().toISOString().slice(0, 10);
         const rows: any[] = await TourPackage.findAll({ where: { agency_uuid: ag.uuid, status: "active", [Op.or]: [{ valid_to: null }, { valid_to: { [Op.gte]: today } }] }, order: [["title", "ASC"]], raw: true });
-        const cards = rows.filter((p) => p.public_slug).map((p) => `<a class="card" href="${esc(`${req.baseUrl}/package/${p.public_slug}`)}">${p.image_url ? `<img src="${esc(p.image_url)}" alt="">` : `<div class="hero" style="height:170px;border-radius:0;margin:0"></div>`}<div class="p"><b>${esc(p.title)}</b><div class="m">${esc([p.destination, `${p.nights}N/${Number(p.nights) + 1}D`].filter(Boolean).join(" · "))}</div><div class="price">${inr(p.price_pp)} <span class="m">per person</span></div></div></a>`).join("");
-        return res.status(200).send(shell(`${ag.app_name || ag.username} - holiday packages`, colorOf(ag), `${head(ag)}<div class="grid">${cards || `<p class="m">New packages are coming soon.</p>`}</div><footer>Prices per person. Ask us for a custom trip.</footer>`, "Holiday packages"));
+        const list = rows.filter((p) => p.public_slug);
+        const cards = list.map((p) => {
+            const tags = tagsOf(p.highlights).slice(0, 3);
+            return `<a class="card" href="${esc(`${req.baseUrl}/package/${p.public_slug}`)}"><div class="ph">${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : `<span class="palm">${svg(I.palm, 190)}</span>`}<span class="tag">${tagOf(p.nights)}</span><div class="cap">${p.destination ? `<div class="kick">${svg(I.pin, 12)}${esc(p.destination)}</div>` : ""}<h3>${esc(p.title)}</h3></div></div>
+                <div class="cb"><div><div class="m">Starting from</div><div class="price">${inr(p.price_pp)} <small>/ person</small></div></div>${tags.length ? `<div class="pills">${tags.map((t) => `<span class="pill">${svg(I.spark, 11)}${esc(t)}</span>`).join("")}</div>` : ""}
+                <div class="go"><span>${p.nights}N / ${Number(p.nights) + 1}D${p.valid_to ? ` · till ${esc(new Date(`${p.valid_to}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }))}` : ""}</span><span>View trip ${svg(I.arrow, 15)}</span></div></div></a>`;
+        }).join("");
+        const dests = [...new Set(list.map((p) => String(p.destination || "").trim()).filter(Boolean))];
+        const wa = waOf(ag, "Hi! I saw your holiday packages and would like to know more.");
+        const body = `${topBar(ag, req.originalUrl.split("?")[0])}
+            <section class="hero"><span class="dots"></span><span class="palm">${svg(I.palm, 280)}</span><div class="kick">Plan · Experience · Enjoy</div><h1>Holiday packages</h1><p>Handpicked trips by ${esc(nameOf(ag))}, with hotels, transfers and sightseeing sorted. Pick one or ask us for a custom plan.</p>
+            <div class="chips">${dests.slice(0, 8).map((d) => `<span class="chip">${svg(I.pin, 13)}${esc(d)}</span>`).join("")}${wa ? `<a class="chip" href="${esc(wa)}">${svg(I.chat, 13)}Chat on WhatsApp</a>` : ""}</div></section>
+            <div class="grid">${cards || `<p class="m">New packages are coming soon.</p>`}</div><footer>Prices are per person and depend on availability. Ask us for a custom trip.</footer>`;
+        return res.status(200).send(shell(`${nameOf(ag)} - holiday packages`, colorOf(ag), body, `Holiday packages by ${nameOf(ag)}`, list.find((p) => p.image_url)?.image_url || ""));
     } catch (error) { console.error("publicCatalogue", error); return res.status(500).send("Something went wrong"); }
 };
 
@@ -340,25 +391,40 @@ export const publicPackage = async (req: Request, res: Response) => {
         const it: any = p.itinerary_id ? await Itinerary.findByPk(p.itinerary_id, { attributes: ["days", "inclusions", "exclusions"], raw: true }) : null;
         let days: any = it?.days; if (typeof days === "string") { try { days = JSON.parse(days); } catch { days = []; } }
         const sent = req.query.sent === "1";
-        const dayHtml = (Array.isArray(days) ? days : []).map((d: any, i: number) => `<div class="day"><b>Day ${i + 1}: ${esc(d.title)}</b>${(d.items || []).length ? `<div class="m">${(d.items || []).map((x: any) => esc(x.text)).join(" · ")}</div>` : ""}</div>`).join("");
-        const form = sent ? `<div class="box ok"><b>Thank you!</b><p>We have your enquiry and will call you shortly.</p></div>` : `<form class="box" method="post" action="${esc(req.originalUrl.split("?")[0])}">
-            <b>Enquire about this trip</b>
-            <label>Your name</label><input name="name" required maxlength="100">
-            <label>Mobile / WhatsApp</label><input name="phone" required inputmode="tel" maxlength="20">
-            <label>Email (optional)</label><input name="email" type="email" maxlength="120">
-            <label>Travel date</label><input name="travel_date" type="date">
-            <label>Travellers</label><input name="travellers" type="number" min="1" max="50" value="2">
+        const TIME = /^\s*(\d{1,2}[:.]\d{2}\s*(?:[ap]\.?m\.?)?|\d{1,2}\s*[ap]\.?m\.?)\s*[-–—:]?\s+/i;
+        const pics = (x: any): string[] => (Array.isArray(x?.images) && x.images.length ? x.images : x?.image ? [x.image] : []);
+        const dayHtml = (Array.isArray(days) ? days : []).map((d: any, i: number) => {
+            const items = (d.items || []).filter((x: any) => String(x.text || "").trim());
+            const imgs = [...new Set([...pics(d), ...items.flatMap(pics)])].slice(0, 3) as string[];
+            return `<div class="day"><span class="dot">${i + 1}</span><div class="dh"><span class="dp">DAY ${i + 1}</span><span class="dt">${esc(d.title)}</span>${d.city ? `<span class="m">${svg(I.pin, 12)} ${esc(d.city)}</span>` : ""}</div>
+                ${items.length ? `<ul>${items.map((x: any) => { const m = String(x.text).match(TIME); return `<li>${m ? `<i>${esc(m[1].toUpperCase())}</i><span>${esc(String(x.text).slice(m[0].length))}</span>` : `<span>${esc(x.text)}</span>`}</li>`; }).join("")}</ul>` : ""}
+                ${d.notes ? `<div class="m" style="margin-top:6px">${esc(d.notes)}</div>` : ""}${imgs.length ? `<div class="dimg">${imgs.map((u) => `<img src="${esc(u)}" alt="" loading="lazy">`).join("")}</div>` : ""}</div>`;
+        }).join("");
+        const inc = listLines(it?.inclusions), exc = listLines(it?.exclusions), tags = tagsOf(p.highlights);
+        const wa = waOf(ag, `Hi! I'm interested in "${p.title}" (${inr(p.price_pp)} per person). Please share details.`);
+        const form = sent ? `<div class="box okbox"><h2>${svg(I.check, 20)} Thank you!</h2><p style="margin:0">We have your enquiry and will call you shortly.</p></div>` : `<form class="box" method="post" action="${esc(req.originalUrl.split("?")[0])}">
+            <h2 style="margin-bottom:4px">Enquire about this trip</h2><div class="m">We reply within a few hours.</div>
+            <label>Your name</label><input name="name" required maxlength="100" autocomplete="name">
+            <label>Mobile / WhatsApp</label><input name="phone" required inputmode="tel" maxlength="20" autocomplete="tel">
+            <label>Email (optional)</label><input name="email" type="email" maxlength="120" autocomplete="email">
+            <div class="row2"><div><label>Travel date</label><input name="travel_date" type="date"></div><div><label>Travellers</label><input name="travellers" type="number" min="1" max="50" value="2"></div></div>
             <label>Anything else?</label><textarea name="message" rows="2" maxlength="1000"></textarea>
             <input class="hp" name="website" tabindex="-1" autocomplete="off">
-            <button>Send enquiry</button></form>`;
-        const body = `${head(ag)}${p.image_url ? `<img class="hero" src="${esc(p.image_url)}" alt="">` : ""}
-            <div class="cols"><div class="box"><h1 style="font-size:24px">${esc(p.title)}</h1><div class="m">${esc([p.destination, `${p.nights}N/${Number(p.nights) + 1}D`].filter(Boolean).join(" · "))}</div>
-            <div class="price" style="margin-top:6px">${inr(p.price_pp)} <span class="m">per person</span></div>${p.valid_to ? `<div class="m">Valid till ${esc(p.valid_to)}</div>` : ""}
-            ${p.highlights ? `<p>${esc(p.highlights).replace(/\n/g, "<br>")}</p>` : ""}${dayHtml ? `<h3>Day by day</h3>${dayHtml}` : ""}
-            ${it?.inclusions ? `<h3>Included</h3><p>${esc(it.inclusions).replace(/\n/g, "<br>")}</p>` : ""}${it?.exclusions ? `<h3>Not included</h3><p>${esc(it.exclusions).replace(/\n/g, "<br>")}</p>` : ""}</div>
-            <div>${form}</div></div><footer><a href="${esc(`${req.baseUrl}/packages/${p.agency_uuid}`)}">See all packages</a></footer>`;
+            <button class="btn">Send enquiry ${svg(I.arrow, 16)}</button></form>`;
+        const body = `${topBar(ag, `${req.baseUrl}/packages/${p.agency_uuid}`)}
+            <div class="banner">${p.image_url ? `<img src="${esc(p.image_url)}" alt="">` : `<span class="palm" style="position:absolute;right:-30px;bottom:-40px;opacity:.16;color:#fff">${svg(I.palm, 320)}</span>`}<span class="tag">${tagOf(p.nights)}</span>
+                <div class="cap">${p.destination ? `<div class="kick">${svg(I.pin, 13)} ${esc(p.destination)}</div>` : ""}<h1>${esc(p.title)}</h1><div style="opacity:.9">${p.nights} nights / ${Number(p.nights) + 1} days</div></div></div>
+            <div class="cols"><div>
+                ${tags.length ? `<div class="box"><h2><span class="ic">${svg(I.spark, 16)}</span>Highlights</h2><div class="pills">${tags.map((t) => `<span class="pill" style="font-size:13px;padding:6px 12px">${esc(t)}</span>`).join("")}</div></div>` : ""}
+                ${dayHtml ? `<div class="box"><h2><span class="ic">${svg(I.cal, 16)}</span>Day by day</h2><div class="tl">${dayHtml}</div></div>` : ""}
+                ${inc.length || exc.length ? `<div class="box"><h2><span class="ic">${svg(I.check, 16)}</span>What's included</h2><div class="two"><div><b>Included</b>${inc.map((t) => `<div class="li"><span class="ok-i">${svg(I.check, 15)}</span>${esc(t)}</div>`).join("") || `<div class="m">As per the day plan</div>`}</div><div><b>Not included</b>${exc.map((t) => `<div class="li"><span class="no-i">${svg(I.x, 15)}</span>${esc(t)}</div>`).join("") || `<div class="m">Anything not listed as included</div>`}</div></div></div>` : ""}
+            </div><div class="side">
+                <div class="pc"><span class="dots"></span><div class="kick" style="opacity:.85;font-size:11px">Starting from</div><div class="big">${inr(p.price_pp)}</div><div class="m">per person${p.valid_to ? ` · valid till ${esc(new Date(`${p.valid_to}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }))}` : ""}</div>
+                ${wa ? `<a class="btn wa" style="margin-top:16px;width:100%" href="${esc(wa)}">${svg(I.chat, 16)} Chat on WhatsApp</a>` : ""}</div>
+                ${form}</div></div>
+            <footer><a href="${esc(`${req.baseUrl}/packages/${p.agency_uuid}`)}">See all packages</a> · ${esc(nameOf(ag))}</footer>`;
         res.setHeader("Content-Security-Policy", "default-src 'none'; img-src * data:; style-src 'unsafe-inline'; form-action 'self'");
-        return res.status(200).send(shell(p.title, colorOf(ag), body, `${p.title} - ${inr(p.price_pp)} per person`));
+        return res.status(200).send(shell(p.title, colorOf(ag), body, `${p.title} - ${inr(p.price_pp)} per person`, p.image_url || ""));
     } catch (error) { console.error("publicPackage", error); return res.status(500).send("Something went wrong"); }
 };
 
