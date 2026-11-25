@@ -5,7 +5,7 @@ import {
     Radio, RadioGroup, Select, SelectItem, Spinner, Tab, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs, useDisclosure,
 } from "@nextui-org/react";
 import {
-    AlarmClock, Ban, Building2, CalendarPlus, Copy, Download, ExternalLink, Eye, Gift, KeyRound, Pencil, Plus, Repeat, Search, ShieldCheck, Sparkles, Trash2, XCircle,
+    AlarmClock, Ban, Building2, CalendarPlus, Copy, Download, ExternalLink, Eye, Gift, KeyRound, LockKeyhole, Pencil, Plus, Repeat, Search, ShieldCheck, Sparkles, Trash2, XCircle,
 } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
@@ -228,6 +228,14 @@ const SaasAgencies = () => {
         if (success && data?.login_code) setLoginInfo({ phone: data.phone, code: data.login_code });
     };
 
+    const resetPasscode = async (a: any) => {
+        if (!window.confirm(`Reset ${a.name}'s passcode? The owner's current passcode stops working and they are signed out of all devices. You'll get a one-time login code to share.`)) return;
+        setBusy(`passcode:${a.id}`);
+        const { success, data } = await commonPostAPICall({}, `saas_admin/agencies/${a.id}/reset_passcode`, true);
+        setBusy(null);
+        if (success && data?.login_code) setLoginInfo({ phone: data.phone, code: data.login_code, reset: true, emailedTo: data.email_sent ? a.email : null, loginUrl: data.login_url });
+    };
+
     const deleteAgency = async (a: any) => {
         if (!window.confirm(`Delete ${a.name}? This removes the agency and its team from the admin list. Related leads and history stay for records.`)) return;
         if (!window.confirm(`Really delete ${a.name}? Press OK only if you are sure.`)) return;
@@ -248,6 +256,7 @@ const SaasAgencies = () => {
             { key: "free_days", label: "Add free days", icon: <Sparkles size={16} />, onPress: () => openAction("free_days", one, label, "") },
             { key: "change_plan", label: "Change plan", icon: <Repeat size={16} />, onPress: () => openAction("change_plan", one, label, a.plan?.id || "") },
             { key: "send_login", label: "Send new login code", icon: <KeyRound size={16} />, onPress: () => sendLogin(a), hidden: !a.email },
+            { key: "reset_passcode", label: "Reset passcode", icon: <LockKeyhole size={16} />, onPress: () => resetPasscode(a) },
             { key: "copy_phone", label: "Copy phone", icon: <Copy size={16} />, onPress: () => copy(a.phone, "Phone"), hidden: !a.phone },
             { key: "copy_email", label: "Copy email", icon: <Copy size={16} />, onPress: () => copy(a.email, "Email"), hidden: !a.email },
             { key: "copy_portal", label: "Copy portal link", icon: <Copy size={16} />, onPress: () => copyPortal(a.portal), hidden: !a.portal },

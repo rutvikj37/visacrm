@@ -4,7 +4,7 @@ import {
     Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader,
     Radio, RadioGroup, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Textarea, useDisclosure,
 } from "@nextui-org/react";
-import { ArrowLeft, CalendarPlus, Gift, Globe, KeyRound, Pencil, Repeat, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Gift, Globe, KeyRound, LockKeyhole, Pencil, Repeat, Trash2, XCircle } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import AgencyModulesCard from "./AgencyModulesCard";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
@@ -137,6 +137,18 @@ const SaasAgencyDetails = () => {
         }
     };
 
+    // forgot passcode / locked out: clear it, sign out everywhere, show a one-time login code (also emailed)
+    const resetPasscode = async () => {
+        if (!window.confirm("Reset the owner's passcode? Their current passcode stops working and they are signed out of all devices. You'll get a one-time login code to share.")) return;
+        setBusy(true);
+        const { success, data: res } = await commonPostAPICall({}, `saas_admin/agencies/${id}/reset_passcode`, true);
+        setBusy(false);
+        if (success && res?.login_code) {
+            setLoginInfo({ phone: res.phone, code: res.login_code, reset: true, emailedTo: res.email_sent ? data?.agency?.email : null, loginUrl: res.login_url });
+            load();
+        }
+    };
+
     const openEdit = () => {
         const a = data?.agency;
         if (!a) return;
@@ -265,6 +277,7 @@ const SaasAgencyDetails = () => {
                     portalModal.onOpen();
                 }}>Portal domain</Button>
                 <Button variant="flat" startContent={<KeyRound size={16} />} isLoading={busy} onPress={sendLogin}>Send new login code</Button>
+                <Button variant="flat" color="warning" startContent={<LockKeyhole size={16} />} isLoading={busy} onPress={resetPasscode}>Reset passcode</Button>
                 {!access?.expired && (
                     <Button variant="flat" color="danger" startContent={<XCircle size={16} />} isLoading={busy}
                         onPress={() => window.confirm("End this agency's access today? The owner will only see the renew screen.") && run(`saas_admin/agencies/${id}/end_access`, {})}>

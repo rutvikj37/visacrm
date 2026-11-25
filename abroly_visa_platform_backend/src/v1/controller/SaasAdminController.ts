@@ -16,7 +16,7 @@ import SaasCoupon from "../../model/SaasCoupon";
 import { sendFailureReminderNow } from "../../services/saasFollowups";
 import { agencyUsage } from "../../services/saasUsage";
 import { buildMonitoringPayload } from "../../services/platformMonitoring";
-import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin";
+import { sendLoginEmail, setLoginCode, signOutEverywhere } from "../../services/agencyLogin";
 import { normalizeCountryCode } from "../../services/phoneMatch";
 import { panelBaseOf } from "../../services/panelUrl";
 import { GST_STATES, couponUses, describeCoupon, getPlatformBilling, issueInvoice, loadInvoice, normalizeCode, savePlatformBilling } from "../../services/saasBilling";
@@ -733,6 +733,40 @@ class SaasAdminController {
                 { email_sent: sent, ...(sent ? {} : { login_code: code, phone }) });
         } catch (error) {
             return fail(res, error, "sendLoginDetails");
+        }
+    }
+
+    /**
+     * POST /saas_admin/agencies/:uuid/reset_passcode { send_email?: boolean }
+     * Owner forgot their passcode or is locked out: clears the passcode and any lockout, signs the owner out
+     * of every device and makes a one-time 6-digit login code. The code is shown to the admin (and emailed
+     * when send_email is not false); the owner logs in with it and must set a new passcode.
+     */
+    async resetPasscode(req: RequestWithUser, res: Response) {
+        try {
+            const agency: any = await Agent.findOne({ where: { uuid: req.params.uuid, role: "agent" }, attributes: ["id", "uuid", "username", "app_name", "email", "phone_number", "country_code", "sudomain", "domain"] });
+            if (!agency) return returnHelper(res, 200, false, "Agency not found");
+            const a = agency.dataValues;
+            const code = await setLoginCode(a.id);
+            await signOutEverywhere("agent", a.id);
+            const phone = `${a.country_code || ""} ${a.phone_number || ""}`.trim();
+            let sent = false;
+            if (req.body?.send_email !== false && a.email && EMAIL_RE.test(a.email)) {
+                sent = await sendLoginEmail({ to: a.email, ownerName: a.username, agencyName: a.app_name, phone, code, reset: true, panelBase: panelBaseOf(a) });
+            }
+            audit(null, {
+                agencyUuid: a.uuid, entity: "settings", action: "passcode_reset",
+                summary: `Super Admin reset the owner's passcode${sent ? ` - login code emailed to ${a.email}` : ""}`,
+                meta: { admin_id: Number((req.user?.user as any)?.id) || null, email_sent: sent },
+                actor: { type: "system", name: "Super Admin" },
+            });
+            return returnHelper(res, 200, true,
+                sent
+                    ? `Passcode reset. Signed out of all devices. Login code shown below and emailed to ${a.email}.`
+                    : "Passcode reset. Signed out of all devices. Share the login code below with the owner.",
+                { login_code: code, phone, email_sent: sent, login_url: `${panelBaseOf(a) || ""}/login` });
+        } catch (error) {
+            return fail(res, error, "resetPasscode");
         }
     }
 

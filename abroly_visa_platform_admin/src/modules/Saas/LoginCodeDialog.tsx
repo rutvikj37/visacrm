@@ -1,15 +1,21 @@
 import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@nextui-org/react";
-import { Copy, MailWarning } from "lucide-react";
+import { Copy, KeyRound, MailWarning } from "lucide-react";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 
-export type LoginCodeInfo = { phone: string; code: string } | null;
+export type LoginCodeInfo = {
+    phone: string; code: string;
+    /** shown after "Reset passcode" (always), not only when an email failed */
+    reset?: boolean; emailedTo?: string | null; loginUrl?: string | null;
+} | null;
 
 /**
  * Shown only when the welcome / new-code email could not be sent: the admin sees the login code once
  * and passes it to the agency owner. Codes are stored hashed, so it can't be shown again later.
  */
 const LoginCodeDialog = ({ info, onClose }: { info: LoginCodeInfo; onClose: () => void }) => {
-    const message = info ? `Your TechX CRM login\nMobile number: ${info.phone}\nLogin code: ${info.code}` : "";
+    const message = info
+        ? `Your login${info.loginUrl ? `\nLogin page: ${info.loginUrl}` : ""}\nMobile number: ${info.phone}\nLogin code: ${info.code}${info.reset ? "\nAfter logging in you will set a new passcode." : ""}`
+        : "";
     const copy = async () => {
         try { await navigator.clipboard.writeText(message); SuccessToast("Login details copied"); } catch { ErrorToast("Couldn't copy"); }
     };
@@ -18,13 +24,26 @@ const LoginCodeDialog = ({ info, onClose }: { info: LoginCodeInfo; onClose: () =
             <ModalContent>
                 {(close) => info && (
                     <>
-                        <ModalHeader className="flex items-center gap-2"><MailWarning size={18} className="text-warning" />Email not sent - share the login code</ModalHeader>
+                        {info.reset ? (
+                            <ModalHeader className="flex items-center gap-2"><KeyRound size={18} className="text-primary" />Passcode reset</ModalHeader>
+                        ) : (
+                            <ModalHeader className="flex items-center gap-2"><MailWarning size={18} className="text-warning" />Email not sent - share the login code</ModalHeader>
+                        )}
                         <ModalBody>
-                            <p className="text-sm text-default-600">
-                                The email couldn't be sent, so share these login details with the agency owner yourself (WhatsApp, call...).
-                                This is the only time the code is shown. If it's lost, use "Send new login code".
-                            </p>
+                            {info.reset ? (
+                                <p className="text-sm text-default-600">
+                                    The old passcode no longer works and the owner was signed out of all devices.
+                                    {info.emailedTo ? ` This login code was also emailed to ${info.emailedTo}.` : " Share this login code with the owner (WhatsApp, call...)."}
+                                    {" "}They log in with it once and then set a new passcode. This is the only time the code is shown.
+                                </p>
+                            ) : (
+                                <p className="text-sm text-default-600">
+                                    The email couldn't be sent, so share these login details with the agency owner yourself (WhatsApp, call...).
+                                    This is the only time the code is shown. If it's lost, use "Send new login code".
+                                </p>
+                            )}
                             <div className="rounded-xl border border-default-200 divide-y divide-default-200">
+                                {info.loginUrl && <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm"><span className="text-default-500">Login page</span><span className="truncate font-medium">{info.loginUrl}</span></div>}
                                 <div className="flex items-center justify-between px-4 py-3 text-sm"><span className="text-default-500">Mobile number</span><span className="font-semibold">{info.phone}</span></div>
                                 <div className="flex items-center justify-between px-4 py-3 text-sm"><span className="text-default-500">Login code</span><span className="font-mono text-2xl font-bold tracking-[0.3em]">{info.code}</span></div>
                             </div>
