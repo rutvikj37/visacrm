@@ -154,6 +154,7 @@ const AgentCRM = () => {
         items: [
           { title: "Lead sources", url: "/crm/sources" },
           { title: "Visa templates", url: "/crm/templates", module: "visa" },
+          { title: "Client forms", url: "/crm/forms" },
           { title: "Branding", url: "/branding" },
           { title: "Payments (Razorpay)", url: "/settings/payments" },
           { title: "Subscription", url: "/subscription" },

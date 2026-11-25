@@ -38,6 +38,9 @@ const AgnetProfile = lazy(()=> import("@/modules/VisaConsultation/AgnetProfile")
 // const CoinHistory = lazy(()=> import("@/modules/Coins/CoinHistory"))
 const OfflinePrep =  lazy(()=> import("@/modules/LanguagePrep/OfflinePrep"))
 const StudentChat = lazy(()=> import("@/modules/Chat/StudentChat"))
+const PublicFormFill = lazy(() => import("@/modules/Forms/PublicFormFill"))
+const StudentFormsList = lazy(() => import("@/modules/Forms/StudentForms").then((m) => ({ default: m.StudentFormsList })))
+const StudentFormFill = lazy(() => import("@/modules/Forms/StudentForms").then((m) => ({ default: m.StudentFormFill })))
 
 export const PublicRoutes = [
     {
@@ -86,6 +89,10 @@ export const PublicRoutes = [
     {
         path: "/event_banners",
         element: PublicEventBanners
+    },
+    {
+        path: "/f/:token",
+        element: PublicFormFill
     },
     {
         path: "*",
@@ -192,6 +199,18 @@ export const StudentRoutes = [
     {
         path: "/chat",
         element: StudentChat
+    },
+    {
+        path: "/forms",
+        element: StudentFormsList
+    },
+    {
+        path: "/forms/:assignmentId",
+        element: StudentFormFill
+    },
+    {
+        path: "/f/:token",
+        element: PublicFormFill
     },
     {
         path: "/my_fees",

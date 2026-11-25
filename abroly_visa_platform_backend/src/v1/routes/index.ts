@@ -36,6 +36,7 @@ import layoutRoutes from "./layoutRoutes"
 import crmRoutes from "./crmRoutes"
 import publicLeadRoutes from "./publicLeadRoutes"
 import publicMetaRoutes from "./publicMetaRoutes"
+import publicFormsRoutes from "./publicFormsRoutes"
 import saasAdminRoutes from "./saasAdminRoutes"
 import SubscriptionSaasController from "../controller/SubscriptionSaasController"
 import CalendarCrmController from "../controller/CalendarCrmController"
@@ -114,6 +115,7 @@ v1_routes.use("/layout", layoutRoutes)
 v1_routes.use("/crm", crmRoutes)
 v1_routes.use("/public/leads", publicLeadRoutes)
 v1_routes.use("/public/meta", publicMetaRoutes)
+v1_routes.use("/public/forms", publicFormsRoutes)
 v1_routes.use("/travel", travelRoutes)
 v1_routes.use("/public/travel", publicTravelRoutes)
 

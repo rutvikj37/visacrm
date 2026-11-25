@@ -8,7 +8,7 @@ import {
     Button, Chip, Divider, Input, Modal, ModalBody, ModalContent, ModalFooter,
     ModalHeader, Select, SelectItem, Tab, Tabs, Textarea, useDisclosure,
 } from "@heroui/react";
-import { ArrowLeft, ArrowRightCircle, BadgeCheck, CalendarClock, Check, CheckCircle2, Circle, Mail, MessageCircle, Pencil, Phone, Send, StickyNote, Trash2, User, Instagram, X, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRightCircle, BadgeCheck, CalendarClock, Check, CheckCircle2, Circle, ClipboardList, Mail, MessageCircle, Pencil, Phone, Send, StickyNote, Trash2, User, Instagram, X, ChevronUp, ChevronDown } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import CommonConfirmation from "@/components/CommonConfirmation";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
@@ -17,6 +17,7 @@ import ConvertLeadModal from "./ConvertLeadModal";
 import TravelLeadPanel from "@/modules/AgentAdmin/Travel/TravelLeadPanel";
 import useModules from "@/hooks/useModules";
 import PortalInvitePanel from "./PortalInvitePanel";
+import SendFormModal from "./SendFormModal";
 import FormField from "./FormField";
 import MentionComposer, { MentionText } from "./MentionComposer";
 import {
@@ -94,6 +95,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
     const deleteConfirm = useDisclosure();
     const convertModal = useDisclosure();
     const inviteModal = useDisclosure();
+    const sendFormModal = useDisclosure();
     const [invite, setInvite] = useState<any>(null);
 
     const openInvite = async () => {
@@ -341,6 +343,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                         {wa && <Button size="sm" as="a" href={wa} target="_blank" rel="noreferrer" variant="flat" color="success" startContent={<MessageCircle size={16} />}>WhatsApp</Button>}
                         {lead.email && <Button size="sm" as="a" href={`mailto:${lead.email}`} variant="flat" startContent={<Mail size={16} />}>Email</Button>}
                         <Button size="sm" variant="flat" startContent={<Pencil size={16} />} onPress={editModal.onOpen}>Edit</Button>
+                        <Button size="sm" variant="flat" startContent={<ClipboardList size={16} />} onPress={sendFormModal.onOpen}>Send form</Button>
                         {lead.status !== "converted" && hasModule("visa") && lead.business_line !== "travel" && (
                             <Button size="sm" color="primary" startContent={<ArrowRightCircle size={16} />} onPress={convertModal.onOpen}>Convert</Button>
                         )}
@@ -637,6 +640,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
 
             <LeadFormModal isOpen={editModal.isOpen} onOpenChange={editModal.onOpenChange} lead={lead} onSaved={load} />
             <ConvertLeadModal isOpen={convertModal.isOpen} onOpenChange={convertModal.onOpenChange} lead={lead} team={team} canAssign={isManager} onConverted={load} />
+            <SendFormModal isOpen={sendFormModal.isOpen} onOpenChange={sendFormModal.onOpenChange} leadUuid={uuid} onSent={() => load(true)} />
             <Modal isOpen={inviteModal.isOpen} onOpenChange={inviteModal.onOpenChange} size="lg">
                 <ModalContent>
                     {() => (
