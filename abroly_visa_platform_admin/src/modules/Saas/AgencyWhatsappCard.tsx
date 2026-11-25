@@ -27,7 +27,7 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
     const [busy, setBusy] = useState<string | null>(null);
 
     const load = useCallback(async () => {
-        const { success, data } = await commonGetAPICalls(`saas_admin/agencies/${agencyId}/whatsapp`);
+        const { success, data } = await commonGetAPICalls(`/saas_admin/agencies/${agencyId}/whatsapp`);
         if (success && data) {
             setNumbers(Array.isArray(data.numbers) ? data.numbers : []);
             setPlanAllows(data.plan_allows !== false);
