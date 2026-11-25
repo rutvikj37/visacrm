@@ -6,8 +6,16 @@ import { accessOf, leadScope } from "../../helpers/access";
 import CrmLead from "../../model/CrmLead";
 import CrmLeadActivity from "../../model/CrmLeadActivity";
 import LeadIntegration from "../../model/LeadIntegration";
+import WhatsappPendingChat from "../../model/WhatsappPendingChat";
 import Agent from "../../model/Agent";
 import { branchFilter } from "../../services/branches";
+import {
+    countPendingUnread,
+    dismissPendingWhatsapp,
+    presentPending,
+    presentPendingThread,
+    promotePendingWhatsapp,
+} from "../../services/whatsappPending";
 
 /**
  * Shared WhatsApp + Instagram inbox. Messages already live on each lead's timeline (activities of type
@@ -105,9 +113,34 @@ class ConversationController {
                 const phoneOf = new Map(leads.map((l) => [l.dataValues.uuid, String(l.dataValues.phone_normalized || "")]));
                 list = list.filter((c) => String(c.name).toLowerCase().includes(s) || (digits.length >= 3 && phoneOf.get(c.uuid)!.includes(digits)) || c.last_message.toLowerCase().includes(s));
             }
+            // Review-first WhatsApp chats (not leads yet) — skip for Instagram-only filter
+            let pendingList: any[] = [];
+            if (channel !== "instagram" && filter !== "mine") {
+                const pendingRows: any[] = await WhatsappPendingChat.findAll({
+                    where: { agency_uuid: a.agencyUuid, status: "pending" },
+                    order: [["last_message_at", "DESC"]],
+                    limit: 100,
+                });
+                pendingList = pendingRows.map(presentPending);
+                if (filter === "unread") pendingList = pendingList.filter((c) => c.unread > 0);
+                if (q) {
+                    const s = q.toLowerCase();
+                    const digits = q.replace(/\D/g, "");
+                    pendingList = pendingList.filter((c) =>
+                        String(c.name).toLowerCase().includes(s)
+                        || (digits.length >= 3 && String(c.phone_normalized || "").includes(digits))
+                        || String(c.last_message || "").toLowerCase().includes(s));
+                }
+            }
+
             list.sort((x, y) => new Date(y.last_at).getTime() - new Date(x.last_at).getTime());
-            const unreadChats = list.filter((c) => c.unread > 0).length;
-            return returnHelper(res, 200, true, "Conversations", { conversations: list.slice(0, 200), unread_chats: unreadChats });
+            const merged = [...pendingList, ...list].sort((x, y) => new Date(y.last_at || 0).getTime() - new Date(x.last_at || 0).getTime());
+            const unreadChats = merged.filter((c) => c.unread > 0).length;
+            return returnHelper(res, 200, true, "Conversations", {
+                conversations: merged.slice(0, 200),
+                unread_chats: unreadChats,
+                pending_count: pendingList.length,
+            });
         } catch (error) {
             console.error("conversations failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
@@ -118,14 +151,56 @@ class ConversationController {
     async unread(req: RequestWithUser, res: Response) {
         try {
             const a = accessOf(req);
+            const pending = await countPendingUnread(a.agencyUuid);
             const { leads, types } = await chatLeads(req, "all");
-            if (!leads.length) return returnHelper(res, 200, true, "Unread", { unread_chats: 0 });
+            if (!leads.length) return returnHelper(res, 200, true, "Unread", { unread_chats: pending });
             const readAt = new Map(leads.map((l) => [l.dataValues.id, l.dataValues.chat_read_at ? new Date(l.dataValues.chat_read_at) : null]));
             const { rows } = await inboundStats(a.agencyUuid, [...readAt.keys()], types);
             const unreadLeads = new Set(rows.filter((r: any) => { const t = readAt.get(Number(r.lead_id)); return !t || new Date(r.createdAt) > t; }).map((r: any) => Number(r.lead_id)));
-            return returnHelper(res, 200, true, "Unread", { unread_chats: unreadLeads.size });
+            return returnHelper(res, 200, true, "Unread", { unread_chats: unreadLeads.size + pending });
         } catch (error) {
             console.error("conversations unread failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // GET /crm/conversations/pending/:uuid  - review a chat before it is a lead
+    async pendingThread(req: RequestWithUser, res: Response) {
+        try {
+            const a = accessOf(req);
+            const row: any = await WhatsappPendingChat.findOne({
+                where: { uuid: req.params.uuid, agency_uuid: a.agencyUuid, status: "pending" },
+            });
+            if (!row) return returnHelper(res, 200, false, "Pending chat not found");
+            await WhatsappPendingChat.update({ read_at: new Date() }, { where: { id: row.dataValues.id } });
+            const fresh = await WhatsappPendingChat.findByPk(row.dataValues.id);
+            return returnHelper(res, 200, true, "Pending conversation", presentPendingThread(fresh));
+        } catch (error) {
+            console.error("pending thread failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/conversations/pending/:uuid/promote  - staff marks positive → create lead
+    async promotePending(req: RequestWithUser, res: Response) {
+        try {
+            const a = accessOf(req);
+            const result = await promotePendingWhatsapp(a.agencyUuid, req.params.uuid, a.userId || null);
+            return returnHelper(res, 200, result.ok, result.message, result.ok ? { lead_uuid: result.lead_uuid } : undefined);
+        } catch (error) {
+            console.error("promote pending failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/conversations/pending/:uuid/dismiss
+    async dismissPending(req: RequestWithUser, res: Response) {
+        try {
+            const a = accessOf(req);
+            const result = await dismissPendingWhatsapp(a.agencyUuid, req.params.uuid);
+            return returnHelper(res, 200, result.ok, result.message);
+        } catch (error) {
+            console.error("dismiss pending failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

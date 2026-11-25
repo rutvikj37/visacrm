@@ -6,6 +6,7 @@ import LeadIntegration from "../../model/LeadIntegration";
 import { decryptJson, encryptJson, generatePublicKey, maskSecret } from "../../helpers/crypto";
 import { indiamartWaitMs, pullIndiamart } from "../../services/indiamart";
 import { syncFacebookPage } from "../../services/meta";
+import { setWhatsappAutoCreate } from "../../services/whatsappPending";
 
 /**
  * Lead sources an agency connects (agency owner only).
@@ -214,6 +215,24 @@ class LeadIntegrationController {
             return returnHelper(res, 200, true, status === "active" ? "Integration turned on" : "Integration turned off", { status });
         } catch (error) {
             console.error("toggle integration failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/integrations/:uuid/whatsapp_mode  { auto_create_leads: true|false }
+    // false = review-first: new chats stay in WhatsApp inbox until staff taps Add as lead
+    async whatsappMode(req: RequestWithUser, res: Response) {
+        try {
+            if (!ctx(req).isOwner) return returnHelper(res, 200, false, "Only the agency owner can manage integrations");
+            const integration: any = await findOwned(req);
+            if (!integration || integration.dataValues.type !== "whatsapp") {
+                return returnHelper(res, 200, false, "WhatsApp number not found");
+            }
+            const auto = req.body?.auto_create_leads !== false && req.body?.auto_create_leads !== "false";
+            const result = await setWhatsappAutoCreate(ctx(req).agencyUuid, integration.dataValues.uuid, auto);
+            return returnHelper(res, 200, result.ok, result.message, result.ok ? { auto_create_leads: result.auto_create_leads } : undefined);
+        } catch (error) {
+            console.error("whatsapp mode failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

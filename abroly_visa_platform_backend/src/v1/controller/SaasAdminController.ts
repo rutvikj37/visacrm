@@ -840,6 +840,28 @@ class SaasAdminController {
         }
     }
 
+    // POST /saas_admin/agencies/:uuid/whatsapp/:integration/mode  { auto_create_leads: true|false }
+    async agencyWhatsappMode(req: RequestWithUser, res: Response) {
+        try {
+            const a = await whatsappAgency(req);
+            if (!a) return returnHelper(res, 200, false, "Agency not found");
+            const { setWhatsappAutoCreate } = await import("../../services/whatsappPending");
+            const auto = req.body?.auto_create_leads !== false && req.body?.auto_create_leads !== "false";
+            const result = await setWhatsappAutoCreate(a.uuid, req.params.integration, auto);
+            if (result.ok) {
+                audit(null, {
+                    agencyUuid: a.uuid, entity: "settings", action: "whatsapp_mode",
+                    summary: `Super Admin set WhatsApp to ${auto ? "auto-create leads" : "review first"}`,
+                    meta: { admin_id: Number((req.user?.user as any)?.id) || null },
+                    actor: { type: "system", name: "Super Admin" },
+                });
+            }
+            return returnHelper(res, 200, result.ok, result.message, result.ok ? { auto_create_leads: result.auto_create_leads } : undefined);
+        } catch (error) {
+            return fail(res, error, "agencyWhatsappMode");
+        }
+    }
+
     // POST /saas_admin/agencies/:uuid/status { status: "active" | "inactive" }  - suspend blocks login and the API
     async setAgencyStatus(req: RequestWithUser, res: Response) {
         try {
