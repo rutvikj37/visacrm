@@ -67,7 +67,7 @@ export const AgencyFooter = ({ brand }: { brand: AgencyBrand | null }) => (
       <span>© {new Date().getFullYear()} {brand?.name || ""}</span>
       <span className="flex items-center gap-4">
         <a href={studentLoginUrl()} className="hover:text-slate-800">Student login</a>
-        <span>Powered by TechX CRM</span>
+        <span>Powered by <a href="https://techxsolutions.io/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">TechX Solutions</a></span>
       </span>
     </div>
   </footer>

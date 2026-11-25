@@ -172,7 +172,7 @@ const PublicDashboard = () => {
                 <footer className="border-t border-default-200 bg-background">
                     <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-default-500 sm:flex-row">
                         <span>© {new Date().getFullYear()} {getAppName()}</span>
-                        <span>Powered by TechX CRM</span>
+                        <span>Powered by <a href="https://techxsolutions.io/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">TechX Solutions</a></span>
                     </div>
                 </footer>
             )}
