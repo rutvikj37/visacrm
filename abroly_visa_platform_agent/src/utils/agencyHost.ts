@@ -26,6 +26,7 @@ export type AgencyBrand = {
     name: string; logo: string | null; color: string | null;
     phone?: string | null; email?: string | null; address?: string | null;
     website?: string | null; tagline?: string | null; focus?: "study" | "travel" | "both";
+    portal?: boolean;
 };
 
 /** The agency of this panel address (name, logo, colour) for the login page; null on the shared panel. */
@@ -48,6 +49,7 @@ export const useAgencyBrand = () => {
                     email: d.support_email || null, address: d.agency_address || null,
                     website: d.og_url || null, tagline: d.meta_description || null,
                     focus: ["study", "travel", "both"].includes(d.business_focus) ? d.business_focus : "study",
+                    portal: d.portal_enabled !== false,
                 });
                 if (d.primary_color) applyBrand(d.primary_color, d.primary_foreground_color);
                 if (d.app_name) document.title = `${d.app_name} - Agency panel`;

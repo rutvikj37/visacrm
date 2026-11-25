@@ -87,6 +87,11 @@ const Index = () => {
 
             const { data, success } = await commonPublicGetApiCalls(apiUrl);
 
+            if (success && data && data.portal_enabled === false && !isLocalHost) {
+                // this agency has no client portal - its address opens the agency panel instead
+                window.location.replace('/agency/');
+                return;
+            }
             if (success && data) {
                 const ensureFullUrl = (url: string) => {
                     if (!url) return '';

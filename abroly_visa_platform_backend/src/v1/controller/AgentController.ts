@@ -1,7 +1,7 @@
 import { audit } from "../../services/audit";
 import { newTotpSecret, totpUri, verifyTotp } from "../../helpers/totp";
 import { decryptPii, encryptPii } from "../../helpers/crypto";
-import { labelsFor, modulesFor } from "../../services/modules";
+import { hasModule, labelsFor, modulesFor } from "../../services/modules";
 import { leadStagesFor } from "../../services/travelAccess";
 import { businessFocusOf } from "../../services/businessFocus";
 import { publicFileUrl, saveFile, deleteFile, ownerFromRequest, agencyOwner } from "../../helpers/storage";
@@ -1221,6 +1221,8 @@ class AgentController {
             accountData.addons = portalAccess?.plan ? portalAccess.plan.features.addons : null;
             // what the agency mainly does (student / tourist & business visas) - portal wording and stages
             accountData.business_focus = businessFocusOf(accountData.ui_prefs);
+            // "Client portal" module off (platform admin -> agency -> modules): no portal at /, the address opens the agency panel
+            accountData.portal_enabled = await hasModule(accountData.uuid, "customer_portal");
             delete accountData.ui_prefs;
             
             // Add full URLs for favicon and og_image if they exist

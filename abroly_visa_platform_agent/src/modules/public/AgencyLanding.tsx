@@ -40,6 +40,8 @@ const AgencyLanding = () => {
   const portalUrl = host ? `${window.location.protocol}//${window.location.host}/` : "/";
   const phoneDigits = (brand?.phone || "").replace(/\D/g, "");
   const destinations = travel ? TRAVEL_DESTINATIONS : STUDY_DESTINATIONS;
+  // agencies with the "Client portal" module off have no portal at /, so no link to it
+  const showPortal = brand?.portal === true;
 
   const tools = travel
     ? [
@@ -81,9 +83,11 @@ const AgencyLanding = () => {
             {!brand?.logo && <span className="display truncate text-lg font-semibold">{name}</span>}
           </div>
           <div className="flex items-center gap-2">
-            <Button as="a" href={portalUrl} variant="light" className="hidden font-medium text-slate-600 sm:flex">
-              Client portal
-            </Button>
+            {showPortal && (
+              <Button as="a" href={portalUrl} variant="light" className="hidden font-medium text-slate-600 sm:flex">
+                Client portal
+              </Button>
+            )}
             <Button onPress={() => navigate("/login")} className="brand-bg font-medium text-white" startContent={<LogIn size={17} />}>
               Staff login
             </Button>
@@ -113,9 +117,11 @@ const AgencyLanding = () => {
               <Button size="lg" onPress={() => navigate("/login")} className="brand-bg font-semibold text-white shadow-lg" startContent={<LogIn size={18} />}>
                 Login to the panel
               </Button>
-              <Button size="lg" as="a" href={portalUrl} variant="bordered" className="brand-border bg-white font-semibold text-slate-800" endContent={<ExternalLink size={16} />}>
-                Client portal
-              </Button>
+              {showPortal && (
+                <Button size="lg" as="a" href={portalUrl} variant="bordered" className="brand-border bg-white font-semibold text-slate-800" endContent={<ExternalLink size={16} />}>
+                  Client portal
+                </Button>
+              )}
             </div>
             <div className="mt-8 flex flex-wrap gap-2">
               {destinations.map((d) => (
