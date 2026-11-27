@@ -9,6 +9,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
 import { SuccessToast } from '@/utils/Toaster';
+import { apiBase } from "@/utils/product";
 
 
 const AgentEventBannerForm = () => {
@@ -34,7 +35,7 @@ const AgentEventBannerForm = () => {
 
     const fetchEventBanner = async () => {
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/v1/event-banners/agent/get/${id}`, {
+            const response = await axios.get(`${apiBase()}/v1/event-banners/agent/get/${id}`, {
                 headers: { Authorization: `Bearer ${getAuthToken()}` }
             });
             if (response.data.success) {
@@ -77,12 +78,12 @@ const AgentEventBannerForm = () => {
         }
 
         try {
-            let response = id ? await axios.put(`${import.meta.env.VITE_API_BASE_URL}/v1/event-banners/agent/update/${id}`, formDataToSend, {
+            let response = id ? await axios.put(`${apiBase()}/v1/event-banners/agent/update/${id}`, formDataToSend, {
                 headers: {
                     Authorization: `Bearer ${getAuthToken()}`,
                     'Content-Type': 'multipart/form-data',
                 },
-            }) : await axios.post(`${import.meta.env.VITE_API_BASE_URL}/v1/event-banners/agent/add`, formDataToSend, {
+            }) : await axios.post(`${apiBase()}/v1/event-banners/agent/add`, formDataToSend, {
                 headers: {
                     Authorization: `Bearer ${getAuthToken()}`,
                     'Content-Type': 'multipart/form-data',

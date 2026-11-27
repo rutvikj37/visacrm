@@ -2,8 +2,9 @@ import axios, { AxiosError, AxiosResponse } from "axios"
 import { getAuthToken } from "./localstorage"
 import { returnRecords } from "./ApiUtils"
 import { ErrorToast, SuccessToast } from "./Toaster"
+import { apiBase } from "@/utils/product";
 
-const BaseUrl = import.meta.env.VITE_API_BASE_URL
+const BaseUrl = apiBase()
 
 // common function for all post api calls
 const commonPostAPICall = async (params: object, url: string, showError = false) => {

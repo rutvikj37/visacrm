@@ -8,8 +8,6 @@ import CrmLead, { CrmLeadSource, CrmLeadStatus, CRM_LEAD_STATUSES } from "../mod
 import CrmLeadActivity, { CrmActivityType } from "../model/CrmLeadActivity";
 import LeadIntegration from "../model/LeadIntegration";
 import Agent from "../model/Agent";
-import { destinationAssignee } from "./travelAccess";
-import { travelFromExtra } from "./travel";
 
 /**
  * One place where every lead enters the CRM, whatever the source.
@@ -251,7 +249,6 @@ export const ingestLead = async ({
         intake: clean(input.intake),
         message: clean(input.message, 5000),
         campaign: clean(input.campaign),
-        ...travelFromExtra(input.extra),
         ...(input.travel || {}),
     };
 
@@ -313,9 +310,6 @@ export const ingestLead = async ({
     if (input.assigned_to && (await isAgencyMember(agencyUuid, Number(input.assigned_to)))) {
         assignedTo = Number(input.assigned_to);
         assignedHow = "Assigned on creation";
-    } else if ((data as any).destinations && (assignedTo = await destinationAssignee(agencyUuid, (data as any).destinations)) && (await isAgencyMember(agencyUuid, assignedTo))) {
-        // travel enquiry: the agency's destination rule wins (e.g. Dubai → Priya)
-        assignedHow = "Auto-assigned (destination rule)";
     } else if (await autoAssignOn(agencyUuid)) {
         assignedTo = null;
         // rotate inside the lead's branch when it has counsellors, else across the whole agency

@@ -50,7 +50,7 @@ import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import NotificationBell from "@/modules/AgentAdmin/Notifications/NotificationBell"
 import useModules from "@/hooks/useModules"
-import { filterNav, travelNavGroup } from "@/modules/AgentAdmin/Travel/travelNav"
+import { filterNav } from "@/modules/AgentAdmin/Menu/filterNav"
 
 const AgentCRM = () => {
   const { crmType, modules, has } = useModules()
@@ -108,8 +108,6 @@ const AgentCRM = () => {
           // contact form messages arrive in the Lead Inbox (source "Portal"); the old list is linked from Lead sources
         ],
       },
-      // travel agencies see the Travel group before visa cases
-      ...(crmType === "travel" ? [travelNavGroup()] : []),
       {
         title: has("visa") ? "Visa cases" : "Billing",
         url: "#",
@@ -121,10 +119,9 @@ const AgentCRM = () => {
           { title: "Commissions", url: "/commissions", module: "visa" },
         ],
       },
-      ...(crmType !== "travel" ? [travelNavGroup()] : []),
       {
         // what students see in the agency's student portal (job openings / banners are paid add-ons)
-        title: crmType === "travel" ? "Client portal" : "Student portal",
+        title: "Student portal",
         url: "#",
         icon: GraduationCap,
         isActive: false,

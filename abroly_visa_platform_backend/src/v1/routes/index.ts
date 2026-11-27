@@ -1,4 +1,3 @@
-import travelRoutes, { publicTravelRoutes } from "./travelRoutes"
 import express from "express"
 import userRoutes from "./userRoutes"
 import visaTypeRoutes from "./visaTypeRoutes"
@@ -114,8 +113,6 @@ v1_routes.use("/layout", layoutRoutes)
 v1_routes.use("/crm", crmRoutes)
 v1_routes.use("/public/leads", publicLeadRoutes)
 v1_routes.use("/public/meta", publicMetaRoutes)
-v1_routes.use("/travel", travelRoutes)
-v1_routes.use("/public/travel", publicTravelRoutes)
 
 // SaaS billing
 v1_routes.use("/saas_admin", saasAdminRoutes)

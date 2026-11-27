@@ -4,6 +4,7 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { FormField } from "./saasShared";
 import TravelTaxCard from "./TravelTaxCard";
 import { phoneInputProps, toPhoneDigits } from "@/utils/phone";
+import { getProduct } from "@/utils/product";
 
 /** Platform (seller) details printed on every subscription invoice. */
 const SaasBillingSettings = () => {
@@ -70,7 +71,7 @@ const SaasBillingSettings = () => {
                 </CardBody>
             </Card>
             <div className="flex justify-end"><Button color="primary" isLoading={saving} onPress={save}>Save settings</Button></div>
-            <TravelTaxCard />
+            {getProduct() === "travel" && <TravelTaxCard />}
         </div>
     );
 };

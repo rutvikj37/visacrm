@@ -2,9 +2,10 @@ import axios, { AxiosError, AxiosResponse } from "axios";
 import { useSelector } from "react-redux";
 import { ErrorToast, SuccessToast } from "../utils/Toaster";
 import { returnRecords } from "../utils/ApiUtils";
+import { apiBase } from "@/utils/product";
 
 const useApiCallUtils = () => {
-    const BaseUrl = import.meta.env.VITE_API_BASE_URL as string;
+    const BaseUrl = apiBase();
     const token = useSelector((state: any) => state.login.token);
 
     // Common function for all POST API calls (with authentication)

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="manifest" href="/manifest.webmanifest" id="app-manifest" />
+  <meta name="theme-color" content="#0f5bd8" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <meta name="description"
+    content="TechX CRM for Students: Track university applications, access educational resources, and manage your journey with our student dashboard. Start now!">
+  <meta name="keywords"
+    content="TechX CRM, student dashboard, university application tracking, educational resources, student tools, college applications">
+
+  <meta property="og:title" content="TechX CRM for Students - Manage Your University Journey">
+  <meta property="og:description"
+    content="Use TechX CRM to track university applications and access educational resources with our student dashboard.">
+  <meta property="og:image" content="https://student.techxsolutions.io/logo.png">
+  <meta property="og:url" content="https://techxsolutions.io">
+  <meta property="og:type" content="website">
+
+
+  <title>TechX CRM</title>
+  <style>
+    /* before the app's CSS arrives: page background in light and dark, so the first frame matches the app */
+    html, body { background: #ffffff; margin: 0; }
+    html.dark, html.dark body { background: hsl(0 0% 3.9%); color-scheme: dark; }
+  </style>
+  <script>
+    // agency name in the tab title before the app loads (cached branding from the last visit)
+    try { var c = JSON.parse(localStorage.getItem("app_config") || "null"); if (c && c.APP_NAME) document.title = c.APP_NAME; } catch (e) {}
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

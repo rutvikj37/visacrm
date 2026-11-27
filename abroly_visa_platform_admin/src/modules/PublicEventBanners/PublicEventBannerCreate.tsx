@@ -7,6 +7,7 @@ import { getAuthToken } from '@/utils/localstorage';
 import { Trash } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { apiBase } from "@/utils/product";
 
 const PublicEventBannerCreate = () => {
     const [formData, setFormData] = useState({
@@ -48,7 +49,7 @@ const PublicEventBannerCreate = () => {
         });
 
         try {
-            const response = await axios.post(import.meta.env.VITE_API_BASE_URL + '/v1/event-banners/public-create', formDataToSend, {
+            const response = await axios.post(apiBase() + '/v1/event-banners/public-create', formDataToSend, {
                 headers: {
                     Authorization: `Bearer ${getAuthToken()}`,
                     'Content-Type': 'multipart/form-data',

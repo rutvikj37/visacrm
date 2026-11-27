@@ -556,7 +556,7 @@ class SaasAdminController {
             const changes: string[] = [];
             await sequelize.transaction(async (t: any) => {
                 if (b.crm_type !== undefined) {
-                    if (!CRM_TYPES.includes(b.crm_type)) throw new Error("CRM type must be visa, travel or both");
+                    if (!CRM_TYPES.includes(b.crm_type)) throw new Error("This is the Visa CRM - travel agencies are managed in the Travel CRM");
                     if (b.crm_type !== agency.dataValues.crm_type) {
                         await Agent.update({ crm_type: b.crm_type }, { where: { id: agency.dataValues.id }, transaction: t });
                         changes.push(`CRM type: ${agency.dataValues.crm_type || "visa"} → ${b.crm_type}`);

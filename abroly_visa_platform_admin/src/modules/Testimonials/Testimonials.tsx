@@ -10,6 +10,7 @@ import axios, { AxiosError, AxiosResponse } from 'axios';
 import { getAuthToken } from '@/utils/localstorage';
 import { ErrorToast } from '@/utils/Toaster';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
+import { apiBase } from "@/utils/product";
 
 // validations 
 const adminAddTestimonialValidation = Yup.object().shape({
@@ -17,7 +18,7 @@ const adminAddTestimonialValidation = Yup.object().shape({
   description: Yup.string().required("Please Enter Testimonial description").min(4, "minimum length should be 4"),
 })
 
-const BaseUrl = import.meta.env.VITE_API_BASE_URL
+const BaseUrl = apiBase()
 
 const Testimonials = () => {
 

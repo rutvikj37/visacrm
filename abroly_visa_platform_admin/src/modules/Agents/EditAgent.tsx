@@ -22,8 +22,9 @@ import {
 } from 'lucide-react'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
 import { phoneInputProps, phoneOnChange } from "@/utils/phone";
+import { apiBase } from "@/utils/product";
 
-const BaseUrl = import.meta.env.VITE_API_BASE_URL as string
+const BaseUrl = apiBase()
 
 const editAgentValidation = Yup.object().shape({
   phone_number: Yup.string()

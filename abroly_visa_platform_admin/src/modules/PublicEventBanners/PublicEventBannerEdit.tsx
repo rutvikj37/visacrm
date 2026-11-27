@@ -9,6 +9,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import BackButton from '@/components/BackButton';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
+import { apiBase } from "@/utils/product";
 
 const PublicEventBannerEdit = () => {
 
@@ -80,7 +81,7 @@ const PublicEventBannerEdit = () => {
 
         setIsLoading(true);
         try {
-            const response = await axios.post(import.meta.env.VITE_API_BASE_URL + '/v1/event-banners/public-update', formDataToSend, {
+            const response = await axios.post(apiBase() + '/v1/event-banners/public-update', formDataToSend, {
                 headers: {
                     Authorization: `Bearer ${getAuthToken()}`,
                     'Content-Type': 'multipart/form-data',

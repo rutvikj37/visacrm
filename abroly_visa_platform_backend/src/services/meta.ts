@@ -1,4 +1,3 @@
-import { travelFromExtra } from "./travel";
 import axios from "axios";
 import { leadRecipients, notifyLater } from "./notifications";
 import crypto from "crypto";
@@ -378,9 +377,6 @@ export const mapFacebookLead = (lead: any): LeadInput => {
     const input = mapRecordToLeadInput(flat);
     // custom questions: guess by words in the question key
     const extra: Record<string, any> = { ...(input.extra || {}) };
-    // holiday forms (travel dates, travellers, budget...) become travel enquiries (services/travel.ts)
-    const travel = travelFromExtra({ ...extra, ...(input.interested_country ? { destination: input.interested_country } : {}) });
-    if (Object.keys(travel).length) input.travel = { ...travel, ...(input.travel || {}) };
     for (const [key, value] of Object.entries(extra)) {
         const k = key.toLowerCase();
         if (!input.interested_country && /(country|destination)/.test(k)) { input.interested_country = String(value); delete extra[key]; }

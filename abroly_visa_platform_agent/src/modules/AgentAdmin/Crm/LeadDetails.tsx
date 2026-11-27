@@ -14,7 +14,6 @@ import CommonConfirmation from "@/components/CommonConfirmation";
 import { ErrorToast, SuccessToast } from "@/utils/Toaster";
 import LeadFormModal from "./LeadFormModal";
 import ConvertLeadModal from "./ConvertLeadModal";
-import TravelLeadPanel from "@/modules/AgentAdmin/Travel/TravelLeadPanel";
 import useModules from "@/hooks/useModules";
 import PortalInvitePanel from "./PortalInvitePanel";
 import FormField from "./FormField";
@@ -371,8 +370,6 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                     <Button size="sm" color="success" onPress={() => navigate(travelInfo?.booking_id ? `/travel/bookings/${travelInfo.booking_id}` : "/travel/bookings")}>Open booking</Button>
                 </div>
             )}
-
-            {lead.business_line === "travel" && travelOn && <TravelLeadPanel lead={lead} />}
 
             {lead.status === "converted" && !lead.converted_booking_id && (
                 <div className="rounded-xl border border-success-200 bg-success-50 px-3 py-3 flex flex-col sm:flex-row sm:items-center gap-3">

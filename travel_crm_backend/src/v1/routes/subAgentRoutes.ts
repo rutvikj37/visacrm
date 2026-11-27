@@ -1,0 +1,19 @@
+import express from 'express'
+import { validateAgent } from '../../middleware/authMiddleware'
+import SubAgentController from '../controller/SubAgentController'
+import { numberExistMw } from '../../middleware/validateExistMiddleware'
+
+const subAgentRoutes = express.Router()
+
+
+subAgentRoutes.route("/add").post(validateAgent,numberExistMw,SubAgentController.addSubAgent)
+subAgentRoutes.route("/send_login").post(validateAgent,SubAgentController.sendLoginDetails)
+subAgentRoutes.route("/can_add").get(validateAgent,SubAgentController.canAddSubAgents)
+subAgentRoutes.route("/update").post(validateAgent,SubAgentController.agentUpdate)
+subAgentRoutes.route("/delete").post(validateAgent,SubAgentController.deleteSubAgent)
+subAgentRoutes.route("/toggle").post(validateAgent,SubAgentController.toggleSubAgent)
+subAgentRoutes.route("/list").post(validateAgent,SubAgentController.listSubAgent)
+subAgentRoutes.route("/all_list").post(validateAgent,SubAgentController.allListSubAgent)
+subAgentRoutes.route("/sub_agents_drop_down").get(validateAgent,SubAgentController.allListDropDownSubAgent)
+
+export default subAgentRoutes

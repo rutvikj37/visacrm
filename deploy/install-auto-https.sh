@@ -4,16 +4,19 @@
 set -euo pipefail
 APP_DIR=/opt/visacrm
 WEBROOT=/var/www/letsencrypt
-PLATFORM_HOSTS="api.techxsolutions.io admin.techxsolutions.io crm.techxsolutions.io student.techxsolutions.io"
+PLATFORM_HOSTS="api.techxsolutions.io admin.techxsolutions.io crm.techxsolutions.io student.techxsolutions.io travel-api.techxsolutions.io travel.techxsolutions.io"
 say() { printf "\n\033[1;36m==> %s\033[0m\n" "$*"; }
 
 mkdir -p "$WEBROOT" /etc/nginx/visacrm-portals /var/lib/visacrm-certs
 cp "$APP_DIR/deploy/nginx-spa-snippet.conf" /etc/nginx/snippets/visacrm-spa.conf
 cp "$APP_DIR/deploy/nginx-ssl-snippet.conf" /etc/nginx/snippets/visacrm-ssl.conf
 cp "$APP_DIR/deploy/nginx-agency-snippet.conf" /etc/nginx/snippets/visacrm-agency.conf
-# the agency panel is served at /agency/ on every agency address (see nginx-agency-snippet.conf)
-mkdir -p /var/www/visacrm-agency
+cp "$APP_DIR/deploy/nginx-travel-agency-snippet.conf" /etc/nginx/snippets/travelcrm-agency.conf
+# the agency panel is served at /agency/ on every agency address (see nginx-agency-snippet.conf);
+# Visa CRM and Travel CRM each have their own panel build
+mkdir -p /var/www/visacrm-agency /var/www/travelcrm-agency
 ln -sfn "$APP_DIR/abroly_visa_platform_agent/dist" /var/www/visacrm-agency/agency
+ln -sfn "$APP_DIR/travel_crm_agent/dist" /var/www/travelcrm-agency/agency
 
 # the platform sites need their certificates before the HTTPS config can load
 missing=""

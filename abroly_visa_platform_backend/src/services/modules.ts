@@ -5,7 +5,8 @@ import SaasPlan from "../model/SaasPlan";
 import { RequestWithUser } from "../utils/types";
 
 /**
- * Which modules an agency can use (Travel CRM technical design, "CRM type and module control").
+ * Which modules an agency can use. This is the Visa CRM: every agency is a visa agency
+ * (the Travel CRM is a separate product with its own backend and database, in travel_crm_backend/).
  *
  *   final list = defaults for the agency's crm_type
  *              ∩ what its plan includes (no plan = everything)
@@ -16,8 +17,8 @@ import { RequestWithUser } from "../utils/types";
  */
 
 export type CrmType = "visa" | "travel" | "both";
-export const CRM_TYPES: CrmType[] = ["visa", "travel", "both"];
-export type ModuleGroup = "common" | "visa" | "travel";
+export const CRM_TYPES: CrmType[] = ["visa"];
+export type ModuleGroup = "common" | "visa";
 type Default = "on" | "addon" | "off";
 
 export interface ModuleDef {
@@ -43,9 +44,6 @@ export const MODULES: ModuleDef[] = [
     { key: "visa", label: "Visa cases, applications, templates", group: "visa", defaults: { visa: "on", travel: "addon", both: "on" } },
     { key: "jobs", label: "Job portal", group: "visa", defaults: { visa: "on", travel: "addon", both: "on" }, legacyAddon: true },
     { key: "language_prep", label: "Language preparation", group: "visa", defaults: { visa: "on", travel: "off", both: "on" }, legacyAddon: true },
-    { key: "itinerary", label: "Itineraries, library, packages, quotations", group: "travel", defaults: { visa: "addon", travel: "on", both: "on" } },
-    { key: "bookings", label: "Bookings, vouchers, operations calendar", group: "travel", defaults: { visa: "off", travel: "on", both: "on" } },
-    { key: "suppliers", label: "Suppliers, rate contracts, payables", group: "travel", defaults: { visa: "off", travel: "on", both: "on" } },
 ];
 
 export const MODULE_KEYS = MODULES.map((m) => m.key);
@@ -55,11 +53,6 @@ const byKey = new Map(MODULES.map((m) => [m.key, m]));
 export const MODULE_PATHS: [RegExp, string][] = [
     [/^\/api\/v1\/crm\/(cases|universities|visa_templates|commissions)(\/|$)/, "visa"],
     [/^\/api\/v1\/job_post(\/|$)/, "jobs"],
-    [/^\/api\/v1\/travel\/(library|itineraries|quotes|packages|pipeline|media)(\/|$)/, "itinerary"],
-    [/^\/api\/v1\/travel\/(bookings|clients|credit_notes)(\/|$)/, "bookings"],
-    [/^\/api\/v1\/travel\/finance(\/|$)/, "suppliers"],
-    [/^\/api\/v1\/travel\/(reports|targets)(\/|$)/, "itinerary"],
-    [/^\/api\/v1\/travel\/suppliers(\/|$)/, "suppliers"],
 ];
 
 export const moduleForPath = (url: string): string | null => {
@@ -68,7 +61,7 @@ export const moduleForPath = (url: string): string | null => {
     return null;
 };
 
-export const normalizeCrmType = (v: any): CrmType => (CRM_TYPES.includes(v) ? v : "visa");
+export const normalizeCrmType = (_v?: any): CrmType => "visa";
 
 const planAllows = (plan: any, key: string) => {
     if (!plan) return true;

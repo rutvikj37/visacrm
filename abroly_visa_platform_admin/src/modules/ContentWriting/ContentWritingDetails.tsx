@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import FileSaver from 'file-saver'
 import useApiCallUtils from '@/hooks/useApiCallUtils'
+import { apiBase } from "@/utils/product";
 
 const ContentWritingDetails = () => {
 
@@ -41,7 +42,7 @@ const ContentWritingDetails = () => {
 
     }
 
-    const BaseUrl = import.meta.env.VITE_API_BASE_URL
+    const BaseUrl = apiBase()
 
     // provide file
 
