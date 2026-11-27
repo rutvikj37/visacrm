@@ -481,19 +481,35 @@ export const syncFacebookPage = async (integration: any, days = 7) => {
 export const waCredentials = (integration: any) =>
     decryptJson<{ access_token: string; phone_number_id: string; waba_id?: string; app_secret?: string; verify_token?: string }>(integration.dataValues.credentials);
 
-/** Check the agency's WhatsApp credentials and subscribe our app to their WhatsApp Business Account. */
+/**
+ * Check the agency's WhatsApp credentials (phone must work with the token).
+ * Also try to subscribe our app to their WABA for webhooks. Subscription is best-effort:
+ * if the system user token cannot manage that WABA (not assigned / wrong id), we still
+ * return phone info so Connect can save credentials; the caller gets a warning to fix Meta.
+ */
 export const verifyWhatsapp = async (accessToken: string, phoneNumberId: string, wabaId?: string) => {
     const info = await graphGet(phoneNumberId, {
         fields: "display_phone_number,verified_name,quality_rating",
         access_token: accessToken,
     });
+    let subscription_warning: string | null = null;
     if (wabaId) {
-        await graphPost(`${wabaId}/subscribed_apps`, null, {}, { Authorization: `Bearer ${accessToken}` });
+        try {
+            await graphPost(`${wabaId}/subscribed_apps`, null, {}, { Authorization: `Bearer ${accessToken}` });
+        } catch (error: any) {
+            const raw = String(error?.message || "");
+            const looksLikeAccess =
+                /does not exist|missing permissions|does not support this operation|Unsupported post request|#100|#200|#10/i.test(raw);
+            subscription_warning = looksLikeAccess
+                ? `Number verified, but webhook subscribe failed for WhatsApp Business Account ${wabaId}. In Meta Business Settings → Users → System users, open the system user for this token → Assign assets → add this WhatsApp account (Manage). Confirm the WhatsApp Business Account ID from WhatsApp → API Setup, then reconnect. Until then, set the webhook URL shown after connect and subscribe to messages in Meta.`
+                : `Number verified, but webhook subscribe failed: ${raw}. Set the webhook URL shown after connect in Meta (WhatsApp → Configuration) and subscribe to messages, or fix WABA access and reconnect.`;
+        }
     }
     return {
         display_phone_number: info?.display_phone_number || null,
         verified_name: info?.verified_name || null,
         quality_rating: info?.quality_rating || null,
+        subscription_warning,
     };
 };
 

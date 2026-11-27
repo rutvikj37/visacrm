@@ -146,9 +146,9 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
                 <div className="flex flex-col gap-3">
                     <ol className="text-sm text-default-500 list-decimal ml-5 space-y-1">
                         <li><b>business.facebook.com</b> → WhatsApp Manager: add the agency's number to WhatsApp Cloud API and verify it by OTP.</li>
-                        <li>Meta app → <b>WhatsApp → API Setup</b>: copy the <b>Phone number ID</b> and <b>WhatsApp Business Account ID</b>.</li>
-                        <li>Business Settings → <b>System users</b> → generate a <b>permanent token</b> with whatsapp_business_messaging and whatsapp_business_management.</li>
-                        <li>The app's <b>App secret</b> is in App settings → Basic (needed if the token is from your own Meta app).</li>
+                        <li>Meta app → <b>WhatsApp → API Setup</b>: copy the <b>Phone number ID</b> and <b>WhatsApp Business Account ID</b> from that screen.</li>
+                        <li>Business Settings → <b>Users → System users</b> → open the system user → <b>Assign assets</b> → add this WhatsApp account with <b>Manage</b>, then generate a permanent token with whatsapp_business_messaging and whatsapp_business_management.</li>
+                        <li>App secret is in App settings → Basic. After connect, set the webhook URL + verify token under WhatsApp → Configuration and subscribe to <b>messages</b>.</li>
                     </ol>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Input label="Phone number ID" labelPlacement="outside" placeholder="e.g. 123456789012345" inputMode="numeric" value={form.phone_number_id} onValueChange={set("phone_number_id")} />

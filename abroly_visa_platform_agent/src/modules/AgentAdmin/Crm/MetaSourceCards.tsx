@@ -223,9 +223,9 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
                     <div className="flex flex-col gap-3">
                         <ol className="text-sm text-default-500 list-decimal ml-5 space-y-1">
                             <li>Open <b>business.facebook.com</b> → WhatsApp Manager and add your business number (WhatsApp Cloud API).</li>
-                            <li>In your Meta app: <b>WhatsApp → API Setup</b> - copy the <b>Phone number ID</b> and <b>WhatsApp Business Account ID</b>.</li>
-                            <li>Business Settings → <b>System users</b> → generate a <b>permanent token</b> with whatsapp_business_messaging and whatsapp_business_management.</li>
-                            <li>Your app's <b>App secret</b> is in App settings → Basic.</li>
+                            <li>In your Meta app: <b>WhatsApp → API Setup</b> — copy the <b>Phone number ID</b> and <b>WhatsApp Business Account ID</b> from that screen (do not reuse an old ID).</li>
+                            <li>Business Settings → <b>Users → System users</b> → open the system user → <b>Assign assets</b> → add this <b>WhatsApp account</b> with <b>Manage</b> permission, then generate a <b>permanent token</b> with whatsapp_business_messaging and whatsapp_business_management.</li>
+                            <li>Your app's <b>App secret</b> is in App settings → Basic. After connect, paste the webhook URL + verify token under WhatsApp → Configuration and subscribe to <b>messages</b>.</li>
                         </ol>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <FormField label="Phone number ID"><Input aria-label="Phone number ID" inputMode="numeric" value={form.phone_number_id} onValueChange={set("phone_number_id")} /></FormField>
