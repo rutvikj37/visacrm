@@ -39,15 +39,30 @@ export const connectWhatsapp = async (agencyUuid: string, body: any): Promise<{ 
     try {
         info = await verifyWhatsapp(accessToken, phoneNumberId, wabaId);
     } catch (error: any) {
-        return { ok: false, message: `WhatsApp said: ${error.message}` };
+        const raw = String(error?.message || "request failed");
+        // Phone verify failed — usually bad token, wrong Phone number ID, or token lacks messaging access
+        if (/does not exist|missing permissions|Unsupported/i.test(raw)) {
+            return {
+                ok: false,
+                message: `WhatsApp could not verify Phone number ID ${phoneNumberId}: ${raw}. Check the ID from WhatsApp → API Setup, and that this permanent token belongs to a system user with that WhatsApp asset assigned.`,
+            };
+        }
+        return { ok: false, message: `WhatsApp said: ${raw}` };
     }
 
+    const { subscription_warning, ...phoneInfo } = info;
     const values: any = {
-        name: info.verified_name ? `${info.verified_name} (${info.display_phone_number})` : info.display_phone_number || "WhatsApp",
+        name: phoneInfo.verified_name ? `${phoneInfo.verified_name} (${phoneInfo.display_phone_number})` : phoneInfo.display_phone_number || "WhatsApp",
         external_id: phoneNumberId,
-        settings: { ...info, phone_number_id: phoneNumberId, waba_id: wabaId },
+        settings: {
+            ...phoneInfo,
+            phone_number_id: phoneNumberId,
+            waba_id: wabaId,
+            waba_subscribed: !subscription_warning,
+        },
         status: "active",
-        last_error: null,
+        // surface subscribe issues on the card without blocking connect (outbound still works)
+        last_error: subscription_warning || null,
     };
     // "add another number": a second (third...) WhatsApp number; otherwise update the first one
     const existing: any = body?.add_number
@@ -64,5 +79,10 @@ export const connectWhatsapp = async (agencyUuid: string, body: any): Promise<{ 
     });
     if (existing) await LeadIntegration.update(values, { where: { id: existing.dataValues.id } });
     else await LeadIntegration.create({ ...values, agency_uuid: agencyUuid, type: "whatsapp", public_key: generatePublicKey() });
-    return { ok: true, message: `WhatsApp connected: ${info.display_phone_number || phoneNumberId}` };
+
+    const connected = `WhatsApp connected: ${phoneInfo.display_phone_number || phoneNumberId}`;
+    if (subscription_warning) {
+        return { ok: true, message: `${connected}. ${subscription_warning}` };
+    }
+    return { ok: true, message: connected };
 };
