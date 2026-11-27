@@ -3,6 +3,7 @@ import { decryptJson, encryptJson, generatePublicKey } from "../helpers/crypto";
 import { parseJsonValue } from "../helpers/json";
 import { assertSourceAllowed } from "./saas";
 import { verifyWhatsapp } from "./meta";
+import { isAutoCreateEnabled } from "./whatsappPending";
 
 /**
  * Connect (or update) an agency's WhatsApp Cloud API number as a lead source.
@@ -67,7 +68,7 @@ export const connectWhatsapp = async (agencyUuid: string, body: any): Promise<{ 
             phone_number_id: phoneNumberId,
             waba_id: wabaId,
             waba_subscribed: !subscription_warning,
-            auto_create_leads: prevSettings.auto_create_leads !== false,
+            auto_create_leads: isAutoCreateEnabled(prevSettings.auto_create_leads),
         },
         status: "active",
         // surface subscribe issues on the card without blocking connect (outbound still works)

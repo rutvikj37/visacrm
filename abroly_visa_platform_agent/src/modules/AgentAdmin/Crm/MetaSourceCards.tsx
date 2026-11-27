@@ -171,7 +171,9 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
                 </p>
 
                 {allNumbers.map((wa) => {
-                    const autoCreate = wa.settings?.auto_create_leads !== false;
+                    // switch ON = auto-create; OFF = review-first (must match the label or the setting looks disabled when it is not)
+                    const raw = wa.settings?.auto_create_leads;
+                    const autoCreate = !(raw === false || raw === "false" || raw === 0 || raw === "0");
                     return (
                     <div key={wa.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
@@ -181,18 +183,18 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
                         <Stats i={wa} />
                         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-default-50 px-2 py-1.5">
                             <div className="min-w-0 flex-1 text-xs text-default-600">
-                                <b>{autoCreate ? "Auto-create leads" : "Review first"}</b>
+                                <b>Auto-create leads</b>
                                 {" — "}
                                 {autoCreate
-                                    ? "every new chat becomes a lead"
-                                    : "new chats stay in WhatsApp inbox until you add them as leads"}
+                                    ? "ON: every new chat becomes a lead"
+                                    : "OFF: new chats stay in WhatsApp inbox until you Add as lead"}
                             </div>
                             <Switch
                                 size="sm"
-                                isSelected={!autoCreate}
+                                isSelected={autoCreate}
                                 isDisabled={busy === `mode-${wa.uuid}`}
-                                onValueChange={(on) => call(`mode-${wa.uuid}`, `crm/integrations/${wa.uuid}/whatsapp_mode`, { auto_create_leads: !on })}
-                                aria-label="Review first"
+                                onValueChange={(on) => call(`mode-${wa.uuid}`, `crm/integrations/${wa.uuid}/whatsapp_mode`, { auto_create_leads: on })}
+                                aria-label="Auto-create leads"
                             />
                         </div>
                         {wa.last_error && <div className="text-sm bg-danger-50 text-danger rounded-lg p-2 break-words">Last problem: {wa.last_error}</div>}

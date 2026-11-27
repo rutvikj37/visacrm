@@ -846,7 +846,11 @@ class SaasAdminController {
             const a = await whatsappAgency(req);
             if (!a) return returnHelper(res, 200, false, "Agency not found");
             const { setWhatsappAutoCreate } = await import("../../services/whatsappPending");
-            const auto = req.body?.auto_create_leads !== false && req.body?.auto_create_leads !== "false";
+            const raw = req.body?.auto_create_leads;
+            if (raw === undefined || raw === null || raw === "") {
+                return returnHelper(res, 200, false, "Send auto_create_leads: true or false");
+            }
+            const auto = !(raw === false || raw === "false" || raw === 0 || raw === "0");
             const result = await setWhatsappAutoCreate(a.uuid, req.params.integration, auto);
             if (result.ok) {
                 audit(null, {

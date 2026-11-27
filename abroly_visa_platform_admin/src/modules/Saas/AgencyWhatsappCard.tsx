@@ -84,7 +84,8 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
             )}
 
             {numbers.map((n) => {
-                const autoCreate = n.settings?.auto_create_leads !== false;
+                const raw = n.settings?.auto_create_leads;
+                const autoCreate = !(raw === false || raw === "false" || raw === 0 || raw === "0");
                 return (
                 <div key={n.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -96,25 +97,25 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
                     </div>
                     <div className="flex flex-wrap items-center gap-2 rounded-lg bg-default-50 px-2 py-1.5">
                         <div className="min-w-0 flex-1 text-xs text-default-600">
-                            <b>{autoCreate ? "Auto-create leads" : "Review first"}</b>
+                            <b>Auto-create leads</b>
                             {" — "}
-                            {autoCreate ? "new chats become leads" : "new chats wait in inbox until Add as lead"}
+                            {autoCreate ? "ON: new chats become leads" : "OFF: new chats wait in inbox until Add as lead"}
                         </div>
                         <Switch
                             size="sm"
-                            isSelected={!autoCreate}
+                            isSelected={autoCreate}
                             isDisabled={busy === `mode-${n.uuid}`}
                             onValueChange={async (on) => {
                                 setBusy(`mode-${n.uuid}`);
                                 const { success } = await commonPostAPICall(
-                                    { auto_create_leads: !on },
+                                    { auto_create_leads: on },
                                     `saas_admin/agencies/${agencyId}/whatsapp/${n.uuid}/mode`,
                                     true,
                                 );
                                 setBusy(null);
                                 if (success) load();
                             }}
-                            aria-label="Review first"
+                            aria-label="Auto-create leads"
                         />
                     </div>
                     {n.last_error && <div className="text-sm bg-danger-50 text-danger rounded-lg p-2 break-words">Last problem: {n.last_error}</div>}
