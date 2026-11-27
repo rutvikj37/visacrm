@@ -89,7 +89,7 @@ const BranchesPage = () => {
                         <li>Otherwise the lead's city matches a branch's city or one of its cities.</li>
                         <li>Otherwise it goes to the branch of the person it is assigned to.</li>
                     </ol>
-                    <div>With auto-assign on, the lead then goes to the next counsellor of that branch. Team members are added to a branch in <button type="button" className="text-primary" onClick={() => navigate("/team/roles")}>Roles & branches</button>.</div>
+                    <div>With auto-assign on, the lead then goes to the next counsellor of that branch. Assign people to a branch when you add them under <button type="button" className="text-primary" onClick={() => navigate("/sub_agent")}>Team & roles</button>.</div>
                 </CardBody>
             </Card>
 
@@ -115,7 +115,7 @@ const BranchesPage = () => {
                                 <Button isIconOnly size="sm" variant="light" color="danger" aria-label="Remove" onPress={() => remove(b)}><Trash2 size={15} /></Button>
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                <Stat icon={Users} label="Team" value={b.team} onPress={() => navigate("/team/roles")} />
+                                <Stat icon={Users} label="Team" value={b.team} onPress={() => navigate("/sub_agent")} />
                                 <Stat icon={Inbox} label="Open leads" value={b.open_leads} onPress={() => navigate(`/crm/leads?branch=${b.id}`)} />
                                 <Stat icon={KanbanSquare} label="Open cases" value={b.open_cases} onPress={() => navigate(`/cases/board?branch=${b.id}`)} />
                                 <Stat icon={Receipt} label="Fees" value="View" onPress={() => navigate(`/fees?branch=${b.id}`)} />

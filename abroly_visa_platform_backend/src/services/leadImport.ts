@@ -11,7 +11,7 @@ import { ingestLead, LeadInput, LeadValidationError } from "./leadIngestion";
 export const MAX_IMPORT_ROWS = 5000;
 
 const FIELD_ALIASES: Record<keyof LeadInput | "first_name" | "last_name", string[]> = {
-    name: ["name", "fullname", "studentname", "leadname", "customername", "contactname", "sendername"],
+    name: ["name", "fullname", "studentname", "leadname", "customername", "contactname", "sendername", "clientname"],
     first_name: ["firstname", "fname"],
     last_name: ["lastname", "lname", "surname"],
     phone: ["phone", "phonenumber", "mobile", "mobilenumber", "mobileno", "phoneno", "contact", "contactnumber", "whatsapp", "whatsappnumber", "sendermobile"],
@@ -24,12 +24,13 @@ const FIELD_ALIASES: Record<keyof LeadInput | "first_name" | "last_name", string
     intake: ["intake", "intakeyear", "intakemonth", "session"],
     message: ["message", "notes", "note", "remarks", "remark", "comments", "comment", "query", "querymessage", "requirement"],
     campaign: ["campaign", "campaignname", "adname", "adsetname", "formname"],
-    source_ref: ["id", "leadid", "uniquequeryid", "externalid", "referenceid"],
+    // File ID from agency Excel sheets maps to source_ref so the old sheet number is kept
+    source_ref: ["id", "leadid", "uniquequeryid", "externalid", "referenceid", "fileid", "fileno", "caseno"],
     tags: ["tags", "tag", "labels"],
     extra: [],
     assigned_to: [],
     status: [],
-    next_follow_up_at: [],
+    next_follow_up_at: ["nextfollowupdate", "followupdate", "nextfollowup"],
     branch_id: [],
     travel: [],
 };

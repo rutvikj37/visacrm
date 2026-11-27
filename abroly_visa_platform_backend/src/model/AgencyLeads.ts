@@ -92,7 +92,10 @@ const AgencyLeads = sequelize.define('AgencyLeads', {
     // visa application timeline (CaseController.saveVisa)
     visa_lodged_on:{ type:DataTypes.DATEONLY, allowNull: true },
     biometrics_on:{ type:DataTypes.DATEONLY, allowNull: true },
+    interview_on:{ type:DataTypes.DATEONLY, allowNull: true },
     decision_on:{ type:DataTypes.DATEONLY, allowNull: true },
+    // Excel-style file tracker statuses (DS-160, docs, appointment, passport…) — see services/fileTracker.ts
+    file_tracker:{ type:DataTypes.TEXT, allowNull: true },
     // structured reason when the visa is refused (REFUSAL_REASONS in CaseController); free text stays in `reason`
     refusal_reason:{ type:DataTypes.STRING(50), allowNull: true },
     // a new case opened after a refusal points back to the refused one

@@ -325,7 +325,9 @@ const CaseBoard = () => {
                 <div className="min-w-0">
                     <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Visa cases</h1>
                     <p className="text-sm text-default-500">
-                        {view === "list" ? "All cases in one list — open a row to continue" : "Cases by stage — drag or use ⋮ to move"}
+                        {view === "list"
+                            ? "Your file sheet in CRM — client, country, DS-160, appointment, payment and staff"
+                            : "Cases by stage — drag or use ⋮ to move"}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -421,6 +423,11 @@ const CaseBoard = () => {
                                         {c.steps_total > 0 && (
                                             <div className="text-xs text-default-500">Steps {c.steps_done}/{c.steps_total} ({pct}%)</div>
                                         )}
+                                        <div className="flex flex-wrap gap-1">
+                                            {c.file_tracker?.ds160_status && <Chip size="sm" variant="flat">DS-160: {c.file_tracker.ds160_status}</Chip>}
+                                            {c.file_tracker?.appointment_status && <Chip size="sm" variant="flat">{c.file_tracker.appointment_status}</Chip>}
+                                            {c.file_tracker?.payment_status && <Chip size="sm" variant="flat">{c.file_tracker.payment_status}</Chip>}
+                                        </div>
                                         <div className="text-[11px] text-default-500 flex flex-wrap gap-x-3 gap-y-1">
                                             <span className="inline-flex items-center gap-1"><User size={11} />{c.assignee?.name || "Unassigned"}</span>
                                             {c.overdue_steps > 0 ? (
@@ -441,46 +448,45 @@ const CaseBoard = () => {
                             <Table aria-label="Visa cases" removeWrapper selectionMode="multiple" selectionBehavior="toggle" selectedKeys={selected} onSelectionChange={setSelected}
                                 onRowAction={(key) => navigate(`/leads/progress/${key}`)} className="min-w-[860px]">
                                 <TableHeader>
-                                    <TableColumn>STUDENT</TableColumn>
-                                    <TableColumn>COUNTRY / PROGRAM</TableColumn>
+                                    <TableColumn>FILE / CLIENT</TableColumn>
+                                    <TableColumn>COUNTRY / VISA</TableColumn>
+                                    <TableColumn>DS-160</TableColumn>
+                                    <TableColumn>DOCS</TableColumn>
+                                    <TableColumn>APPOINTMENT</TableColumn>
+                                    <TableColumn>PAYMENT</TableColumn>
                                     <TableColumn>STAGE</TableColumn>
-                                    <TableColumn>STEPS</TableColumn>
-                                    <TableColumn>HANDLED BY</TableColumn>
-                                    <TableColumn>DUE</TableColumn>
+                                    <TableColumn>STAFF</TableColumn>
                                     <TableColumn align="end">ACTIONS</TableColumn>
                                 </TableHeader>
                                 <TableBody emptyContent="No cases match these filters." items={visible}>
                                     {(c: any) => {
-                                        const pct = c.steps_total ? Math.round((c.steps_done / c.steps_total) * 100) : 0;
+                                        const ft = c.file_tracker || {};
                                         return (
                                             <TableRow key={String(c.id)} className="cursor-pointer">
                                                 <TableCell>
                                                     <div className="font-medium">{c.student?.name || "Student"}</div>
+                                                    <div className="text-xs text-default-500">#{c.id}{c.student?.phone ? ` · ${c.student.phone}` : ""}</div>
                                                     {c.to_review > 0 && <Chip size="sm" variant="flat" color="warning" className="mt-1">{c.to_review} to review</Chip>}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="text-sm">{c.country || "-"}</div>
-                                                    <div className="text-xs text-default-500 truncate max-w-[220px]">{[c.university, c.course, c.intake].filter(Boolean).join(" · ")}</div>
+                                                    <div className="text-xs text-default-500 truncate max-w-[180px]">{[c.university, c.course, c.intake].filter(Boolean).join(" · ") || "—"}</div>
                                                 </TableCell>
-                                                <TableCell>{caseStatusChip(c)}</TableCell>
+                                                <TableCell className="text-xs">{ft.ds160_status || <span className="text-default-400">—</span>}</TableCell>
+                                                <TableCell className="text-xs">{ft.doc_checklist_status || <span className="text-default-400">—</span>}</TableCell>
                                                 <TableCell>
-                                                    {c.steps_total > 0 ? (
-                                                        <div className="min-w-[100px]">
-                                                            <div className="text-xs text-default-500 mb-1">{c.steps_done}/{c.steps_total}</div>
-                                                            <div className="h-1.5 rounded-full bg-default-100"><div className="h-1.5 rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
+                                                    <div className="text-xs">{ft.appointment_status || <span className="text-default-400">—</span>}</div>
+                                                    {(c.biometrics_on || c.interview_on) && (
+                                                        <div className="text-[11px] text-default-500">
+                                                            {[c.biometrics_on && `OFC ${fmtShortDate(c.biometrics_on)}`, c.interview_on && `IV ${fmtShortDate(c.interview_on)}`].filter(Boolean).join(" · ")}
                                                         </div>
-                                                    ) : <span className="text-default-400 text-xs">-</span>}
+                                                    )}
                                                 </TableCell>
+                                                <TableCell className="text-xs">{ft.payment_status || <span className="text-default-400">—</span>}</TableCell>
+                                                <TableCell>{caseStatusChip(c)}</TableCell>
                                                 <TableCell className="text-sm">
                                                     {c.assignee?.name || <span className="text-default-400">Unassigned</span>}
                                                     {branches.length > 0 && c.branch_id && <div className="text-xs text-default-500">{branchName(branches, c.branch_id)}</div>}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {c.overdue_steps > 0 ? (
-                                                        <span className="text-xs text-danger font-medium">{c.overdue_steps} overdue</span>
-                                                    ) : c.next_due && !c.outcome ? (
-                                                        <span className="text-xs text-default-600">Due {fmtShortDate(c.next_due)}</span>
-                                                    ) : <span className="text-default-400 text-xs">-</span>}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex justify-end" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
