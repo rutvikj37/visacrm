@@ -7,17 +7,27 @@ import { Pencil, Plus, Trash2, Users } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast } from "@/utils/Toaster";
 import { FormField, rupees } from "./saasShared";
+import { getProduct } from "@/utils/product";
 
 type Feature = { key: string; label: string };
 type Draft = {
     id?: string; name: string; description: string; price: string; duration_months: string;
     unlimited: boolean; max_team_members: string; sources: string[]; addons: string[]; active: boolean; sort_order: string;
+    quote_limit: string; // Travel CRM: new quotes a month, "" = unlimited
+    extra: Record<string, any>; // other saved features (e.g. modules), kept as they are
 };
 
 const emptyDraft = (): Draft => ({
     name: "", description: "", price: "0", duration_months: "6", unlimited: true, max_team_members: "",
-    sources: [], addons: [], active: true, sort_order: "0",
+    sources: [], addons: [], active: true, sort_order: "0", quote_limit: "", extra: {},
 });
+
+/** Saved features other than sources/add-ons: the quote limit, plus anything else (kept untouched on save). */
+const fromFeatures = (f: any) => {
+    const { sources, addons, quote_limit, ...extra } = f || {};
+    void sources; void addons;
+    return { quote_limit: Number(quote_limit) > 0 ? String(quote_limit) : "", extra };
+};
 
 const packagePrice = (p: any) => {
     if (Number(p.duration_months) === 12) return Number(p.price_yearly || p.price_monthly || 0);
@@ -26,6 +36,7 @@ const packagePrice = (p: any) => {
 
 const SaasPlans = () => {
     const { commonGetAPICalls, commonPostAPICall } = useApiCallUtils();
+    const travel = getProduct() === "travel";
     const [plans, setPlans] = useState<any[]>([]);
     const [features, setFeatures] = useState<{ sources: Feature[]; addons: Feature[] }>({ sources: [], addons: [] });
     const [loading, setLoading] = useState(true);
@@ -66,6 +77,7 @@ const SaasPlans = () => {
             duration_months: String(p.duration_months || 6),
             unlimited: p.max_team_members === null, max_team_members: p.max_team_members === null ? "" : String(p.max_team_members),
             sources: p.features?.sources || [], addons: p.features?.addons || [], active: p.status === "active", sort_order: String(p.sort_order || 0),
+            ...fromFeatures(p.features),
         });
         editor.onOpen();
     };
@@ -82,7 +94,7 @@ const SaasPlans = () => {
             price_yearly: months === 12 ? price : 0,
             duration_months: months,
             max_team_members: d.unlimited ? null : Number(d.max_team_members || 0),
-            features: { sources: d.sources, addons: d.addons },
+            features: { ...d.extra, sources: d.sources, addons: d.addons, ...(Number(d.quote_limit) > 0 ? { quote_limit: Math.round(Number(d.quote_limit)) } : {}) },
             status: status || (d.active ? "active" : "inactive"),
             sort_order: Number(d.sort_order || 0),
         };
@@ -115,6 +127,7 @@ const SaasPlans = () => {
             max_team_members: p.max_team_members === null ? "" : String(p.max_team_members),
             sources: p.features?.sources || [], addons: p.features?.addons || [],
             active: status === "active", sort_order: String(p.sort_order || 0),
+            ...fromFeatures(p.features),
         };
         const { success } = await commonPostAPICall(planBody(draftFromPlan, status), `saas_admin/plans/${p.id}/update`, true);
         setTogglingId(null);
@@ -158,6 +171,7 @@ const SaasPlans = () => {
                                 </span>
                             </div>
                             <div className="text-sm flex items-center gap-2"><Users size={14} /> {p.max_team_members === null ? "Unlimited team" : `${p.max_team_members} team member(s)`}</div>
+                            {travel && <div className="text-sm text-default-600">{Number(p.features?.quote_limit) > 0 ? `${p.features.quote_limit} new quotes / month` : "Unlimited quotes"}</div>}
                             <div>
                                 <div className="text-xs text-default-500 mb-1">Lead sources</div>
                                 <div className="flex flex-wrap gap-1">
@@ -210,6 +224,14 @@ const SaasPlans = () => {
                                             <Switch size="sm" isSelected={draft.unlimited} onValueChange={(v) => setDraft({ ...draft, unlimited: v })}>Unlimited</Switch>
                                         </div>
                                     </FormField>
+                                    {travel && (
+                                        <FormField label="New quotes per month">
+                                            <div className="flex items-center gap-3">
+                                                <Input aria-label="Quote limit" type="number" min={0} placeholder="Unlimited" value={draft.quote_limit} onValueChange={(v) => setDraft({ ...draft, quote_limit: v })} className="w-28" />
+                                                <span className="text-xs text-default-500">Empty = unlimited. Resets on the 1st.</span>
+                                            </div>
+                                        </FormField>
+                                    )}
                                     <FormField label="Status"><Switch size="sm" isSelected={draft.active} onValueChange={(v) => setDraft({ ...draft, active: v })}>Available</Switch></FormField>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
