@@ -476,12 +476,82 @@ const TRAVEL_TEMPLATES: LibraryTemplate[] = [
     },
     {
         key: "usa-b1b2", name: "USA B1/B2 Visitor Visa", country: "USA", visa_type: "Business / Tourist Visa (B1/B2)",
-        description: "US visitor visa for business and tourism, with DS-160 and interview preparation.",
-        steps: travelSteps(false, {
-            trip: [text("Purpose: tourism, business meetings or both?")],
-            personal: [file("DS-160 confirmation page"), text("Previous US visa refusals (if any) - year and reason")],
-            appointment: [text("OFC (biometrics) date and consulate interview date"), text("Mock interview done? (we schedule it)")],
-        }),
+        description: "US visitor file tracker: DS-160, documents, application form, OFC, interview training and passport — matches a typical agency Excel sheet.",
+        steps: [
+            {
+                title: "Client & trip", due_in_days: 1,
+                description: "Who is travelling and why (same as Client Name / Country / Visa Type on the file sheet).",
+                questions: [
+                    text("Purpose: tourism, business meetings or both?"),
+                    text("Planned travel dates (from - to)"),
+                    text("Who is travelling? (names and relation)"),
+                    text("WhatsApp number (if different from mobile)"),
+                ],
+            },
+            {
+                title: "Document checklist", due_in_days: 4,
+                description: "Mark Document Checklist Status on the case File tracker; list Documents Pending here.",
+                questions: [
+                    file("Passport - first and last page (valid 6+ months after return)"),
+                    file("Old passports / previous US visas (if any)"),
+                    file("Passport size photo (white background, recent)"),
+                    file("Aadhaar card and PAN card"),
+                    file("Bank statements - last 6 months (stamped by the bank)"),
+                    file("Income tax returns / Form 16 - last 3 years"),
+                    file("Salary slips - last 3 months (or business proof if self-employed)"),
+                    file("Leave letter / NOC from employer (or business registration)"),
+                    text("Documents still pending (list)"),
+                ],
+            },
+            {
+                title: "DS-160", due_in_days: 6,
+                description: "Update DS-160 STATUS and DS Manage on the case File tracker.",
+                questions: [
+                    text("DS-160 confirmation / application ID"),
+                    file("DS-160 confirmation page (PDF)"),
+                    text("Previous US visa refusals (if any) - year and reason"),
+                    text("Who is managing the DS-160? (staff name)"),
+                ],
+            },
+            {
+                title: "Application form & fees", due_in_days: 8,
+                description: "Application Form Status and Payment Status also live on the File tracker / Client fees.",
+                questions: [
+                    file("Signed cover letter / supporting forms"),
+                    file("Flight reservation (return)"),
+                    file("Hotel bookings / invitation letter"),
+                    file("MRV fee / visa fee payment receipt"),
+                    text("Fee payment notes (partial / balance due)"),
+                ],
+            },
+            {
+                title: "Appointment (OFC & interview)", due_in_days: 14,
+                description: "Set Biometrics / Interview dates on the case header; Appointment Status on File tracker.",
+                questions: [
+                    text("OFC (biometrics) centre and date"),
+                    text("Consulate interview date and location"),
+                    file("Appointment confirmation (OFC / interview)"),
+                ],
+            },
+            {
+                title: "Interview training", due_in_days: 16,
+                description: "Interview Training Status on the File tracker.",
+                questions: [
+                    text("Mock interview done? Date and trainer"),
+                    text("Weak answers to practise again"),
+                    file("Interview prep notes / Q&A sheet"),
+                ],
+            },
+            {
+                title: "Decision & passport", due_in_days: 30,
+                description: "Passport Collection status on File tracker; Visa Result on the case outcome buttons.",
+                questions: [
+                    text("Passport with: client / agency / consulate / returned"),
+                    file("Visa copy (first page with the visa)"),
+                    text("Visa result notes (approved / refused / 221g)"),
+                ],
+            },
+        ],
     },
     {
         key: "canada-trv", name: "Canada Visitor Visa (TRV)", country: "Canada", visa_type: "Tourist Visa",

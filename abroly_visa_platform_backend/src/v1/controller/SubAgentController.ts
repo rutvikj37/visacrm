@@ -1,8 +1,10 @@
 import { Response } from "express"
 import { assertTeamLimit, getAgencyAccess } from "../../services/saas";
 import Agent from "../../model/Agent"
+import AgencyBranch from "../../model/AgencyBranch"
 import { RequestWithUser } from "../../utils/types"
 import { returnHelper } from "../../helpers/returnHelper"
+import { TEAM_ROLES } from "../../helpers/access"
 import { Op } from "sequelize"
 import Subscription from "../../model/Subscription"
 import { sendLoginEmail, setLoginCode } from "../../services/agencyLogin"
@@ -10,6 +12,25 @@ import { normalizeCountryCode } from "../../services/phoneMatch"
 import { panelBaseOf } from "../../services/panelUrl"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+/** Resolve role + branch for this agency when adding/editing a team member. */
+const resolveTeamPlacement = async (agencyUuid: string, body: any) => {
+    let team_role = "counsellor"
+    if (body?.team_role !== undefined && body?.team_role !== null && String(body.team_role).trim()) {
+        const role = String(body.team_role).trim()
+        if (!(TEAM_ROLES as readonly string[]).includes(role)) throw new Error("Invalid role")
+        team_role = role
+    }
+    let branch_id: number | null = null
+    if (body?.branch_id !== undefined && body?.branch_id !== null && body?.branch_id !== "" && body?.branch_id !== "none") {
+        const id = Number(body.branch_id)
+        if (!id || !(await AgencyBranch.findOne({ where: { id, agency_uuid: agencyUuid }, attributes: ["id"] }))) {
+            throw new Error("Branch not found")
+        }
+        branch_id = id
+    }
+    return { team_role, branch_id }
+}
 
 class SubAgentController {
 
@@ -46,11 +67,19 @@ class SubAgentController {
             const countryCode = normalizeCountryCode(b.country_code);
             const email = String(b.email || "").trim().toLowerCase().slice(0, 255);
             const designation = b.designation ? String(b.designation).trim().slice(0, 255) : null;
+            const agencyUuid = req.user?.user?.uuid as string
 
             if (!username) return returnHelper(res, 200, false, "Please enter the member's name")
             if (phone.length !== 10) return returnHelper(res, 200, false, "Please enter a valid 10-digit mobile number")
             if (!email) return returnHelper(res, 200, false, "Please enter the member's email - their login details are sent there")
             if (!EMAIL_RE.test(email)) return returnHelper(res, 200, false, "Please enter a valid email address")
+
+            let placement: { team_role: string; branch_id: number | null }
+            try {
+                placement = await resolveTeamPlacement(agencyUuid, b)
+            } catch (e: any) {
+                return returnHelper(res, 200, false, e.message)
+            }
 
             // SaaS plan: team member limit
             try {
@@ -66,7 +95,9 @@ class SubAgentController {
                 designation,
                 country_code: countryCode,
                 role: "sub-agent",
-                parent_uuid: req.user?.user?.uuid,
+                team_role: placement.team_role,
+                branch_id: placement.branch_id,
+                parent_uuid: agencyUuid,
                 parent_id: req.user?.user?.id
             })
 
@@ -115,22 +146,33 @@ class SubAgentController {
 
     async agentUpdate(req: RequestWithUser, res: Response) {
         try {
-
-            const { user_name: username, email, uuid, designation } = req.body
+            const b = req.body || {}
+            const { user_name: username, email, uuid, designation } = b
+            const agencyUuid = req.user?.user?.uuid as string
 
             if (!uuid) {
                 return returnHelper(res, 200, false, "Please Provide All Params")
             }
-            const updateParams = {
+
+            const updateParams: Record<string, any> = {
                 ...(username && { username }),
                 ...(email && { email }),
                 ...(designation && { designation }),
+            }
+            try {
+                if (b.team_role !== undefined || b.branch_id !== undefined) {
+                    const placement = await resolveTeamPlacement(agencyUuid, b)
+                    if (b.team_role !== undefined) updateParams.team_role = placement.team_role
+                    if (b.branch_id !== undefined) updateParams.branch_id = placement.branch_id
+                }
+            } catch (e: any) {
+                return returnHelper(res, 200, false, e.message)
             }
             // only this agency's own team members
             await Agent.update(updateParams, {
                 where: {
                     uuid,
-                    parent_uuid: req.user?.user?.uuid
+                    parent_uuid: agencyUuid
                 }
             })
             return res.status(200).json({

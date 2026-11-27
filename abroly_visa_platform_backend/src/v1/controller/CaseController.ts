@@ -20,6 +20,7 @@ import { notifyLater } from "../../services/notifications";
 import { accessOf, canAssignTo, caseScope } from "../../helpers/access";
 import PortalChatMessage from "../../model/PortalChatMessage";
 import { readTravelDocs, sanitizeTravelDocs } from "../../services/travelDocs";
+import { FILE_TRACKER_OPTIONS, readFileTracker, sanitizeFileTracker } from "../../services/fileTracker";
 import { isTravelVisaType } from "../../services/businessFocus";
 
 /**
@@ -187,7 +188,7 @@ class CaseController {
                     model: User, as: "user_of", attributes: ["id", "username", "phone_number", "country_code", "email"], required: true,
                     ...(search && { where: { [Op.or]: [{ username: { [Op.like]: `%${search}%` } }, { phone_number: { [Op.like]: `%${search}%` } }] } }),
                 }],
-                attributes: ["id", "status", "case_stage", "stage_updated_at", "selected_country", "selected_intake_year", "selected_suggestion", "university", "assign_id", "branch_id", "createdAt", "updatedAt"],
+                attributes: ["id", "status", "case_stage", "stage_updated_at", "selected_country", "selected_intake_year", "selected_suggestion", "university", "assign_id", "branch_id", "biometrics_on", "interview_on", "file_tracker", "createdAt", "updatedAt"],
                 order: [["updatedAt", "DESC"]],
                 limit,
                 offset: paginate ? (page - 1) * limit : 0,
@@ -230,12 +231,24 @@ class CaseController {
                     intake: [sel.intakeMonth, sel.intakeYear || x.selected_intake_year].filter(Boolean).join(" ") || null,
                     assignee: x.assign_id ? { id: x.assign_id, name: nameOf[x.assign_id] || "Team member" } : null,
                     branch_id: x.branch_id || null,
+                    biometrics_on: x.biometrics_on || null,
+                    interview_on: x.interview_on || null,
+                    file_tracker: (() => {
+                        const t = readFileTracker(x.file_tracker);
+                        return {
+                            ds160_status: t.ds160_status || null,
+                            appointment_status: t.appointment_status || null,
+                            payment_status: t.payment_status || null,
+                            doc_checklist_status: t.doc_checklist_status || null,
+                        };
+                    })(),
                     steps_total: total,
                     steps_done: done,
                     next_due: due?.next_due || null,
                     overdue_steps: Number(due?.overdue || 0),
                     to_review: Number(reviewRows.find((r: any) => Number(r.lead_id) === x.id)?.n || 0),
                     stage_since: x.stage_updated_at || x.createdAt,
+                    opened_on: x.createdAt,
                     updatedAt: x.updatedAt,
                 };
             });
@@ -288,11 +301,15 @@ class CaseController {
                 visa: {
                     lodged_on: x.visa_lodged_on || null,
                     biometrics_on: x.biometrics_on || null,
+                    interview_on: x.interview_on || null,
                     decision_on: x.decision_on || null,
                     refusal_reason: x.refusal_reason || null,
                     refusal_label: x.refusal_reason ? REFUSAL_REASONS[x.refusal_reason] || x.refusal_reason : null,
                     note: x.reason || null,
                 },
+                file_tracker: readFileTracker(x.file_tracker),
+                file_tracker_options: FILE_TRACKER_OPTIONS,
+                opened_on: x.createdAt,
                 reapplied_from: x.reapplied_from || null,
                 reapplied_as: reapplied ? { id: reapplied.dataValues.id, status: reapplied.dataValues.status } : null,
                 refusal_reasons: Object.entries(REFUSAL_REASONS).map(([key, label]) => ({ key, label })),
@@ -503,14 +520,14 @@ class CaseController {
         }
     }
 
-    // POST /crm/cases/:id/visa { visa_lodged_on?, biometrics_on?, decision_on? }  - visa application dates
+    // POST /crm/cases/:id/visa { visa_lodged_on?, biometrics_on?, interview_on?, decision_on? }  - visa application dates
     async saveVisa(req: RequestWithUser, res: Response) {
         try {
             const c: any = await findCase(req, req.params.id);
             if (!c) return returnHelper(res, 200, false, "Case not found");
             const b = req.body || {};
             const fields: any = {};
-            const names: Record<string, string> = { visa_lodged_on: "Visa lodged", biometrics_on: "Biometrics", decision_on: "Decision" };
+            const names: Record<string, string> = { visa_lodged_on: "Visa lodged", biometrics_on: "Biometrics", interview_on: "Interview", decision_on: "Decision" };
             for (const k of Object.keys(names)) {
                 if (!(k in b)) continue;
                 if (b[k] && !dateOnly(b[k])) return returnHelper(res, 200, false, "Please pick a valid date");
@@ -521,7 +538,7 @@ class CaseController {
             if (c.dataValues.status === "visa_progress") {
                 const order = CASE_STAGES as readonly string[];
                 const at = order.indexOf(c.dataValues.case_stage || "documents");
-                const target = fields.biometrics_on ? "biometrics" : fields.visa_lodged_on ? "visa_filed" : null;
+                const target = fields.biometrics_on || fields.interview_on ? "biometrics" : fields.visa_lodged_on ? "visa_filed" : null;
                 if (target && order.indexOf(target) > at) { fields.case_stage = target; fields.stage_updated_at = new Date(); }
             }
             await AgencyLeads.update(fields, { where: { id: c.dataValues.id } });
@@ -532,6 +549,36 @@ class CaseController {
             return returnHelper(res, 200, true, fields.case_stage ? `Saved - case moved to ${STAGE_NAMES[fields.case_stage]}` : "Saved");
         } catch (error) {
             console.error("save visa dates failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/cases/:id/file_tracker { ...Excel-style status fields }
+    async saveFileTracker(req: RequestWithUser, res: Response) {
+        try {
+            const c: any = await findCase(req, req.params.id);
+            if (!c) return returnHelper(res, 200, false, "Case not found");
+            const prev = readFileTracker(c.dataValues.file_tracker);
+            const next = sanitizeFileTracker({ ...prev, ...(req.body || {}), updated_at: new Date().toISOString() });
+            await AgencyLeads.update({ file_tracker: JSON.stringify(next) }, { where: { id: c.dataValues.id } });
+            const labels: Record<string, string> = {
+                whatsapp_number: "WhatsApp", ds160_status: "DS-160", ds_manage: "DS Manage",
+                doc_checklist_status: "Document checklist", documents_pending: "Documents pending",
+                application_form_status: "Application form", payment_status: "Payment",
+                appointment_status: "Appointment", interview_training_status: "Interview training",
+                passport_collection_status: "Passport collection", next_follow_up_at: "Next follow-up",
+                staff_follow_up_done: "Staff follow-up done", remarks: "Remarks",
+            };
+            const changed = Object.keys(labels).filter((k) => String((prev as any)[k] || "") !== String((next as any)[k] || ""));
+            if (changed.length) {
+                audit(req, {
+                    entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "file_tracker",
+                    summary: changed.map((k) => `${labels[k]}: ${(next as any)[k] || "cleared"}`).join(", ").slice(0, 300),
+                });
+            }
+            return returnHelper(res, 200, true, "File tracker saved", { file_tracker: next });
+        } catch (error) {
+            console.error("save file tracker failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

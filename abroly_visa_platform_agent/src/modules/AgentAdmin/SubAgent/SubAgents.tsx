@@ -1,16 +1,28 @@
 import useApiCallUtils from '@/hooks/useApiCallUtils'
-import { Avatar, Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination, Switch, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, getKeyValue, useDisclosure, Chip } from "@heroui/react"
-import { Edit, Search, Users, UserPlus, Mail, Phone, Award, CheckCircle2, XCircle, KeyRound, Copy, MailWarning, Trash2 } from 'lucide-react'
+import { Avatar, Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination, Select, SelectItem, Switch, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip, getKeyValue, useDisclosure, Chip } from "@heroui/react"
+import { Building2, Edit, Search, Users, UserPlus, Mail, Phone, Award, KeyRound, Copy, MailWarning, Trash2 } from 'lucide-react'
 import { ErrorToast, SuccessToast } from '@/utils/Toaster'
 import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PRIMARY_COLOR, BRAND_TEXT, getPrimaryGradient } from '@/lib/theme'
 import { phoneInputProps, phoneOnChange } from "@/utils/phone";
 
 const PAGE_SIZE = 10
 
+const ROLE_HELP: Record<string, string> = {
+    counsellor: "Sees and works the leads and visa cases assigned to them.",
+    branch_manager: "Sees all leads and cases of their branch and can assign them. Without a branch: the whole agency.",
+    documents: "Works on visa cases of their branch (documents, steps). Leads only if assigned.",
+    accounts: "Can view all leads and cases but not change them.",
+    operations: "Travel bookings and suppliers of their branch (all if no branch); leads if assigned.",
+}
+
 const SubAgents = () => {
 
-    const { commonPostAPICall } = useApiCallUtils()
+    const { commonPostAPICall, commonGetAPICalls } = useApiCallUtils()
+    const navigate = useNavigate()
+    const [roles, setRoles] = useState<{ key: string; label: string }[]>([])
+    const [branches, setBranches] = useState<any[]>([])
 
     const [agentsListing, setAgentListing] = useState([])
 
@@ -31,6 +43,17 @@ const SubAgents = () => {
     }, [search])
 
     useEffect(() => {
+        (async () => {
+            const { success, data } = await commonGetAPICalls("/crm/branches")
+            if (success) {
+                setBranches(data?.branches || [])
+                setRoles(data?.roles || [])
+            }
+        })()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    useEffect(() => {
         const searchChanged = prevDebouncedSearch.current !== debouncedSearch
         prevDebouncedSearch.current = debouncedSearch
         if (searchChanged && offset !== 0) {
@@ -40,6 +63,12 @@ const SubAgents = () => {
         findAgents()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedSearch, offset])
+
+    const roleLabel = (key?: string) => roles.find((r) => r.key === key)?.label || key || "Counsellor"
+    const branchLabel = (id?: number | null) => {
+        if (!id) return "No branch"
+        return branches.find((b) => Number(b.id) === Number(id))?.name || "Branch"
+    }
 
     const findAgents = async (opts?: { soft?: boolean }) => {
         const soft = opts?.soft ?? hasLoadedOnce.current
@@ -62,12 +91,14 @@ const SubAgents = () => {
     };
 
     const [form, setForm] = useState({
-        uuid: null,
+        uuid: null as string | null,
         phone_number: "",
         country_code: "+91",
         user_name: "",
         email: "",
-        designation: ""
+        designation: "",
+        team_role: "counsellor",
+        branch_id: "none",
     });
 
     const { isOpen: isOpenAdd, onOpenChange: onOpenChangeAdd } = useDisclosure();
@@ -78,7 +109,7 @@ const SubAgents = () => {
     const submittingRef = useRef(false);
 
     const openCreate = () => {
-        setForm({ uuid: null, country_code: "+91", email: "", phone_number: "", user_name: "", designation: "" })
+        setForm({ uuid: null, country_code: "+91", email: "", phone_number: "", user_name: "", designation: "", team_role: "counsellor", branch_id: "none" })
         onOpenChangeAdd()
     }
 
@@ -90,6 +121,8 @@ const SubAgents = () => {
             phone_number: getKeyValue(item, "phone_number") || "",
             user_name: getKeyValue(item, "username") || "",
             designation: getKeyValue(item, "designation") || "",
+            team_role: getKeyValue(item, "team_role") || "counsellor",
+            branch_id: getKeyValue(item, "branch_id") ? String(getKeyValue(item, "branch_id")) : "none",
         })
         onOpenChangeAdd()
     }
@@ -121,7 +154,7 @@ const SubAgents = () => {
         if (!form.uuid && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(form.email || "").trim())) {
             return ErrorToast("Please enter a valid email - the login details are sent there")
         }
-        const { uuid, phone_number, user_name, email, designation } = form;
+        const { uuid, phone_number, user_name, email, designation, team_role, branch_id } = form;
         submittingRef.current = true
         setIsSubmitting(true)
         try {
@@ -131,7 +164,9 @@ const SubAgents = () => {
                 country_code: "+91",
                 email,
                 uuid: uuid ? uuid : undefined,
-                designation
+                designation,
+                team_role,
+                branch_id: branch_id === "none" ? null : Number(branch_id),
             }, uuid ? "sub_agent/update" : "sub_agent/add", true)
             if (success && success == true) {
                 if (!uuid && data?.login_code) setLoginInfo({ name: user_name, phone: data.phone, code: data.login_code })
@@ -142,7 +177,9 @@ const SubAgents = () => {
                     email: "",
                     phone_number: "",
                     user_name: "",
-                    designation: ""
+                    designation: "",
+                    team_role: "counsellor",
+                    branch_id: "none",
                 });
                 onOpenChangeAdd()
             }
@@ -217,17 +254,27 @@ const SubAgents = () => {
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                    <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Team</h1>
-                    <p className="text-sm text-default-500">Add counsellors and staff who can work leads and cases</p>
+                    <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Team & roles</h1>
+                    <p className="text-sm text-default-500">Add staff, pick their role for your agency, and assign them to a branch.</p>
                 </div>
-                <Button
-                    color="primary"
-                    className="w-full sm:w-auto shrink-0"
-                    startContent={<UserPlus className="w-4 h-4" />}
-                    onPress={openCreate}
-                >
-                    Add team member
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button
+                        variant="flat"
+                        className="w-full sm:w-auto shrink-0"
+                        startContent={<Building2 className="w-4 h-4" />}
+                        onPress={() => navigate("/branches")}
+                    >
+                        Branches
+                    </Button>
+                    <Button
+                        color="primary"
+                        className="w-full sm:w-auto shrink-0"
+                        startContent={<UserPlus className="w-4 h-4" />}
+                        onPress={openCreate}
+                    >
+                        Add team member
+                    </Button>
+                </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -287,6 +334,8 @@ const SubAgents = () => {
                                                     <p className="font-semibold text-foreground truncate">{name}</p>
                                                     {designation ? <p className="text-xs text-default-500 truncate">{designation}</p> : null}
                                                     <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                                        <Chip size="sm" variant="flat" color="primary">{roleLabel(getKeyValue(item, "team_role"))}</Chip>
+                                                        <Chip size="sm" variant="flat">{branchLabel(getKeyValue(item, "branch_id"))}</Chip>
                                                         <Chip size="sm" variant="flat" color={isVerified ? "success" : "default"}>
                                                             {isVerified ? "Verified" : "Pending"}
                                                         </Chip>
@@ -338,9 +387,9 @@ const SubAgents = () => {
                                     <TableHeader>
                                         <TableColumn key="member">Member</TableColumn>
                                         <TableColumn key="contact">Contact</TableColumn>
-                                        <TableColumn key="is_verified">Verified</TableColumn>
+                                        <TableColumn key="role">Role</TableColumn>
+                                        <TableColumn key="branch">Branch</TableColumn>
                                         <TableColumn key="status">Status</TableColumn>
-                                        <TableColumn key="createdAt">Joined</TableColumn>
                                         <TableColumn key="action" align="end">Actions</TableColumn>
                                     </TableHeader>
                                     <TableBody items={agentsListing}>
@@ -379,18 +428,17 @@ const SubAgents = () => {
                                                             </TableCell>
                                                         )
                                                     }
-                                                    if (columnKey === "is_verified") {
-                                                        const isVerified = getKeyValue(item, "is_verified")
+                                                    if (columnKey === "role") {
                                                         return (
                                                             <TableCell>
-                                                                <Chip
-                                                                    size="sm"
-                                                                    variant="flat"
-                                                                    color={isVerified ? "success" : "default"}
-                                                                    startContent={isVerified ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                                                >
-                                                                    {isVerified ? "Verified" : "Pending"}
-                                                                </Chip>
+                                                                <span className="text-sm text-foreground whitespace-nowrap">{roleLabel(getKeyValue(item, "team_role"))}</span>
+                                                            </TableCell>
+                                                        )
+                                                    }
+                                                    if (columnKey === "branch") {
+                                                        return (
+                                                            <TableCell>
+                                                                <span className="text-sm text-default-600 whitespace-nowrap">{branchLabel(getKeyValue(item, "branch_id"))}</span>
                                                             </TableCell>
                                                         )
                                                     }
@@ -411,19 +459,6 @@ const SubAgents = () => {
                                                                         {isActive ? "Active" : "Inactive"}
                                                                     </span>
                                                                 </div>
-                                                            </TableCell>
-                                                        )
-                                                    }
-                                                    if (columnKey === "createdAt") {
-                                                        const raw = getKeyValue(item, "createdAt")
-                                                        const d = raw ? new Date(raw) : null
-                                                        return (
-                                                            <TableCell>
-                                                                <span className="text-sm text-default-600 whitespace-nowrap">
-                                                                    {d && !Number.isNaN(d.getTime())
-                                                                        ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-                                                                        : "—"}
-                                                                </span>
                                                             </TableCell>
                                                         )
                                                     }
@@ -464,6 +499,16 @@ const SubAgents = () => {
                 </div>
             </div>
 
+            <div className="rounded-xl border border-default-200 bg-content1 p-4 space-y-2 text-sm">
+                <h2 className="text-sm font-semibold text-foreground">What each role can do</h2>
+                {(roles.length ? roles : Object.keys(ROLE_HELP).map((key) => ({ key, label: roleLabel(key) }))).map((r) => (
+                    <div key={r.key}>
+                        <span className="font-medium">{r.label}:</span>{" "}
+                        <span className="text-default-600">{ROLE_HELP[r.key] || ""}</span>
+                    </div>
+                ))}
+            </div>
+
             <Modal
                 isOpen={isOpenAdd}
                 onOpenChange={onOpenChangeAdd}
@@ -485,7 +530,7 @@ const SubAgents = () => {
                                     {form.uuid ? "Edit team member" : "Add team member"}
                                 </h3>
                                 <p className="text-xs text-default-500 font-normal">
-                                    {form.uuid ? "Update their contact details" : "They’ll get a login code by email"}
+                                    {form.uuid ? "Update contact, role and branch" : "They’ll get a login code by email. Choose their role and branch for your agency."}
                                 </p>
                             </ModalHeader>
                             <ModalBody>
@@ -529,6 +574,35 @@ const SubAgents = () => {
                                             isDisabled={!!form.uuid}
                                             startContent={<Phone className="w-4 h-4 text-default-400" />}
                                         />
+                                        <Select
+                                            label="Role"
+                                            aria-label="Role"
+                                            selectedKeys={[form.team_role || "counsellor"]}
+                                            onChange={(e) => e.target.value && setForm((f) => ({ ...f, team_role: e.target.value }))}
+                                            description={ROLE_HELP[form.team_role] || undefined}
+                                        >
+                                            {(roles.length ? roles : [
+                                                { key: "counsellor", label: "Counsellor" },
+                                                { key: "branch_manager", label: "Branch manager" },
+                                                { key: "documents", label: "Document executive" },
+                                                { key: "accounts", label: "Accounts" },
+                                                { key: "operations", label: "Operations" },
+                                            ]).map((r) => (
+                                                <SelectItem key={r.key}>{r.label}</SelectItem>
+                                            ))}
+                                        </Select>
+                                        <Select
+                                            label="Branch"
+                                            aria-label="Branch"
+                                            selectedKeys={[form.branch_id || "none"]}
+                                            onChange={(e) => e.target.value && setForm((f) => ({ ...f, branch_id: e.target.value }))}
+                                            description={branches.length ? "Which office they belong to" : "Add offices under Branches if you have more than one"}
+                                        >
+                                            {[
+                                                <SelectItem key="none">No branch</SelectItem>,
+                                                ...branches.map((b) => <SelectItem key={String(b.id)}>{b.name}</SelectItem>),
+                                            ]}
+                                        </Select>
                                     </div>
 
                                     <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-2">

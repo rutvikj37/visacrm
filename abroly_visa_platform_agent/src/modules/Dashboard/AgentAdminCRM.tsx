@@ -140,8 +140,7 @@ const AgentCRM = () => {
         icon: Users,
         isActive: false,
         items: [
-          { title: "Team members", url: "/sub_agent" },
-          { title: "Roles", url: "/team/roles" },
+          { title: "Team & roles", url: "/sub_agent" },
           { title: "Branches", url: "/branches" },
           { title: "Activity log", url: "/activity" },
         ],

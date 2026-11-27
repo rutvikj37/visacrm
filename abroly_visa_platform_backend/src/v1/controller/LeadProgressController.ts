@@ -244,7 +244,7 @@ class LeadProgressController {
             const studentId = req?.id
             const cases: any[] = await AgencyLeads.findAll({
                 where: { user_id: studentId, status: ["visa_progress", "visa_completed", "visa_rejected"] },
-                attributes: ["id", "status", "case_stage", "selected_country", "university", "selected_suggestion", "visa_lodged_on", "biometrics_on", "decision_on", "reapplied_from", "travel_docs", "createdAt"],
+                attributes: ["id", "status", "case_stage", "selected_country", "university", "selected_suggestion", "visa_lodged_on", "biometrics_on", "interview_on", "decision_on", "reapplied_from", "travel_docs", "file_tracker", "createdAt"],
                 order: [["createdAt", "DESC"]],
             })
             // the universities the agency applied to for the student (no internal notes / money they earn)
@@ -300,7 +300,7 @@ class LeadProgressController {
                     steps: steps.map((s) => ({ id: s.dataValues.id, title: s.dataValues.step_title, done: Number(s.dataValues.step_status) === 1, due_date: s.dataValues.due_date })),
                     needed,
                     waiting_review: questions.filter((q) => q.dataValues.status === "provided").length,
-                    visa: { lodged_on: x.visa_lodged_on || null, biometrics_on: x.biometrics_on || null, decision_on: x.decision_on || null },
+                    visa: { lodged_on: x.visa_lodged_on || null, biometrics_on: x.biometrics_on || null, interview_on: x.interview_on || null, decision_on: x.decision_on || null },
                     reapplication: Boolean(x.reapplied_from),
                     visa_type: sel.otherOption || null,
                     is_travel: isTravelVisaType(sel.otherOption),

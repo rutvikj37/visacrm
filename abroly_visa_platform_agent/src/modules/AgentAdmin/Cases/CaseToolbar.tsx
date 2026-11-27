@@ -215,17 +215,30 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                 </div>
 
                 {/* 4. Visa application dates (+ refusal details) */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <Field label="Visa lodged on">
                         <Input aria-label="Visa lodged on" type="date" size="sm" isDisabled={busy} value={info.visa?.lodged_on || ""} onValueChange={(v) => saveVisaDate("visa_lodged_on", v)} />
                     </Field>
-                    <Field label="Biometrics / appointment">
+                    <Field label="Biometrics (OFC)">
                         <Input aria-label="Biometrics date" type="date" size="sm" isDisabled={busy} value={info.visa?.biometrics_on || ""} onValueChange={(v) => saveVisaDate("biometrics_on", v)} />
+                    </Field>
+                    <Field label="Interview date">
+                        <Input aria-label="Interview date" type="date" size="sm" isDisabled={busy} value={info.visa?.interview_on || ""} onValueChange={(v) => saveVisaDate("interview_on", v)} />
                     </Field>
                     <Field label="Decision on">
                         <Input aria-label="Decision date" type="date" size="sm" isDisabled={busy} value={info.visa?.decision_on || ""} onValueChange={(v) => saveVisaDate("decision_on", v)} />
                     </Field>
                 </div>
+
+                {/* 4b. Excel-style file tracker (DS-160, docs, appointment, passport…) */}
+                <FileTrackerPanel
+                    key={info.file_tracker?.updated_at || "fresh"}
+                    caseId={caseId}
+                    tracker={info.file_tracker}
+                    options={info.file_tracker_options}
+                    busy={busy}
+                    onSave={async (body) => post(`crm/cases/${caseId}/file_tracker`, body)}
+                />
                 {info.status === "visa_rejected" && (
                     <div className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700 flex flex-wrap items-center gap-2">
                         <XCircle size={16} />
@@ -349,6 +362,115 @@ const CaseToolbar = ({ caseId, reloadKey }: { caseId: string | number; reloadKey
                 </ModalContent>
             </Modal>
         </Card>
+    );
+};
+
+/** Excel-style statuses on the case (DS-160, docs, appointment, passport…). Saves one field at a time. */
+const FileTrackerPanel = ({ caseId, tracker, options, busy, onSave }: {
+    caseId: string | number; tracker: any; options: any; busy: boolean;
+    onSave: (body: object) => Promise<boolean>;
+}) => {
+    const t = tracker || {};
+    const opts = options || {};
+    const select = (key: string, label: string, list: string[] = []) => (
+        <Field label={label}>
+            <Select
+                aria-label={label}
+                size="sm"
+                isDisabled={busy}
+                selectedKeys={[t[key] || "none"]}
+                onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    onSave({ [key]: v === "none" ? "" : v });
+                }}
+            >
+                {[<SelectItem key="none">—</SelectItem>, ...(list || []).map((x: string) => <SelectItem key={x}>{x}</SelectItem>)]}
+            </Select>
+        </Field>
+    );
+    return (
+        <div className="rounded-xl border border-default-200 p-3 space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                    <div className="text-sm font-semibold text-foreground">File tracker</div>
+                    <p className="text-xs text-default-500">Same columns as your Excel file sheet — update here instead of the spreadsheet.</p>
+                </div>
+                <Chip size="sm" variant="flat">Case #{caseId}</Chip>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <Field label="WhatsApp number">
+                    <Input
+                        aria-label="WhatsApp number"
+                        size="sm"
+                        isDisabled={busy}
+                        placeholder="If different from mobile"
+                        defaultValue={t.whatsapp_number || ""}
+                        onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (v !== String(t.whatsapp_number || "")) onSave({ whatsapp_number: v });
+                        }}
+                    />
+                </Field>
+                {select("ds160_status", "DS-160 status", opts.ds160_status)}
+                <Field label="DS Manage">
+                    <Input
+                        aria-label="DS Manage"
+                        size="sm"
+                        isDisabled={busy}
+                        placeholder="Staff handling DS-160"
+                        defaultValue={t.ds_manage || ""}
+                        onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (v !== String(t.ds_manage || "")) onSave({ ds_manage: v });
+                        }}
+                    />
+                </Field>
+                {select("doc_checklist_status", "Document checklist", opts.doc_checklist_status)}
+                {select("application_form_status", "Application form", opts.application_form_status)}
+                {select("payment_status", "Payment status", opts.payment_status)}
+                {select("appointment_status", "Appointment status", opts.appointment_status)}
+                {select("interview_training_status", "Interview training", opts.interview_training_status)}
+                {select("passport_collection_status", "Passport collection", opts.passport_collection_status)}
+                <Field label="Next follow-up">
+                    <Input
+                        aria-label="Next follow-up"
+                        type="date"
+                        size="sm"
+                        isDisabled={busy}
+                        value={t.next_follow_up_at || ""}
+                        onValueChange={(v) => onSave({ next_follow_up_at: v || "" })}
+                    />
+                </Field>
+                {select("staff_follow_up_done", "Staff follow-up done", opts.staff_follow_up_done)}
+            </div>
+            <Field label="Documents pending">
+                <Input
+                    aria-label="Documents pending"
+                    size="sm"
+                    isDisabled={busy}
+                    placeholder="e.g. ITR, bank statement"
+                    defaultValue={t.documents_pending || ""}
+                    onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== String(t.documents_pending || "")) onSave({ documents_pending: v });
+                    }}
+                />
+            </Field>
+            <Field label="Remarks">
+                <Textarea
+                    aria-label="Remarks"
+                    minRows={2}
+                    isDisabled={busy}
+                    placeholder="Notes for this file"
+                    defaultValue={t.remarks || ""}
+                    onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== String(t.remarks || "")) onSave({ remarks: v });
+                    }}
+                />
+            </Field>
+        </div>
     );
 };
 
