@@ -1,4 +1,3 @@
-import { getTravelTax, saveTravelTax } from "../../services/travel"
 import express, { Request, Response } from "express"
 import { buildOpenApi } from "../../services/apiDocs"
 import SaasAdminController from "../controller/SaasAdminController"
@@ -40,11 +39,10 @@ saasAdminRoutes.route("/agencies/:uuid/whatsapp").get(validateAdmin, SaasAdminCo
 saasAdminRoutes.route("/agencies/:uuid/whatsapp").post(validateAdmin, SaasAdminController.saveAgencyWhatsapp)
 saasAdminRoutes.route("/agencies/:uuid/whatsapp/:integration/toggle").post(validateAdmin, SaasAdminController.agencyWhatsappAction)
 saasAdminRoutes.route("/agencies/:uuid/whatsapp/:integration/delete").post(validateAdmin, SaasAdminController.agencyWhatsappAction)
+saasAdminRoutes.route("/agencies/:uuid/whatsapp/:integration/mode").post(validateAdmin, SaasAdminController.agencyWhatsappMode)
 saasAdminRoutes.route("/agencies/:uuid/portal").post(validateAdmin, SaasAdminController.updatePortal)
 saasAdminRoutes.route("/agencies/:uuid/modules").post(validateAdmin, SaasAdminController.updateModules)
 // Travel CRM tax rates (GST defaults, TCS on overseas packages) - kept as settings, never hard-coded
-saasAdminRoutes.route("/travel_tax").get(validateAdmin, async (_req: Request, res: Response) => res.json({ success: true, message: "Travel tax", data: await getTravelTax() }))
-saasAdminRoutes.route("/travel_tax").post(validateAdmin, async (req: Request, res: Response) => res.json({ success: true, message: "Tax settings saved", data: await saveTravelTax(req.body || {}) }))
 
 saasAdminRoutes.route("/payments").get(validateAdmin, SaasAdminController.listPayments)
 saasAdminRoutes.route("/payments/bulk").post(validateAdmin, SaasAdminController.bulkPayments)

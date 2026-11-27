@@ -7,6 +7,7 @@ import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import ReactQuill from 'react-quill'
 import { useNavigate } from 'react-router-dom'
+import { apiBase } from "@/utils/product";
 
 const LanguagePrepCommon = ({ isNew, uuid = "" }) => {
 
@@ -41,7 +42,7 @@ const LanguagePrepCommon = ({ isNew, uuid = "" }) => {
         }
     }
 
-    const BaseUrl = import.meta.env.VITE_API_BASE_URL
+    const BaseUrl = apiBase()
 
     const addLanguage = async () => {
 

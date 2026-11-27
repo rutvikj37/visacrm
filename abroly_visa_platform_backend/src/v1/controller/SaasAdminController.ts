@@ -556,7 +556,7 @@ class SaasAdminController {
             const changes: string[] = [];
             await sequelize.transaction(async (t: any) => {
                 if (b.crm_type !== undefined) {
-                    if (!CRM_TYPES.includes(b.crm_type)) throw new Error("CRM type must be visa, travel or both");
+                    if (!CRM_TYPES.includes(b.crm_type)) throw new Error("This is the Visa CRM - travel agencies are managed in the Travel CRM");
                     if (b.crm_type !== agency.dataValues.crm_type) {
                         await Agent.update({ crm_type: b.crm_type }, { where: { id: agency.dataValues.id }, transaction: t });
                         changes.push(`CRM type: ${agency.dataValues.crm_type || "visa"} → ${b.crm_type}`);
@@ -837,6 +837,28 @@ class SaasAdminController {
             return returnHelper(res, 200, true, remove ? "WhatsApp disconnected. Leads already received are kept." : `WhatsApp ${now}.`);
         } catch (error) {
             return fail(res, error, "agencyWhatsappAction");
+        }
+    }
+
+    // POST /saas_admin/agencies/:uuid/whatsapp/:integration/mode  { auto_create_leads: true|false }
+    async agencyWhatsappMode(req: RequestWithUser, res: Response) {
+        try {
+            const a = await whatsappAgency(req);
+            if (!a) return returnHelper(res, 200, false, "Agency not found");
+            const { setWhatsappAutoCreate } = await import("../../services/whatsappPending");
+            const auto = req.body?.auto_create_leads !== false && req.body?.auto_create_leads !== "false";
+            const result = await setWhatsappAutoCreate(a.uuid, req.params.integration, auto);
+            if (result.ok) {
+                audit(null, {
+                    agencyUuid: a.uuid, entity: "settings", action: "whatsapp_mode",
+                    summary: `Super Admin set WhatsApp to ${auto ? "auto-create leads" : "review first"}`,
+                    meta: { admin_id: Number((req.user?.user as any)?.id) || null },
+                    actor: { type: "system", name: "Super Admin" },
+                });
+            }
+            return returnHelper(res, 200, result.ok, result.message, result.ok ? { auto_create_leads: result.auto_create_leads } : undefined);
+        } catch (error) {
+            return fail(res, error, "agencyWhatsappMode");
         }
     }
 

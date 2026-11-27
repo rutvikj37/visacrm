@@ -65,6 +65,9 @@ import CrmLead from "../model/CrmLead";
 import CrmLeadActivity from "../model/CrmLeadActivity";
 import LeadIntegration from "../model/LeadIntegration";
 import VisaTemplate from "../model/VisaTemplate";
+import ClientForm from "../model/ClientForm";
+import ClientFormAssignment from "../model/ClientFormAssignment";
+import ClientFormSubmission from "../model/ClientFormSubmission";
 import SaasPlan from "../model/SaasPlan";
 import SaasSubscription from "../model/SaasSubscription";
 import SaasPayment from "../model/SaasPayment";
@@ -77,7 +80,6 @@ import MessageTemplate from "../model/MessageTemplate";
 import PlatformSetting from "../model/PlatformSetting";
 import SaasCoupon from "../model/SaasCoupon";
 import AgencyModule from "../model/AgencyModule";
-import { TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller, ClientMember, BookingDocument, TravelTarget, CreditNote } from "../model/Travel";
 import Announcement from "../model/Announcement";
 import AnnouncementDismissal from "../model/AnnouncementDismissal";
 import ActivityLog from "../model/ActivityLog";
@@ -85,6 +87,7 @@ import AgencyService from "../model/AgencyService";
 import ServiceOrder from "../model/ServiceOrder";
 import ServiceOrderUpdate from "../model/ServiceOrderUpdate";
 import PortalChatMessage from "../model/PortalChatMessage";
+import WhatsappPendingChat from "../model/WhatsappPendingChat";
 import AgencyTask from "../model/AgencyTask";
 import UniversityApplication from "../model/UniversityApplication";
 import Commission from "../model/Commission";
@@ -181,12 +184,12 @@ class ModelInitializer {
       QuizAnswers, QuizQuestions, SideBannerResponses, StudentBasicDetails,
       StudentCoins, UserDevices,
       // CRM
-      LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate,
+      LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate, ClientForm, ClientFormAssignment, ClientFormSubmission,
       // SaaS billing
       SaasPlan, SaasSubscription, SaasPayment,
-      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat,
-      // Travel CRM
-      AgencyModule, TravelSupplier, SupplierRate, LibraryItem, Itinerary, Quotation, TourPackage, Booking, BookingService, BookingTraveller, ClientMember, BookingDocument, TravelTarget, CreditNote
+      Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, WhatsappPendingChat, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat,
+      // module overrides per agency
+      AgencyModule
     ];
 
     // Sync base models first
@@ -248,7 +251,6 @@ class ModelInitializer {
 
       // CRM lead relationships
       this.setupCrmAssociations();
-      this.setupTravelAssociations();
       
       console.log("✅ All associations set up successfully");
       
@@ -486,22 +488,6 @@ class ModelInitializer {
     });
   }
 
-  private setupTravelAssociations(): void {
-    const c = { constraints: false };
-    Quotation.belongsTo(Itinerary, { foreignKey: "itinerary_id", as: "itinerary", ...c });
-    TourPackage.belongsTo(Itinerary, { foreignKey: "itinerary_id", as: "itinerary", ...c });
-    SupplierRate.belongsTo(TravelSupplier, { foreignKey: "supplier_id", as: "supplier", ...c });
-    BookingService.belongsTo(TravelSupplier, { foreignKey: "supplier_id", as: "supplier", ...c });
-    BookingService.belongsTo(Booking, { foreignKey: "booking_id", as: "booking", ...c });
-    Booking.hasMany(BookingService, { foreignKey: "booking_id", as: "services", ...c });
-    Booking.hasMany(BookingTraveller, { foreignKey: "booking_id", as: "travellers", ...c });
-    Booking.belongsTo(User, { foreignKey: "user_id", as: "client", ...c });
-    Booking.belongsTo(ClientInvoice, { foreignKey: "invoice_id", as: "invoice", ...c });
-    Booking.belongsTo(CrmLead, { foreignKey: "crm_lead_id", as: "lead", ...c });
-    Booking.belongsTo(Quotation, { foreignKey: "quotation_id", as: "quotation", ...c });
-    Booking.belongsTo(Itinerary, { foreignKey: "itinerary_id", as: "itinerary", ...c });
-  }
-
   private setupCrmAssociations(): void {
     CrmLead.hasMany(CrmLeadActivity, { foreignKey: "lead_id", sourceKey: "id", as: "activities" });
     CrmLeadActivity.belongsTo(CrmLead, { foreignKey: "lead_id", targetKey: "id", as: "lead" });
@@ -520,6 +506,11 @@ class ModelInitializer {
 
     CrmLead.belongsTo(LeadIntegration, { foreignKey: "integration_id", targetKey: "id", as: "integration" });
     LeadIntegration.hasMany(CrmLead, { foreignKey: "integration_id", sourceKey: "id", as: "leads" });
+
+    ClientForm.hasMany(ClientFormAssignment, { foreignKey: "form_id", sourceKey: "id", as: "assignments" });
+    ClientFormAssignment.belongsTo(ClientForm, { foreignKey: "form_id", targetKey: "id", as: "form" });
+    ClientForm.hasMany(ClientFormSubmission, { foreignKey: "form_id", sourceKey: "id", as: "submissions" });
+    ClientFormSubmission.belongsTo(ClientForm, { foreignKey: "form_id", targetKey: "id", as: "form" });
   }
 
   private setupAgencyLeadsAssociations(): void {

@@ -1,4 +1,3 @@
-import { travelFromExtra } from "./travel";
 import axios from "axios";
 import { leadRecipients, notifyLater } from "./notifications";
 import crypto from "crypto";
@@ -12,6 +11,7 @@ import { parseJsonValue } from "../helpers/json";
 import { ingestLead, logActivity, normalizePhone, LeadInput, LeadValidationError } from "./leadIngestion";
 import { mapRecordToLeadInput } from "./leadImport";
 import { metaConfiguredFrom, peekMetaConfig, refreshMetaConfig } from "./metaSettings";
+import { autoCreateLeads, upsertPendingWhatsapp } from "./whatsappPending";
 
 /**
  * Meta (Facebook / Instagram Lead Ads + WhatsApp Cloud API).
@@ -378,9 +378,6 @@ export const mapFacebookLead = (lead: any): LeadInput => {
     const input = mapRecordToLeadInput(flat);
     // custom questions: guess by words in the question key
     const extra: Record<string, any> = { ...(input.extra || {}) };
-    // holiday forms (travel dates, travellers, budget...) become travel enquiries (services/travel.ts)
-    const travel = travelFromExtra({ ...extra, ...(input.interested_country ? { destination: input.interested_country } : {}) });
-    if (Object.keys(travel).length) input.travel = { ...travel, ...(input.travel || {}) };
     for (const [key, value] of Object.entries(extra)) {
         const k = key.toLowerCase();
         if (!input.interested_country && /(country|destination)/.test(k)) { input.interested_country = String(value); delete extra[key]; }
@@ -542,7 +539,7 @@ const alreadyLogged = async (leadId: number, wamid?: string | null) => {
     return Boolean(found);
 };
 
-/** Webhook "messages" change: new number -> new lead; known number -> message on the lead's timeline. */
+/** Webhook "messages" change: known number -> timeline; new number -> lead (or pending inbox if review-first). */
 export const handleWhatsappChange = async (value: any, onlyIntegration: any = null) => {
     const phoneNumberId = value?.metadata?.phone_number_id ? String(value.metadata.phone_number_id) : null;
     if (!phoneNumberId || !Array.isArray(value?.messages)) return;
@@ -553,6 +550,7 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
         : await LeadIntegration.findOne({ where: { type: "whatsapp", external_id: phoneNumberId, status: "active" } });
     if (!integration) return;
     const agencyUuid = integration.dataValues.agency_uuid;
+    const createLeads = autoCreateLeads(integration);
 
     for (const message of value.messages) {
         if (!message?.from) continue;
@@ -575,6 +573,36 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
             continue;
         }
         const referral = message.referral || null; // click-to-WhatsApp ad
+        const campaign = referral?.headline || null;
+        const extra = referral ? { ad_source: referral.source_type || null, ad_id: referral.source_id || null, ad_url: referral.source_url || null } : null;
+
+        // Review-first: park in pending inbox until staff taps "Add as lead"
+        if (!createLeads) {
+            try {
+                const pending: any = await upsertPendingWhatsapp({
+                    agencyUuid,
+                    integrationId: integration.dataValues.id,
+                    phoneNormalized: phone.normalized,
+                    profileName: contact?.profile?.name || null,
+                    text,
+                    wamid: message.id || null,
+                    campaign,
+                    extra,
+                });
+                if (pending) {
+                    notifyLater({
+                        agencyUuid, recipientIds: await leadRecipients(agencyUuid, null), type: "whatsapp_message",
+                        title: `WhatsApp to review: ${contact?.profile?.name || phone.phone_number}`, body: text.slice(0, 200),
+                        link: `/crm/inbox?pending=${pending.dataValues?.uuid || pending.uuid}`,
+                        dedupeKey: `wa-pending:${pending.dataValues?.id || pending.id}:${new Date().toISOString().slice(0, 13)}`,
+                    });
+                }
+            } catch (error) {
+                console.error("WhatsApp pending inbox failed", error);
+            }
+            continue;
+        }
+
         try {
             const result = await ingestLead({
                 agencyUuid,
@@ -584,8 +612,8 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
                     name: contact?.profile?.name || null,
                     phone: `+${phone.normalized}`,
                     message: text,
-                    campaign: referral?.headline || null,
-                    extra: referral ? { ad_source: referral.source_type || null, ad_id: referral.source_id || null, ad_url: referral.source_url || null } : null,
+                    campaign,
+                    extra,
                 },
             });
             await logActivity(result.lead.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });

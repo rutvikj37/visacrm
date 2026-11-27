@@ -5,8 +5,9 @@ import LoginCodeDialog, { LoginCodeInfo } from '@/modules/Saas/LoginCodeDialog'
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { phoneInputProps, phoneOnChange } from "@/utils/phone";
+import { apiBase } from "@/utils/product";
 
-const BaseUrl = import.meta.env.VITE_API_BASE_URL as string
+const BaseUrl = apiBase()
 
 const Agents = () => {
     // Construct image URL - static files are typically served from the base domain without /api

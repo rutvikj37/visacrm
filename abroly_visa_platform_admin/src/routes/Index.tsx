@@ -6,6 +6,7 @@ import AdminDashboard from '../modules/Dashboard/AdminDashboard';
 import PublicDashboard from '../modules/Dashboard/PublicDashboard';
 import useApiCallUtils from '@/hooks/useApiCallUtils';
 import AppLoader from '@/components/AppLoader';
+import { clearSession } from "@/utils/product";
 
 const PleaseWait = () => <AppLoader label="Signing you in" />
 
@@ -18,7 +19,7 @@ const Index = () => {
 
     useEffect(() => {
         if (website !== null && website != "admin") {
-            window.localStorage.clear()
+            clearSession()
             window.open("/", "_self")
         }
     }, [])

@@ -1,4 +1,4 @@
-import { TwoStepCard } from "@/modules/AgentAdmin/Travel/TravelSettings";
+import TwoStepCard from "@/modules/AgentAdmin/Profile/TwoStepCard";
 import React, { useEffect, useState } from 'react'
 import 'rsuite/dist/rsuite.min.css';
 import { Nav } from 'rsuite';

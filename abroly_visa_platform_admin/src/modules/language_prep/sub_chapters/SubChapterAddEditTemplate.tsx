@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react'
 import { MdDelete } from 'react-icons/md'
 import ReactQuill from 'react-quill'
 import { useNavigate } from 'react-router-dom'
+import { apiBase } from "@/utils/product";
 
 const SubChapterAddEditTemplate = ({ isNew, uuid, chapter_uuid }) => {
 
@@ -42,7 +43,7 @@ const SubChapterAddEditTemplate = ({ isNew, uuid, chapter_uuid }) => {
         }
     }
 
-    const BaseUrl = import.meta.env.VITE_API_BASE_URL
+    const BaseUrl = apiBase()
 
     const addSubChapter = async () => {
 

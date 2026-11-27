@@ -25,27 +25,13 @@ import ActivityLogPage from "@/modules/AgentAdmin/Activity/ActivityLogPage"
 import LeadDetails from "@/modules/AgentAdmin/Crm/LeadDetails"
 import LeadSources from "@/modules/AgentAdmin/Crm/LeadSources"
 import VisaTemplates from "@/modules/AgentAdmin/Crm/VisaTemplates"
+import ClientForms from "@/modules/AgentAdmin/Crm/ClientForms"
 import ReportsDashboard from "@/modules/AgentAdmin/Reports/ReportsDashboard"
 import CaseBoard from "@/modules/AgentAdmin/Cases/CaseBoard"
 import UnifiedCalendar from "@/modules/AgentAdmin/CalendarAll/UnifiedCalendar"
 import RolesAndBranches from "@/modules/AgentAdmin/SubAgent/RolesAndBranches"
 import BrandingSettings from "@/modules/AgentAdmin/Branding/BrandingSettings"
-import TravelDesk from "@/modules/AgentAdmin/Travel/TravelDesk"
-import Itineraries from "@/modules/AgentAdmin/Travel/Itineraries"
-import ItineraryBuilder from "@/modules/AgentAdmin/Travel/ItineraryBuilder"
-import Quotes from "@/modules/AgentAdmin/Travel/Quotes"
-import QuoteEditor from "@/modules/AgentAdmin/Travel/QuoteEditor"
-import Bookings from "@/modules/AgentAdmin/Travel/Bookings"
-import BookingDetails from "@/modules/AgentAdmin/Travel/BookingDetails"
-import Packages from "@/modules/AgentAdmin/Travel/Packages"
-import { Suppliers, SupplierDetails } from "@/modules/AgentAdmin/Travel/Suppliers"
-import TravelLibrary from "@/modules/AgentAdmin/Travel/Library"
-import TravelReports from "@/modules/AgentAdmin/Travel/TravelReports"
-import TripFinance from "@/modules/AgentAdmin/Travel/TripFinance"
-import Pipeline from "@/modules/AgentAdmin/Travel/Pipeline"
-import { ClientPage, Clients } from "@/modules/AgentAdmin/Travel/Clients"
 import WhatsappInbox from "@/modules/AgentAdmin/Messages/WhatsappInbox"
-import TravelSettings from "@/modules/AgentAdmin/Travel/TravelSettings"
 import FeesList from "@/modules/AgentAdmin/Fees/FeesList"
 import CommissionsPage from "@/modules/AgentAdmin/Commissions/CommissionsPage"
 import StudentTimeline from "@/modules/AgentAdmin/Cases/StudentTimeline"
@@ -160,25 +146,7 @@ export const AgentAdminRoutes = [
         path: "/settings/payments",
         element: PaymentSettings
     },
-    // Travel CRM (module checks on the server; menu hides what the agency does not have)
-    { path: "/travel", element: TravelDesk },
-    { path: "/travel/itineraries", element: Itineraries },
-    { path: "/travel/itineraries/:id", element: ItineraryBuilder },
-    { path: "/travel/quotes", element: Quotes },
-    { path: "/travel/quotes/:id", element: QuoteEditor },
-    { path: "/travel/bookings", element: Bookings },
-    { path: "/travel/bookings/:id", element: BookingDetails },
-    { path: "/travel/packages", element: Packages },
-    { path: "/travel/suppliers", element: Suppliers },
-    { path: "/travel/suppliers/:id", element: SupplierDetails },
-    { path: "/travel/library", element: TravelLibrary },
-    { path: "/travel/reports", element: TravelReports },
-    { path: "/travel/finance", element: TripFinance },
-    { path: "/travel/pipeline", element: Pipeline },
-    { path: "/travel/clients", element: Clients },
-    { path: "/travel/clients/:id", element: ClientPage },
     { path: "/crm/inbox", element: WhatsappInbox },
-    { path: "/travel/settings", element: TravelSettings },
     {
         path: "/fees",
         element: FeesList
@@ -243,6 +211,10 @@ export const AgentAdminRoutes = [
     {
         path: "/crm/templates",
         element: VisaTemplates
+    },
+    {
+        path: "/crm/forms",
+        element: ClientForms
     },
     {
         path: "/subscription",
@@ -485,25 +457,7 @@ export const SubAgentRoutes = [
         path: "/settings/payments",
         element: PaymentSettings
     },
-    // Travel CRM (module checks on the server; menu hides what the agency does not have)
-    { path: "/travel", element: TravelDesk },
-    { path: "/travel/itineraries", element: Itineraries },
-    { path: "/travel/itineraries/:id", element: ItineraryBuilder },
-    { path: "/travel/quotes", element: Quotes },
-    { path: "/travel/quotes/:id", element: QuoteEditor },
-    { path: "/travel/bookings", element: Bookings },
-    { path: "/travel/bookings/:id", element: BookingDetails },
-    { path: "/travel/packages", element: Packages },
-    { path: "/travel/suppliers", element: Suppliers },
-    { path: "/travel/suppliers/:id", element: SupplierDetails },
-    { path: "/travel/library", element: TravelLibrary },
-    { path: "/travel/reports", element: TravelReports },
-    { path: "/travel/finance", element: TripFinance },
-    { path: "/travel/pipeline", element: Pipeline },
-    { path: "/travel/clients", element: Clients },
-    { path: "/travel/clients/:id", element: ClientPage },
     { path: "/crm/inbox", element: WhatsappInbox },
-    { path: "/travel/settings", element: TravelSettings },
     {
         path: "/fees",
         element: FeesList
@@ -532,6 +486,10 @@ export const SubAgentRoutes = [
     {
         path: "/crm/leads/:uuid",
         element: LeadDetails
+    },
+    {
+        path: "/crm/forms",
+        element: ClientForms
     },
     {
         path: "/crm/chats",

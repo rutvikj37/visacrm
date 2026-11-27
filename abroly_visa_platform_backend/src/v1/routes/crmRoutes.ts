@@ -12,6 +12,7 @@ import express, { NextFunction, Request, Response } from "express"
 import CrmController from "../controller/CrmController"
 import LeadIntegrationController from "../controller/LeadIntegrationController"
 import VisaTemplateController from "../controller/VisaTemplateController"
+import ClientFormController from "../controller/ClientFormController"
 import MetaController from "../controller/MetaController"
 import SubscriptionSaasController from "../controller/SubscriptionSaasController"
 import NotificationController from "../controller/NotificationController"
@@ -56,6 +57,9 @@ crmRoutes.route("/sample_data").post(validateAgent, OnboardingController.sampleD
 crmRoutes.route("/monthly_summary").get(validateAgent, OnboardingController.monthlySummary).post(validateAgent, OnboardingController.monthlySummaryAction)
 crmRoutes.route("/conversations").get(validateAgent, ConversationController.list)
 crmRoutes.route("/conversations/unread").get(validateAgent, ConversationController.unread)
+crmRoutes.route("/conversations/pending/:uuid").get(validateAgent, ConversationController.pendingThread)
+crmRoutes.route("/conversations/pending/:uuid/promote").post(validateAgent, ConversationController.promotePending)
+crmRoutes.route("/conversations/pending/:uuid/dismiss").post(validateAgent, ConversationController.dismissPending)
 crmRoutes.route("/conversations/:uuid").get(validateAgent, ConversationController.thread)
 // In-app student ↔ counsellor chat (WhatsApp/Instagram inbox kept above but unused in UI for now)
 crmRoutes.route("/portal_chats").get(validateAgent, PortalChatController.agentList)
@@ -113,6 +117,21 @@ crmRoutes.route("/visa_templates/:id").get(validateAgent, VisaTemplateController
 crmRoutes.route("/visa_templates/:id/update").post(validateAgent, VisaTemplateController.update)
 crmRoutes.route("/visa_templates/:id/delete").post(validateAgent, VisaTemplateController.remove)
 
+// custom client forms (Google Forms–style; separate from visa templates)
+crmRoutes.route("/forms").get(validateAgent, ClientFormController.list)
+crmRoutes.route("/forms").post(validateAgent, ClientFormController.create)
+crmRoutes.route("/forms/:id").get(validateAgent, ClientFormController.details)
+crmRoutes.route("/forms/:id/update").post(validateAgent, ClientFormController.update)
+crmRoutes.route("/forms/:id/publish").post(validateAgent, ClientFormController.publish)
+crmRoutes.route("/forms/:id/archive").post(validateAgent, ClientFormController.archive)
+crmRoutes.route("/forms/:id/duplicate").post(validateAgent, ClientFormController.duplicate)
+crmRoutes.route("/forms/:id/share").get(validateAgent, ClientFormController.share)
+crmRoutes.route("/forms/:id/assign").post(validateAgent, ClientFormController.assign)
+crmRoutes.route("/forms/:id/assign/email").post(validateAgent, ClientFormController.sendAssignEmail)
+crmRoutes.route("/forms/:id/submissions").get(validateAgent, ClientFormController.listSubmissions)
+crmRoutes.route("/forms/:id/submissions/:subId").get(validateAgent, ClientFormController.submissionDetails)
+crmRoutes.route("/forms/:id/submissions/:subId/create_lead").post(validateAgent, ClientFormController.createLeadFromSubmission)
+
 // team & settings
 crmRoutes.route("/team").get(validateAgent, CrmController.team)
 crmRoutes.route("/settings").get(validateAgent, CrmController.getSettings)
@@ -126,6 +145,7 @@ crmRoutes.route("/integrations/push").post(validateAgent, LeadIntegrationControl
 crmRoutes.route("/integrations/:uuid/branch").post(validateAgent, TeamController.setSourceBranch)
 crmRoutes.route("/integrations/:uuid/sync").post(validateAgent, LeadIntegrationController.syncNow)
 crmRoutes.route("/integrations/:uuid/toggle").post(validateAgent, LeadIntegrationController.toggle)
+crmRoutes.route("/integrations/:uuid/whatsapp_mode").post(validateAgent, LeadIntegrationController.whatsappMode)
 crmRoutes.route("/integrations/:uuid/regenerate_key").post(validateAgent, LeadIntegrationController.regenerateKey)
 crmRoutes.route("/integrations/:uuid/delete").post(validateAgent, LeadIntegrationController.remove)
 

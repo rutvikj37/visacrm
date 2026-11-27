@@ -6,7 +6,6 @@ import { AlarmClock, CalendarClock, FileCheck2, IndianRupee, MessageCircle, Phon
 import SetupChecklist from "@/components/help/SetupChecklist";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import useModules from "@/hooks/useModules";
-import TravelDashboard from "@/modules/AgentAdmin/Travel/TravelDashboard";
 import { BranchPicker, branchQuery } from "@/modules/AgentAdmin/Branches/branchShared";
 import { formatDateTime, sourceLabel, statusMeta, timeAgo } from "@/modules/AgentAdmin/Crm/crmShared";
 
@@ -90,16 +89,6 @@ const TodayPage = () => {
             </div>
 
             <SetupChecklist onChanged={load} />
-
-            {/* travel agencies: travel KPIs and today's travel to-dos come first (SA-03 / RP-01) */}
-            {travelOn && (
-                <div className="flex flex-col gap-2">
-                    {visaOn && <div className="text-sm font-semibold text-default-600">Travel</div>}
-                    <TravelDashboard compact />
-                </div>
-            )}
-
-            {travelOn && <div className="text-sm font-semibold text-default-600 -mb-2">Leads and follow-ups</div>}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
                 <Count icon={AlarmClock} label="Overdue follow-ups" value={c.follow_ups_overdue} tone="bg-danger-50 text-danger" onPress={() => navigate("/crm/leads?follow_up=overdue")} />
                 <Count icon={CalendarClock} label="Follow-ups today" value={c.follow_ups_today} tone="bg-warning-50 text-warning-600" onPress={() => navigate("/crm/leads?follow_up=today")} />

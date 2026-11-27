@@ -1,7 +1,9 @@
 
 
+import { clearSession } from "./product";
+
 export const handleLogout = (navigate:any) => {
-    localStorage.clear()
+    clearSession()
     navigate("/")
     window.location.reload();
 }

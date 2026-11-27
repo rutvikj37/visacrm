@@ -46,7 +46,7 @@ import PanelHeader from "@/components/panel/PanelHeader"
 import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import useModules from "@/hooks/useModules"
-import { filterNav, travelNavGroup } from "@/modules/AgentAdmin/Travel/travelNav"
+import { filterNav } from "@/modules/AgentAdmin/Menu/filterNav"
 
 const SubAgentCRM = () => {
   const { crmType, has } = useModules()
@@ -90,7 +90,6 @@ const SubAgentCRM = () => {
           { title: "Follow-ups today", url: "/crm/leads?follow_up=today" },
         ],
       },
-      ...(crmType === "travel" ? [travelNavGroup({ team: true })] : []),
       {
         title: has("visa") ? "Visa cases" : "Billing",
         url: "#",
@@ -103,7 +102,6 @@ const SubAgentCRM = () => {
           ...(teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager" ? [{ title: "Commissions", url: "/commissions", module: "visa" }] : []),
         ],
       },
-      ...(crmType !== "travel" ? [travelNavGroup({ team: true })] : []),
     ],
     projects: [
       // {

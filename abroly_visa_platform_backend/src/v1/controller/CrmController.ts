@@ -1,5 +1,3 @@
-import { cleanTravelLeadFields, presentTravelLead } from "../../services/travel";
-import { Booking, Quotation } from "../../model/Travel";
 import AgencyBranch from "../../model/AgencyBranch";
 import { audit } from "../../services/audit";
 import { branchFilter, branchOfAgent, isAgencyBranch, pickBranchAssignee } from "../../services/branches";
@@ -169,17 +167,7 @@ class CrmController {
                 include: [{ model: Agent, as: "assignee", attributes: assigneeAttributes, required: false }],
             });
 
-            // travel leads: trip value (set deal value, else latest open quote, else budget) for cards and the board
-            const travelIds = rows.filter((r: any) => r.dataValues.business_line === "travel").map((r: any) => r.dataValues.id);
-            const quoteRows: any[] = travelIds.length ? await Quotation.findAll({ where: { crm_lead_id: travelIds, status: { [Op.in]: ["draft", "sent", "accepted"] } }, attributes: ["crm_lead_id", "sell_total"], order: [["updatedAt", "DESC"]], raw: true }) : [];
-            const quoteOf = new Map<number, number>();
-            for (const q of quoteRows) if (!quoteOf.has(q.crm_lead_id)) quoteOf.set(q.crm_lead_id, Number(q.sell_total));
-            const leads = rows.map((r: any) => {
-                const j = r.toJSON();
-                if (j.business_line !== "travel") return j;
-                const paise = j.deal_value != null ? Number(j.deal_value) : quoteOf.get(j.id) ?? (j.budget != null ? Number(j.budget) : null);
-                return { ...j, trip_value: paise == null ? null : Math.round(paise) / 100 };
-            });
+            const leads = rows.map((r: any) => r.toJSON());
 
             return returnHelper(res, 200, true, "Leads fetched", {
                 leads,
@@ -272,7 +260,6 @@ class CrmController {
                 next_follow_up_at: body.next_follow_up_at,
                 // the owner may pick a branch; a team member's lead goes to their own branch
                 branch_id: isOwner ? (body.branch_id ? Number(body.branch_id) : null) : accessOf(req).branchId,
-                travel: cleanTravelLeadFields(body),
             };
             const source = (CRM_LEAD_SOURCES as readonly string[]).includes(body.source) ? body.source : "manual";
             const merge = body.merge === true || body.merge === "1";
@@ -330,12 +317,6 @@ class CrmController {
                 activities,
                 whatsapp_enabled: whatsapp > 0,
                 doc_checklist: checklistSummary(lead.dataValues.doc_checklist),
-                travel: {
-                    ...presentTravelLead(lead.toJSON()),
-                    booking_id: lead.dataValues.converted_booking_id
-                        ? ((await Booking.findOne({ where: { id: lead.dataValues.converted_booking_id, agency_uuid: ctx(req).agencyUuid }, attributes: ["uuid"], raw: true })) as any)?.uuid || null
-                        : null,
-                },
             });
         } catch (error) {
             return handleError(res, error, "leadDetails");
@@ -364,7 +345,6 @@ class CrmController {
             if (body.doc_checklist !== undefined) {
                 updates.doc_checklist = normalizeDocChecklist(body.doc_checklist);
             }
-            Object.assign(updates, cleanTravelLeadFields(body));
             if (updates.email) {
                 updates.email = updates.email.toLowerCase();
                 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.email)) return returnHelper(res, 200, false, "Please enter a valid email");

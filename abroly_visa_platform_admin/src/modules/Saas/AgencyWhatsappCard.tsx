@@ -13,6 +13,7 @@ import { fmtDate } from "./saasShared";
 type WaNumber = {
     uuid: string; name: string; status: string; last_error?: string | null; leads_received?: number;
     last_lead_at?: string | null; webhook_url?: string | null; verify_token?: string | null; app_secret_saved?: boolean;
+    settings?: { auto_create_leads?: boolean } | null;
 };
 
 const emptyForm = { phone_number_id: "", waba_id: "", access_token: "", app_secret: "" };
@@ -73,8 +74,8 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
                 )}
             </div>
             <p className="text-sm text-default-500">
-                Connect the agency's WhatsApp Cloud API number for them. New chats become leads, messages show on the lead timeline,
-                and the team can reply from the CRM. The agency sees this number under Leads → Lead sources.
+                Connect the agency's WhatsApp Cloud API number for them. Chats can auto-become leads, or wait in the WhatsApp inbox
+                until staff taps Add as lead (review first). The agency sees this number under Leads → Lead sources.
             </p>
             {!planAllows && (
                 <div className="text-sm rounded-lg bg-warning-50 text-warning-700 p-2">
@@ -82,7 +83,9 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
                 </div>
             )}
 
-            {numbers.map((n) => (
+            {numbers.map((n) => {
+                const autoCreate = n.settings?.auto_create_leads !== false;
+                return (
                 <div key={n.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium flex-1 min-w-0 truncate">{n.name}</span>
@@ -90,6 +93,29 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
                     </div>
                     <div className="text-xs text-default-500">
                         {n.leads_received || 0} lead(s) received · last lead {n.last_lead_at ? fmtDate(n.last_lead_at) : "never"}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-default-50 px-2 py-1.5">
+                        <div className="min-w-0 flex-1 text-xs text-default-600">
+                            <b>{autoCreate ? "Auto-create leads" : "Review first"}</b>
+                            {" — "}
+                            {autoCreate ? "new chats become leads" : "new chats wait in inbox until Add as lead"}
+                        </div>
+                        <Switch
+                            size="sm"
+                            isSelected={!autoCreate}
+                            isDisabled={busy === `mode-${n.uuid}`}
+                            onValueChange={async (on) => {
+                                setBusy(`mode-${n.uuid}`);
+                                const { success } = await commonPostAPICall(
+                                    { auto_create_leads: !on },
+                                    `saas_admin/agencies/${agencyId}/whatsapp/${n.uuid}/mode`,
+                                    true,
+                                );
+                                setBusy(null);
+                                if (success) load();
+                            }}
+                            aria-label="Review first"
+                        />
                     </div>
                     {n.last_error && <div className="text-sm bg-danger-50 text-danger rounded-lg p-2 break-words">Last problem: {n.last_error}</div>}
                     <div className="text-xs text-default-500">
@@ -110,7 +136,8 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
                         <Button size="sm" variant="flat" color="danger" startContent={<Trash2 size={14} />} className="ml-auto" isLoading={busy === n.uuid} onPress={() => act(n, "delete")}>Disconnect</Button>
                     </div>
                 </div>
-            ))}
+                );
+            })}
             {numbers.length > 0 && mode === "closed" && (
                 <Button size="sm" variant="light" className="self-start" onPress={() => { setForm(emptyForm); setMode("add"); }}>+ Add another WhatsApp number</Button>
             )}

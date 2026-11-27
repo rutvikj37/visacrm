@@ -166,17 +166,35 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
             </CardHeader>
             <CardBody className="gap-3 pt-0">
                 <p className="text-sm text-default-500">
-                    New WhatsApp chats become leads automatically (including click-to-WhatsApp ads), every message shows on the lead's timeline,
-                    and your team can reply from the CRM.
+                    WhatsApp chats can become leads automatically, or wait in the WhatsApp inbox until your team taps <b>Add as lead</b> (review first).
+                    Messages show on the lead timeline and the team can reply from the CRM.
                 </p>
 
-                {allNumbers.map((wa) => (
+                {allNumbers.map((wa) => {
+                    const autoCreate = wa.settings?.auto_create_leads !== false;
+                    return (
                     <div key={wa.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium flex-1 min-w-0 truncate">{wa.name}</span>
                             <Switch size="sm" isSelected={wa.status === "active"} isDisabled={busy === wa.uuid} onValueChange={() => call(wa.uuid, `crm/integrations/${wa.uuid}/toggle`)} aria-label="Turn on or off" />
                         </div>
                         <Stats i={wa} />
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-default-50 px-2 py-1.5">
+                            <div className="min-w-0 flex-1 text-xs text-default-600">
+                                <b>{autoCreate ? "Auto-create leads" : "Review first"}</b>
+                                {" — "}
+                                {autoCreate
+                                    ? "every new chat becomes a lead"
+                                    : "new chats stay in WhatsApp inbox until you add them as leads"}
+                            </div>
+                            <Switch
+                                size="sm"
+                                isSelected={!autoCreate}
+                                isDisabled={busy === `mode-${wa.uuid}`}
+                                onValueChange={(on) => call(`mode-${wa.uuid}`, `crm/integrations/${wa.uuid}/whatsapp_mode`, { auto_create_leads: !on })}
+                                aria-label="Review first"
+                            />
+                        </div>
                         {wa.last_error && <div className="text-sm bg-danger-50 text-danger rounded-lg p-2 break-words">Last problem: {wa.last_error}</div>}
                         <div className="text-xs text-default-500">
                             In your Meta app go to <b>WhatsApp → Configuration → Webhook</b>, paste this link and verify token, then subscribe to <b>messages</b>.
@@ -197,7 +215,8 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
                             <Button size="sm" variant="flat" color="danger" startContent={<Trash2 size={14} />} className="ml-auto" onPress={() => onRemove(wa)}>Disconnect</Button>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
                 {allNumbers.length > 0 && !showForm && <Button size="sm" variant="light" className="self-start" onPress={() => { setAddMode(true); setShowForm(true); }}>+ Add another WhatsApp number</Button>}
 
                 {formOpen && (

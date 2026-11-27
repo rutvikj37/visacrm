@@ -65,6 +65,8 @@ import { useSelector } from "react-redux"
 import { AdminRoutes } from "@/routes/AuthRoutes"
 import { RiAdvertisementLine } from "react-icons/ri";
 import aborlyIcon from "../../assets/logo.png"
+import ProductSwitch from "@/components/ProductSwitch"
+import { productName } from "@/utils/product"
 
 // Super admin manages agencies only. Old platform-content screens (students, services,
 // event banners, FAQs, static content, testimonials) are hidden; their routes redirect
@@ -164,10 +166,13 @@ const AdminDashboard = () => {
                   <img src={aborlyIcon} alt="" className="size-8 shrink-0 rounded-lg shadow-sm ring-1 ring-black/5" />
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">TechX CRM</span>
-                    <span className="truncate text-xs">Platform admin</span>
+                    <span className="truncate text-xs">Platform admin · {productName()}</span>
                   </div>
                 </Link>
               </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <ProductSwitch className="mt-1" />
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarHeader>

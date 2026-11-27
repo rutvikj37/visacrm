@@ -134,8 +134,10 @@ Instructions are shown in Lead Sources; in short:
    **WhatsApp → Configuration → Webhook** and subscribe to **messages**.
 
 What happens then:
-- a message from a new number creates a lead (source WhatsApp; click-to-WhatsApp ad name saved as campaign),
-- every incoming message is added to that lead's timeline,
+- by default a message from a new number creates a lead (source WhatsApp; click-to-WhatsApp ad name saved as campaign),
+- or, if the number is set to **Review first** (`settings.auto_create_leads = false`), the chat stays in
+  the WhatsApp inbox until staff taps **Add as lead** (or Dismiss),
+- every incoming message is added to that lead's timeline (or pending chat while reviewing),
 - the team can reply with **Send on WhatsApp** on the lead. WhatsApp only allows free text within
   **24 hours** of the student's last message; after that the CRM shows a clear message
   (approved template messages can be added later).

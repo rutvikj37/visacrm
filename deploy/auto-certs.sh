@@ -6,6 +6,7 @@
 #   2. write /etc/nginx/visacrm-portals/<address>.conf: student portal at https://<address>/ and the
 #      agency panel at https://<address>/agency/ (e.g. rutvik.techxsolutions.io/agency)
 #   3. old crm.<address> panel addresses that already have a certificate redirect to <address>/agency
+# An address the Travel CRM already serves (/etc/nginx/travelcrm-portals/, its own job on this server) is skipped.
 # Addresses whose DNS isn't ready are skipped; a failed attempt waits an hour before retrying
 # (keeps us inside Let's Encrypt's limits). Portal files of removed agencies are taken down.
 set -uo pipefail
@@ -13,9 +14,11 @@ set -uo pipefail
 APP_DIR=/opt/visacrm
 ENV_FILE=$APP_DIR/abroly_visa_platform_backend/.env
 PORTALS=/etc/nginx/visacrm-portals
+TRAVEL_PORTALS=/etc/nginx/travelcrm-portals
 WEBROOT=/var/www/letsencrypt
 STATE=/var/lib/visacrm-certs
-RESERVED="api admin crm student www"
+# travel / travel-api belong to the Travel CRM (/opt/travelcrm)
+RESERVED="api admin crm student www travel travel-api"
 PLATFORM_DOMAIN=$(grep -E '^PLATFORM_PORTAL_DOMAIN=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')
 PLATFORM_DOMAIN=${PLATFORM_DOMAIN:-techxsolutions.io}
 
@@ -75,6 +78,7 @@ for host in $HOSTS; do
     [[ "$host" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] || { log "skip invalid address: $host"; continue; }
     sub=${host%%.*}
     if [ "${host#*.}" = "$PLATFORM_DOMAIN" ] && [[ " $RESERVED " == *" $sub "* ]]; then continue; fi
+    if [ -f "$TRAVEL_PORTALS/$host.conf" ]; then log "skip $host: the Travel CRM already serves it"; continue; fi
     wanted+="$host "
     # one address for everyone: student portal at /, agency panel at /agency/
     if cert "$host"; then

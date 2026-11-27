@@ -14,6 +14,7 @@ import {
   QueryClientProvider,
 } from '@tanstack/react-query'
 import AppLoader from './components/AppLoader';
+import { clearSession } from "@/utils/product";
 
 const queryClient = new QueryClient({
   // defaultOptions: {
@@ -40,7 +41,7 @@ const App = () => {
             returnValue.message = error.response.data?.message || "Unauthorized access";
             setTimeout(() => {
               window.location.href = '/';
-              localStorage.clear()
+              clearSession()
               persistor.purge();
             }, 1000);
           } else {

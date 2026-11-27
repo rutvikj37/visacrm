@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Checkbox, Chip, Select, SelectItem } from "@nextui-org/react";
+import { Button, Checkbox, Chip } from "@nextui-org/react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 
 /**
@@ -49,14 +49,9 @@ const AgencyModulesCard = ({ agencyId, crmType, modules, onSaved }: { agencyId: 
         <div className="rounded-xl border border-default-200 bg-content1 p-4 flex flex-col gap-3">
             <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-0 flex-1">
-                    <div className="font-semibold">CRM type and modules</div>
+                    <div className="font-semibold">Modules</div>
                     <div className="text-xs text-default-500">Menus, dashboards and APIs follow these ticks. Switching a module off keeps its data.</div>
                 </div>
-                <Select aria-label="CRM type" size="sm" className="w-48" selectedKeys={[type]} onChange={(e) => setType(e.target.value || "visa")}>
-                    <SelectItem key="visa">Visa CRM</SelectItem>
-                    <SelectItem key="travel">Travel CRM</SelectItem>
-                    <SelectItem key="both">Visa + Travel</SelectItem>
-                </Select>
                 <Button size="sm" color="primary" isDisabled={!dirty} isLoading={saving} onPress={save}>Save modules</Button>
             </div>
             {changedType && <div className="text-xs rounded-lg bg-warning-50 border border-warning-200 p-2">Modules switch to the {type === "both" ? "Visa + Travel" : type === "travel" ? "Travel" : "Visa"} defaults when you save. Overrides you keep stay as they are.</div>}
