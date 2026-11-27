@@ -29,46 +29,34 @@ install() {
     if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
 }
 
-# deploy_backend <folder> <pm2 name>: build, sync the database when models changed, restart.
-# Visa CRM: abroly_visa_platform_backend (port 4001, its own database)
-# Travel CRM: travel_crm_backend (port 4002, its own database) - skipped until its .env exists
-deploy_backend() {
-    local BACKEND=$1 NAME=$2
-    if [ ! -f "$APP_DIR/$BACKEND/.env" ]; then
-        echo "$BACKEND has no .env yet - skipping (see deploy/TRAVEL_CRM_SETUP.md)"; return
-    fi
-    if changed "$BACKEND" || [ ! -f "$APP_DIR/$BACKEND/dist/server.js" ]; then
-        say "$NAME: install and build"
-        cd "$APP_DIR/$BACKEND"
-        install
-        npm run build
-        mkdir -p public
+BACKEND=abroly_visa_platform_backend
+if changed "$BACKEND" || [ ! -f "$APP_DIR/$BACKEND/dist/server.js" ]; then
+    say "Backend: install and build"
+    cd "$APP_DIR/$BACKEND"
+    install
+    npm run build
+    mkdir -p public
 
-        if changed "$BACKEND/src/model" "$BACKEND/src/config" "$BACKEND/src/scripts/syncDatabase.ts" || ! pm2 describe "$NAME" >/dev/null 2>&1; then
-            say "$NAME database: backup, then add new tables / columns"
-            bash "$APP_DIR/deploy/backup-db.sh" "$BACKEND" || { echo "backup failed - not touching the database"; exit 1; }
-            # run without NODE_ENV=production so new columns are added
-            NODE_ENV= npm run db:sync
-        else
-            echo "models unchanged - skipping database sync"
-        fi
-
-        say "Restarting $NAME"
-        cd "$APP_DIR"
-        pm2 startOrReload deploy/ecosystem.config.js --only "$NAME" --update-env
-        pm2 save >/dev/null
+    if changed "$BACKEND/src/model" "$BACKEND/src/config" "$BACKEND/src/scripts/syncDatabase.ts"; then
+        say "Database: backup, then add new tables / columns"
+        bash "$APP_DIR/deploy/backup-db.sh" || { echo "backup failed - not touching the database"; exit 1; }
+        # run without NODE_ENV=production so new columns are added
+        NODE_ENV= npm run db:sync
     else
-        say "$NAME unchanged - keeps running"
+        echo "models unchanged - skipping database sync"
     fi
-}
-deploy_backend abroly_visa_platform_backend visacrm-api
-deploy_backend travel_crm_backend travelcrm-api
+
+    say "Restarting the API"
+    cd "$APP_DIR"
+    pm2 startOrReload deploy/ecosystem.config.js --update-env
+    pm2 save >/dev/null
+else
+    say "Backend unchanged - API keeps running"
+fi
 
 export NODE_OPTIONS="--max-old-space-size=2048"
-# Visa CRM apps, the shared admin panel, then the Travel CRM apps
-for dir in abroly_visa_platform_admin abroly_visa_platform_agent abroly_visa_platform_student travel_crm_agent travel_crm_portal; do
-    app=$dir
-    if [[ $dir == travel_crm_* ]] && [ ! -f "$APP_DIR/$dir/.env" ]; then echo "$dir has no .env yet - skipping (see deploy/TRAVEL_CRM_SETUP.md)"; continue; fi
+for app in admin agent student; do
+    dir="abroly_visa_platform_$app"
     if changed "$dir" || [ ! -f "$APP_DIR/$dir/dist/index.html" ]; then
         say "Building $app"
         cd "$APP_DIR/$dir"
@@ -90,12 +78,7 @@ if changed deploy; then
     bash "$APP_DIR/deploy/install-auto-https.sh"
 fi
 
-say "Checking the APIs"
+say "Checking the API"
 for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4001/health >/dev/null && break; sleep 2; done
-curl -fsS http://127.0.0.1:4001/health && echo " - Visa CRM API up"
-if [ -f "$APP_DIR/travel_crm_backend/.env" ]; then
-    for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4002/health >/dev/null && break; sleep 2; done
-    curl -fsS http://127.0.0.1:4002/health && echo " - Travel CRM API up"
-fi
-echo "deploy finished"
+curl -fsS http://127.0.0.1:4001/health && echo " - deploy finished"
 echo "$NEW" > "$STATE"

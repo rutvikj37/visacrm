@@ -1,19 +1,9 @@
 #!/usr/bin/env bash
 # Nightly MySQL backup: dump -> gzip -> keep 7 days in /var/backups/visacrm -> upload to S3 (keeps 30 days).
-# Installed as a cron job by deploy.sh. Run by hand:
-#   bash /opt/visacrm/deploy/backup-db.sh                       both products (Visa CRM and Travel CRM)
-#   bash /opt/visacrm/deploy/backup-db.sh travel_crm_backend    one product's database
+# Installed as a cron job by deploy.sh. Run by hand:  bash /opt/visacrm/deploy/backup-db.sh
 set -euo pipefail
 APP_DIR=/opt/visacrm
-if [ $# -eq 0 ]; then
-    status=0
-    for b in abroly_visa_platform_backend travel_crm_backend; do
-        [ -f "$APP_DIR/$b/.env" ] || continue
-        bash "$0" "$b" || status=1
-    done
-    exit $status
-fi
-BACKEND="$APP_DIR/$1"
+BACKEND="$APP_DIR/abroly_visa_platform_backend"
 OUT_DIR=/var/backups/visacrm
 mkdir -p "$OUT_DIR" && chmod 700 "$OUT_DIR"
 

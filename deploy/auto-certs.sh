@@ -1,47 +1,39 @@
 #!/usr/bin/env bash
 # Automatic HTTPS for agency portals and panels. Runs every minute (systemd timer visacrm-certs.timer).
 #
-# For every active agency with a portal address (<sub>.techxsolutions.io or its own domain), in both products
-# (Visa CRM database and Travel CRM database):
+# For every active agency with a portal address (<sub>.techxsolutions.io or its own domain):
 #   1. if the address has no certificate and its DNS already points to this server -> get one (Let's Encrypt)
-#   2. write /etc/nginx/visacrm-portals/<address>.conf: that product's portal at https://<address>/ and its
+#   2. write /etc/nginx/visacrm-portals/<address>.conf: student portal at https://<address>/ and the
 #      agency panel at https://<address>/agency/ (e.g. rutvik.techxsolutions.io/agency)
 #   3. old crm.<address> panel addresses that already have a certificate redirect to <address>/agency
+# An address the Travel CRM already serves (/etc/nginx/travelcrm-portals/, its own job on this server) is skipped.
 # Addresses whose DNS isn't ready are skipped; a failed attempt waits an hour before retrying
 # (keeps us inside Let's Encrypt's limits). Portal files of removed agencies are taken down.
 set -uo pipefail
 
 APP_DIR=/opt/visacrm
 ENV_FILE=$APP_DIR/abroly_visa_platform_backend/.env
-TRAVEL_ENV_FILE=$APP_DIR/travel_crm_backend/.env
 PORTALS=/etc/nginx/visacrm-portals
+TRAVEL_PORTALS=/etc/nginx/travelcrm-portals
 WEBROOT=/var/www/letsencrypt
 STATE=/var/lib/visacrm-certs
+# travel / travel-api belong to the Travel CRM (/opt/travelcrm)
 RESERVED="api admin crm student www travel travel-api"
 PLATFORM_DOMAIN=$(grep -E '^PLATFORM_PORTAL_DOMAIN=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')
 PLATFORM_DOMAIN=${PLATFORM_DOMAIN:-techxsolutions.io}
 
 log() { echo "[visacrm-certs] $*"; }
-envv() { grep -E "^$1=" "${2:-$ENV_FILE}" | head -1 | cut -d= -f2-; }
+envv() { grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2-; }
 mkdir -p "$PORTALS" "$WEBROOT" "$STATE"
 
 # this server's public IPv4 (to check DNS before asking Let's Encrypt)
 SERVER_IP=$(curl -fsS4 --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
 
-# agency_hosts <env file>: every active agency address in that product's database
-agency_hosts() {
-    local env=$1
-    local args=(-h "$(envv MYSQL_HOST "$env")" -P "$(envv MYSQL_PORT "$env")" -u "$(envv MYSQL_USER "$env")" "$(envv MYSQL_DATABASE "$env")")
-    MYSQL_PWD="$(envv MYSQL_PASSWORD "$env")" mysql -N -B "${args[@]}" -e "
+DB_ARGS=(-h "$(envv MYSQL_HOST)" -P "$(envv MYSQL_PORT)" -u "$(envv MYSQL_USER)" "$(envv MYSQL_DATABASE)")
+HOSTS=$(MYSQL_PWD="$(envv MYSQL_PASSWORD)" mysql -N -B "${DB_ARGS[@]}" -e "
     SELECT DISTINCT LOWER(CONCAT(IF(sudomain IS NULL OR sudomain = '', '', CONCAT(sudomain, '.')), domain))
     FROM agent
-    WHERE role = 'agent' AND status = 'active' AND deletedAt IS NULL AND domain IS NOT NULL AND domain <> ''"
-}
-HOSTS=$(agency_hosts "$ENV_FILE") || { log "could not read Visa CRM agencies from MySQL"; exit 1; }
-TRAVEL_HOSTS=""
-if [ -f "$TRAVEL_ENV_FILE" ]; then
-    TRAVEL_HOSTS=$(agency_hosts "$TRAVEL_ENV_FILE") || { log "could not read Travel CRM agencies from MySQL"; exit 1; }
-fi
+    WHERE role = 'agent' AND status = 'active' AND deletedAt IS NULL AND domain IS NOT NULL AND domain <> ''") || { log "could not read agencies from MySQL"; exit 1; }
 
 # cert <address>: make sure the address has a certificate (asks Let's Encrypt once DNS points here).
 # Returns 0 when the certificate is there.
@@ -82,25 +74,16 @@ write_conf() {
 
 changed=0
 wanted=" "
-# "<host> <product>" lines; an address in both databases stays with the Visa CRM (logged)
-LIST=$( { for h in $HOSTS; do echo "$h visa"; done; for h in $TRAVEL_HOSTS; do
-    if grep -qx "$h" <<< "$HOSTS"; then log "address $h is used in both products - keeping it on the Visa CRM" >&2; else echo "$h travel"; fi
-done; } )
-while read -r host product <&3; do
-    [ -n "$host" ] || continue
+for host in $HOSTS; do
     [[ "$host" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] || { log "skip invalid address: $host"; continue; }
     sub=${host%%.*}
     if [ "${host#*.}" = "$PLATFORM_DOMAIN" ] && [[ " $RESERVED " == *" $sub "* ]]; then continue; fi
+    if [ -f "$TRAVEL_PORTALS/$host.conf" ]; then log "skip $host: the Travel CRM already serves it"; continue; fi
     wanted+="$host "
-    # one address for everyone: the product's portal at /, its agency panel at /agency/
-    if [ "$product" = travel ]; then
-        agency_snippet=travelcrm-agency.conf; portal_root=$APP_DIR/travel_crm_portal/dist; label="Travel CRM"
-    else
-        agency_snippet=visacrm-agency.conf; portal_root=$APP_DIR/abroly_visa_platform_student/dist; label="Visa CRM"
-    fi
+    # one address for everyone: student portal at /, agency panel at /agency/
     if cert "$host"; then
-        write_conf "$PORTALS/$host.conf" <<NGINX && log "live ($label): https://$host (portal) and https://$host/agency (agency panel)"
-# agency address ($label) - written by deploy/auto-certs.sh
+        write_conf "$PORTALS/$host.conf" <<NGINX && log "live: https://$host (student portal) and https://$host/agency (agency panel)"
+# agency address - written by deploy/auto-certs.sh
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
@@ -109,8 +92,8 @@ server {
     ssl_certificate /etc/letsencrypt/live/$host/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$host/privkey.pem;
     include /etc/nginx/snippets/visacrm-ssl.conf;
-    include /etc/nginx/snippets/$agency_snippet;
-    root $portal_root;
+    include /etc/nginx/snippets/visacrm-agency.conf;
+    root $APP_DIR/abroly_visa_platform_student/dist;
     include /etc/nginx/snippets/visacrm-spa.conf;
 }
 NGINX
@@ -132,7 +115,7 @@ server {
 }
 NGINX
     fi
-done 3<<< "$LIST"
+done
 
 # take down portals of agencies that were removed, suspended or changed address (certificates are kept)
 for conf in "$PORTALS"/*.conf; do
