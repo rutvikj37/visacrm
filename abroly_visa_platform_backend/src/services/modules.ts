@@ -6,7 +6,7 @@ import { RequestWithUser } from "../utils/types";
 
 /**
  * Which modules an agency can use. This is the Visa CRM: every agency is a visa agency
- * (the Travel CRM is a separate product with its own backend and database, in travel_crm_backend/).
+ * (the Travel CRM is a separate product with its own backend and database: github.com/rutvikj37/travelcrm).
  *
  *   final list = defaults for the agency's crm_type
  *              ∩ what its plan includes (no plan = everything)

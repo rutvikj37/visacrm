@@ -1,22 +1,18 @@
 # TechX CRM
 
-Two separate products, each with its own API, database, white-label agency panel and client portal, plus one shared platform (super) admin:
+CRM for visa and study-abroad agencies: a platform (super) admin, a white-label agency panel, and a student portal per agency.
 
-- **Visa CRM** for visa and study-abroad agencies (`abroly_visa_platform_*`)
-- **Travel CRM** for holiday / tour agencies: itineraries, quotes, bookings, suppliers (`travel_crm_*`)
+The **Travel CRM** is a separate product in its own private repo, github.com/rutvikj37/travelcrm (own API, database and deploy,
+`/opt/travelcrm` on the same server). The platform admin panel here is shared: its Visa CRM / Travel CRM switch manages either product.
 
 | Folder | App | Stack | Local port |
 |---|---|---|---|
-| `abroly_visa_platform_backend` | Visa CRM API | Node 20, Express, Sequelize, MySQL / MariaDB | 4001 |
-| `abroly_visa_platform_agent` | Visa CRM agency panel | React, Vite, HeroUI | 5175 |
-| `abroly_visa_platform_student` | Visa CRM student portal | React, Vite, NextUI | 5176 |
-| `travel_crm_backend` | Travel CRM API (own database) | Node 20, Express, Sequelize, MySQL / MariaDB | 4002 |
-| `travel_crm_agent` | Travel CRM agency panel | React, Vite, HeroUI | 5185 |
-| `travel_crm_portal` | Travel CRM client portal | React, Vite, NextUI | 5186 |
-| `abroly_visa_platform_admin` | Platform (super) admin for both (Visa / Travel switch) | React, Vite, NextUI | 5174 |
+| `abroly_visa_platform_backend` | API | Node 20, Express, Sequelize, MySQL / MariaDB | 4001 |
+| `abroly_visa_platform_admin` | Platform (super) admin, for both products | React, Vite, NextUI | 5174 |
+| `abroly_visa_platform_agent` | Agency panel | React, Vite, HeroUI | 5175 |
+| `abroly_visa_platform_student` | Student portal | React, Vite, NextUI | 5176 |
 
-The two products share no code at runtime: shared features (leads, team, chat, billing …) exist as a copy in each.
-A fix to shared code has to be made in both. Travel CRM server setup: [deploy/TRAVEL_CRM_SETUP.md](deploy/TRAVEL_CRM_SETUP.md).
+Shared features (leads, team, chat, billing …) exist as a copy in each product's repo, so a fix to them has to be made in both.
 
 ## Local setup
 
@@ -29,8 +25,7 @@ A fix to shared code has to be made in both. Travel CRM server setup: [deploy/TR
    ```
 2. **Env files**: copy `.env.example` to `.env` in every app and fill it in.
    - Backend: `MYSQL_*` (with `MYSQL_PORT=3307`), `ACCESS_TOKEN_SECRET`, `LOCAL_PATH`, `PUBLIC_API_URL`, `AGENCY_PANEL_URL`, `STUDENT_PORTAL_URL`, mail (`RESEND_API_KEY` + `MAIL_FROM`, or `SMTP_*`). `CLUSTER_WORKERS=2` keeps local restarts fast.
-   - Frontends: `VITE_API_BASE_URL=http://localhost:4001/api` (Visa CRM apps) or `http://localhost:4002/api` (Travel CRM apps), `VITE_IS_LOCAL=true` for local OTP routes. Admin: also `VITE_TRAVEL_API_BASE_URL=http://localhost:4002/api` to manage the Travel CRM.
-   - Travel CRM backend: its own database (for example `travelcrm`, created in the same MariaDB container), `SERVER_PORT=4002` and its own secrets.
+   - Frontends: `VITE_API_BASE_URL=http://localhost:4001/api`, `VITE_IS_LOCAL=true` for local OTP routes. Admin: also `VITE_TRAVEL_API_BASE_URL=http://localhost:4002/api` to manage a local Travel CRM.
 3. **Install and create tables**:
    ```bash
    cd abroly_visa_platform_backend && npm install && npm run db:sync
