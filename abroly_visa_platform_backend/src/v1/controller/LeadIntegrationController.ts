@@ -6,6 +6,7 @@ import LeadIntegration from "../../model/LeadIntegration";
 import { decryptJson, encryptJson, generatePublicKey, maskSecret } from "../../helpers/crypto";
 import { indiamartWaitMs, pullIndiamart } from "../../services/indiamart";
 import { syncFacebookPage } from "../../services/meta";
+import { parseJsonValue } from "../../helpers/json";
 import { setWhatsappAutoCreate } from "../../services/whatsappPending";
 
 /**
@@ -35,7 +36,8 @@ export const presentIntegration = (req: RequestWithUser, integration: any) => {
         type: data.type,
         name: data.name,
         status: data.status,
-        settings: data.settings,
+        // always return a plain object so the auto-create switch reads the real flag
+        settings: parseJsonValue(data.settings) || {},
         branch_id: data.branch_id || null,
         last_synced_at: data.last_synced_at,
         last_lead_at: data.last_lead_at,
@@ -228,7 +230,12 @@ class LeadIntegrationController {
             if (!integration || integration.dataValues.type !== "whatsapp") {
                 return returnHelper(res, 200, false, "WhatsApp number not found");
             }
-            const auto = req.body?.auto_create_leads !== false && req.body?.auto_create_leads !== "false";
+            const raw = req.body?.auto_create_leads;
+            // require an explicit value so a missing body cannot silently re-enable auto-create
+            if (raw === undefined || raw === null || raw === "") {
+                return returnHelper(res, 200, false, "Send auto_create_leads: true or false");
+            }
+            const auto = !(raw === false || raw === "false" || raw === 0 || raw === "0");
             const result = await setWhatsappAutoCreate(ctx(req).agencyUuid, integration.dataValues.uuid, auto);
             return returnHelper(res, 200, result.ok, result.message, result.ok ? { auto_create_leads: result.auto_create_leads } : undefined);
         } catch (error) {

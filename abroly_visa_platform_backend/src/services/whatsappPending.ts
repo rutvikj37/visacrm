@@ -8,10 +8,16 @@ const MAX_MESSAGES = 100;
 
 export type PendingMessage = { wamid?: string | null; text: string; at: string };
 
-/** Default true (current behaviour). Review-first when settings.auto_create_leads === false. */
+/** Coerce stored setting to boolean. Default true; only explicit false/0/"false" means review-first. */
+export const isAutoCreateEnabled = (value: any): boolean => {
+    if (value === false || value === 0 || value === "0" || value === "false" || value === "False") return false;
+    return true;
+};
+
+/** Default true (current behaviour). Review-first when settings.auto_create_leads is explicitly off. */
 export const autoCreateLeads = (integration: any): boolean => {
     const settings = parseJsonValue(integration?.dataValues?.settings ?? integration?.settings) || {};
-    return settings.auto_create_leads !== false;
+    return isAutoCreateEnabled(settings.auto_create_leads);
 };
 
 const asMessages = (raw: any): PendingMessage[] => {
@@ -202,14 +208,26 @@ export const setWhatsappAutoCreate = async (agencyUuid: string, integrationUuid:
         where: { uuid: integrationUuid, agency_uuid: agencyUuid, type: "whatsapp" },
     });
     if (!row) return { ok: false as const, message: "WhatsApp number not found" };
-    const settings = { ...(parseJsonValue(row.dataValues.settings) || {}), auto_create_leads: autoCreate };
-    await LeadIntegration.update({ settings }, { where: { id: row.dataValues.id } });
+    // new object + boolean so Sequelize/MySQL JSON always persists the flag (no silent no-op)
+    const settings = {
+        ...(parseJsonValue(row.dataValues.settings) || {}),
+        auto_create_leads: Boolean(autoCreate),
+    };
+    await LeadIntegration.update(
+        { settings: JSON.parse(JSON.stringify(settings)) },
+        { where: { id: row.dataValues.id } },
+    );
+    const fresh: any = await LeadIntegration.findByPk(row.dataValues.id, { attributes: ["settings"] });
+    const saved = isAutoCreateEnabled(parseJsonValue(fresh?.dataValues?.settings)?.auto_create_leads);
+    if (saved !== Boolean(autoCreate)) {
+        return { ok: false as const, message: "Could not save WhatsApp lead mode — please try again" };
+    }
     return {
         ok: true as const,
         message: autoCreate
             ? "New WhatsApp chats will become leads automatically."
             : "New WhatsApp chats stay in the inbox until you add them as leads.",
-        auto_create_leads: autoCreate,
+        auto_create_leads: Boolean(autoCreate),
     };
 };
 
