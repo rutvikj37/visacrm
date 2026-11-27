@@ -84,7 +84,7 @@ const AgencyWhatsappCard = ({ agencyId }: { agencyId: string }) => {
             )}
 
             {numbers.map((n) => {
-                const raw = n.settings?.auto_create_leads;
+                const raw: unknown = n.settings?.auto_create_leads;
                 const autoCreate = !(raw === false || raw === "false" || raw === 0 || raw === "0");
                 return (
                 <div key={n.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">

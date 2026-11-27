@@ -172,7 +172,7 @@ export const WhatsappSourceCard = ({ integrations, busy, call, onRemove }: CardP
 
                 {allNumbers.map((wa) => {
                     // switch ON = auto-create; OFF = review-first (must match the label or the setting looks disabled when it is not)
-                    const raw = wa.settings?.auto_create_leads;
+                    const raw: unknown = wa.settings?.auto_create_leads;
                     const autoCreate = !(raw === false || raw === "false" || raw === 0 || raw === "0");
                     return (
                     <div key={wa.uuid} className="rounded-xl border border-default-200 p-3 flex flex-col gap-2">

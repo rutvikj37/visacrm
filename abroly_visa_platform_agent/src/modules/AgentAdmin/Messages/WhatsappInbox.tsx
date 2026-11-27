@@ -98,7 +98,7 @@ const WhatsappInbox = () => {
     const digits = String(thread?.lead?.phone_normalized || "").replace(/\D/g, "");
     const reviewModeOn = numbers.some((n) => {
         if (n.status !== "active") return false;
-        const raw = n.settings?.auto_create_leads;
+        const raw: unknown = n.settings?.auto_create_leads;
         return raw === false || raw === "false" || raw === 0 || raw === "0";
     });
 
