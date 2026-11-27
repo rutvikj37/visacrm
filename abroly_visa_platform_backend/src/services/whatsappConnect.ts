@@ -1,5 +1,6 @@
 import LeadIntegration from "../model/LeadIntegration";
 import { decryptJson, encryptJson, generatePublicKey } from "../helpers/crypto";
+import { parseJsonValue } from "../helpers/json";
 import { assertSourceAllowed } from "./saas";
 import { verifyWhatsapp } from "./meta";
 
@@ -51,23 +52,27 @@ export const connectWhatsapp = async (agencyUuid: string, body: any): Promise<{ 
     }
 
     const { subscription_warning, ...phoneInfo } = info;
+    // "add another number": a second (third...) WhatsApp number; otherwise update the first one
+    const existing: any = body?.add_number
+        ? await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp", external_id: phoneNumberId } })
+        : await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp" }, order: [["id", "ASC"]] });
+    const prevSettings = existing ? (parseJsonValue(existing.dataValues.settings) || {}) : {};
     const values: any = {
         name: phoneInfo.verified_name ? `${phoneInfo.verified_name} (${phoneInfo.display_phone_number})` : phoneInfo.display_phone_number || "WhatsApp",
         external_id: phoneNumberId,
+        // keep review-first preference when reconnecting the same number
         settings: {
+            ...prevSettings,
             ...phoneInfo,
             phone_number_id: phoneNumberId,
             waba_id: wabaId,
             waba_subscribed: !subscription_warning,
+            auto_create_leads: prevSettings.auto_create_leads !== false,
         },
         status: "active",
         // surface subscribe issues on the card without blocking connect (outbound still works)
         last_error: subscription_warning || null,
     };
-    // "add another number": a second (third...) WhatsApp number; otherwise update the first one
-    const existing: any = body?.add_number
-        ? await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp", external_id: phoneNumberId } })
-        : await LeadIntegration.findOne({ where: { agency_uuid: agencyUuid, type: "whatsapp" }, order: [["id", "ASC"]] });
     const previous = existing ? (decryptJson<any>(existing.dataValues.credentials) || {}) : {};
     values.credentials = encryptJson({
         access_token: accessToken,

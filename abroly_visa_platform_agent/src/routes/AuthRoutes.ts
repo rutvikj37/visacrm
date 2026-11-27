@@ -69,6 +69,7 @@ const AboutPage = lazy(() => import("@/modules/public/CompanyPages").then((m) =>
 const TermsPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.TermsPage })))
 const PrivacyPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.PrivacyPage })))
 const RefundPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.RefundPage })))
+const DataDeletionPage = lazy(() => import("@/modules/public/CompanyPages").then((m) => ({ default: m.DataDeletionPage })))
 
 export const PublicRoutes = [
     {
@@ -94,6 +95,10 @@ export const PublicRoutes = [
     {
         path: "/privacy",
         element: PrivacyPage
+    },
+    {
+        path: "/data-deletion",
+        element: DataDeletionPage
     },
     {
         path: "/refund",

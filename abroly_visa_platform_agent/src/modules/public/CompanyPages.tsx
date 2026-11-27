@@ -13,13 +13,14 @@ const COMPANY = {
   address: "Ahmedabad, Gujarat, India",
 };
 
-type PageKey = "about" | "terms" | "privacy" | "refund";
+type PageKey = "about" | "terms" | "privacy" | "refund" | "dataDeletion";
 
 const META: Record<PageKey, { title: string; eyebrow: string }> = {
   about: { title: "About Us", eyebrow: "Company" },
   terms: { title: "Terms & Conditions", eyebrow: "Legal" },
   privacy: { title: "Privacy Policy", eyebrow: "Legal" },
   refund: { title: "Return & Refund Policy", eyebrow: "Legal" },
+  dataDeletion: { title: "Data Deletion Policy", eyebrow: "Legal" },
 };
 
 const Shell = ({
@@ -297,6 +298,111 @@ export const PrivacyPage = () => (
     <H>7. Updates</H>
     <P>
       We may update this Policy from time to time. The latest version will be available on this page.
+    </P>
+    <P className="text-xs text-slate-500">Last updated: {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</P>
+  </Shell>
+);
+
+export const DataDeletionPage = () => (
+  <Shell page="dataDeletion">
+    <P>
+      This Data Deletion Policy explains how users and agencies can request deletion of personal data held in{" "}
+      <strong>{COMPANY.product}</strong> (a product of <strong>{COMPANY.company}</strong>), including data obtained
+      through Meta integrations such as Facebook, WhatsApp, and Instagram.
+    </P>
+    <P>
+      Meta (Facebook / WhatsApp / Instagram) requires apps that receive user data to provide clear instructions for
+      requesting deletion of that data. This page meets that requirement for {COMPANY.product}.
+    </P>
+    <H>1. Scope</H>
+    <P>This policy covers personal data that {COMPANY.product} may store in connection with Meta-related features, for example:</P>
+    <Ul
+      items={[
+        "WhatsApp Business / Cloud API messages, conversation history, and related contact identifiers linked to your agency inbox",
+        "Lead or contact details received via Facebook or Instagram lead forms, ads, or messaging integrations",
+        "Meta page / business connection metadata needed to operate those integrations (such as page or phone number IDs)",
+        "Other CRM records created from Meta-sourced leads or conversations (names, phone numbers, notes, and similar fields)",
+      ]}
+    />
+    <H>2. Who can request deletion</H>
+    <Ul
+      items={[
+        "An individual whose personal data was collected or stored via a Meta integration used with TechX CRM",
+        "An agency owner or authorised team member requesting deletion of Meta-connected data for their agency account",
+        "A user requesting removal of their own TechX CRM account data where it includes Meta-linked information",
+      ]}
+    />
+    <H>3. How to request deletion</H>
+    <P>Email us at{" "}
+      <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent("Data deletion request — TechX CRM")}`} className="text-[#0f5bd8] hover:underline">
+        {COMPANY.email}
+      </a>{" "}
+      with the subject line <strong>Data deletion request — TechX CRM</strong>. Include:
+    </P>
+    <Ul
+      items={[
+        "Your full name and a contact email or phone number we can use to verify the request",
+        "The agency name (if applicable) and the Meta channel involved (WhatsApp, Facebook, and/or Instagram)",
+        "Any identifiers that help us locate the data (for example WhatsApp number, lead name, Facebook/Instagram page name, or approximate date of contact)",
+        "A clear statement that you want the relevant personal data deleted",
+      ]}
+    />
+    <P>
+      You may also WhatsApp {COMPANY.phone} or use our{" "}
+      <Link to="/contact_us" className="text-[#0f5bd8] hover:underline">
+        Contact Us
+      </Link>{" "}
+      page. Email is preferred so we have a written record.
+    </P>
+    <H>4. What we delete</H>
+    <P>After verification, we delete or anonymise personal data associated with the request from active systems, including where applicable:</P>
+    <Ul
+      items={[
+        "Meta-sourced lead and contact fields in the CRM",
+        "WhatsApp / messaging conversation content and related inbox records tied to that person",
+        "Stored Meta integration tokens or connection details for an agency when the agency requests disconnection and deletion of that integration data",
+        "Account profile data when a full account deletion is requested and verified",
+      ]}
+    />
+    <P>
+      We may retain limited information when required by law, for fraud prevention, billing disputes, or security logs
+      (for example payment records or anonymised audit entries). Agency-owned business records that are not personal
+      data of the requester may remain unless the agency also requests their removal.
+    </P>
+    <H>5. Timeframe & confirmation</H>
+    <Ul
+      items={[
+        "We acknowledge valid deletion requests within a few business days.",
+        "We complete deletion (or confirm lawful retention limits) within thirty (30) days of verifying the request, unless a longer period is required by law.",
+        "When deletion is complete, we send a confirmation to the contact address used in the request.",
+      ]}
+    />
+    <H>6. Agency responsibility</H>
+    <P>
+      Agencies using {COMPANY.product} act as controllers of the student and lead data they collect. If you contacted an
+      agency through Facebook, WhatsApp, or Instagram and want that agency to stop using your data for consultancy
+      purposes, you may also contact the agency directly. {COMPANY.company} will still honour verified deletion requests
+      sent to us for data we host in {COMPANY.product}.
+    </P>
+    <H>7. Related policies</H>
+    <P>
+      See also our{" "}
+      <Link to="/privacy" className="text-[#0f5bd8] hover:underline">
+        Privacy Policy
+      </Link>{" "}
+      and{" "}
+      <Link to="/terms" className="text-[#0f5bd8] hover:underline">
+        Terms & Conditions
+      </Link>
+      .
+    </P>
+    <H>8. Contact</H>
+    <P>
+      {COMPANY.company} ·{" "}
+      <a href={`mailto:${COMPANY.email}`} className="text-[#0f5bd8] hover:underline">
+        {COMPANY.email}
+      </a>{" "}
+      · WhatsApp {COMPANY.phone} · {COMPANY.address}
     </P>
     <P className="text-xs text-slate-500">Last updated: {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</P>
   </Shell>

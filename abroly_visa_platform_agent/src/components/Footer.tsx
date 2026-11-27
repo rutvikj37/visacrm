@@ -7,6 +7,7 @@ const COMPANY_LINKS = [
   { title: "About Us", to: "/about" },
   { title: "Terms & Conditions", to: "/terms" },
   { title: "Privacy & Policy", to: "/privacy" },
+  { title: "Data Deletion Policy", to: "/data-deletion" },
   { title: "Return & Refund Policy", to: "/refund" },
   { title: "Contact Us", to: "/contact_us" },
 ];
