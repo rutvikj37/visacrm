@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PRIMARY_COLOR, BRAND_TEXT, getPrimaryGradient } from '@/lib/theme'
 import { phoneInputProps, phoneOnChange } from "@/utils/phone";
+import FormField from "@/modules/AgentAdmin/Crm/FormField";
 
 const PAGE_SIZE = 10
 
@@ -574,35 +575,37 @@ const SubAgents = () => {
                                             isDisabled={!!form.uuid}
                                             startContent={<Phone className="w-4 h-4 text-default-400" />}
                                         />
-                                        <Select
-                                            label="Role"
-                                            aria-label="Role"
-                                            selectedKeys={[form.team_role || "counsellor"]}
-                                            onChange={(e) => e.target.value && setForm((f) => ({ ...f, team_role: e.target.value }))}
-                                            description={ROLE_HELP[form.team_role] || undefined}
-                                        >
-                                            {(roles.length ? roles : [
-                                                { key: "counsellor", label: "Counsellor" },
-                                                { key: "branch_manager", label: "Branch manager" },
-                                                { key: "documents", label: "Document executive" },
-                                                { key: "accounts", label: "Accounts" },
-                                                { key: "operations", label: "Operations" },
-                                            ]).map((r) => (
-                                                <SelectItem key={r.key}>{r.label}</SelectItem>
-                                            ))}
-                                        </Select>
-                                        <Select
-                                            label="Branch"
-                                            aria-label="Branch"
-                                            selectedKeys={[form.branch_id || "none"]}
-                                            onChange={(e) => e.target.value && setForm((f) => ({ ...f, branch_id: e.target.value }))}
-                                            description={branches.length ? "Which office they belong to" : "Add offices under Branches if you have more than one"}
-                                        >
-                                            {[
-                                                <SelectItem key="none">No branch</SelectItem>,
-                                                ...branches.map((b) => <SelectItem key={String(b.id)}>{b.name}</SelectItem>),
-                                            ]}
-                                        </Select>
+                                        <FormField label="Role">
+                                            <Select
+                                                aria-label="Role"
+                                                selectedKeys={[form.team_role || "counsellor"]}
+                                                onChange={(e) => e.target.value && setForm((f) => ({ ...f, team_role: e.target.value }))}
+                                                description={ROLE_HELP[form.team_role] || undefined}
+                                            >
+                                                {(roles.length ? roles : [
+                                                    { key: "counsellor", label: "Counsellor" },
+                                                    { key: "branch_manager", label: "Branch manager" },
+                                                    { key: "documents", label: "Document executive" },
+                                                    { key: "accounts", label: "Accounts" },
+                                                    { key: "operations", label: "Operations" },
+                                                ]).map((r) => (
+                                                    <SelectItem key={r.key}>{r.label}</SelectItem>
+                                                ))}
+                                            </Select>
+                                        </FormField>
+                                        <FormField label="Branch">
+                                            <Select
+                                                aria-label="Branch"
+                                                selectedKeys={[form.branch_id || "none"]}
+                                                onChange={(e) => e.target.value && setForm((f) => ({ ...f, branch_id: e.target.value }))}
+                                                description={branches.length ? "Which office they belong to" : "Add offices under Branches if you have more than one"}
+                                            >
+                                                {[
+                                                    <SelectItem key="none">No branch</SelectItem>,
+                                                    ...branches.map((b) => <SelectItem key={String(b.id)}>{b.name}</SelectItem>),
+                                                ]}
+                                            </Select>
+                                        </FormField>
                                     </div>
 
                                     <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-2">
