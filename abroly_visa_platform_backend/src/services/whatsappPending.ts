@@ -3,6 +3,7 @@ import LeadIntegration from "../model/LeadIntegration";
 import { parseJsonValue } from "../helpers/json";
 import { ingestLead, logActivity } from "./leadIngestion";
 import { leadRecipients, notifyLater } from "./notifications";
+import { promotePendingFilesToLead, stashWhatsappMediaForPending } from "./whatsappLeadMedia";
 
 const MAX_MESSAGES = 100;
 
@@ -29,14 +30,26 @@ const asMessages = (raw: any): PendingMessage[] => {
 export const upsertPendingWhatsapp = async (opts: {
     agencyUuid: string;
     integrationId: number;
+    integration?: any;
     phoneNormalized: string;
     profileName?: string | null;
     text: string;
     wamid?: string | null;
     campaign?: string | null;
     extra?: Record<string, any> | null;
+    message?: any;
 }) => {
     const { agencyUuid, integrationId, phoneNormalized, text, wamid } = opts;
+    let mergedExtra = opts.extra || null;
+    if (opts.integration && opts.message) {
+        mergedExtra = await stashWhatsappMediaForPending({
+            agencyUuid,
+            integration: opts.integration,
+            message: opts.message,
+            wamid,
+            extra: mergedExtra,
+        });
+    }
     let row: any = await WhatsappPendingChat.findOne({
         where: { agency_uuid: agencyUuid, phone_normalized: phoneNormalized, status: "pending" },
     });
@@ -62,7 +75,7 @@ export const upsertPendingWhatsapp = async (opts: {
             message_count: messages.length,
             messages,
             campaign: opts.campaign || row.dataValues.campaign || null,
-            extra: opts.extra || row.dataValues.extra || null,
+            extra: mergedExtra || row.dataValues.extra || null,
             lead_id: null,
         }, { where: { id: row.dataValues.id } });
         return WhatsappPendingChat.findByPk(row.dataValues.id);
@@ -78,7 +91,7 @@ export const upsertPendingWhatsapp = async (opts: {
         message_count: 1,
         messages: [{ wamid: wamid || null, text, at }],
         campaign: opts.campaign || null,
-        extra: opts.extra || null,
+        extra: mergedExtra || null,
         status: "pending",
     });
 };
@@ -164,16 +177,24 @@ export const promotePendingWhatsapp = async (agencyUuid: string, pendingUuid: st
     const leadId = result.lead.dataValues.id;
     const leadUuid = result.lead.dataValues.uuid;
     const existingWamids = new Set<string>();
+    const pendingExtra = parseJsonValue(d.extra) || {};
+    const fileWamids = new Set(
+        (Array.isArray(pendingExtra.pending_files) ? pendingExtra.pending_files : [])
+            .map((f: any) => f?.wamid)
+            .filter(Boolean),
+    );
 
     for (const m of messages) {
         if (m.wamid && existingWamids.has(m.wamid)) continue;
         if (m.wamid) existingWamids.add(m.wamid);
+        if (m.wamid && fileWamids.has(m.wamid)) continue;
         await logActivity(leadId, agencyUuid, "whatsapp", `Received: ${m.text}`, null, {
             direction: "in",
             wamid: m.wamid || null,
             from_pending: true,
         });
     }
+    await promotePendingFilesToLead(agencyUuid, leadId, d.extra);
 
     await WhatsappPendingChat.update({
         status: "converted",

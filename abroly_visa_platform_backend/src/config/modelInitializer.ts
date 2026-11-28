@@ -88,6 +88,7 @@ import ServiceOrder from "../model/ServiceOrder";
 import ServiceOrderUpdate from "../model/ServiceOrderUpdate";
 import PortalChatMessage from "../model/PortalChatMessage";
 import WhatsappPendingChat from "../model/WhatsappPendingChat";
+import CrmLeadFile from "../model/CrmLeadFile";
 import AgencyTask from "../model/AgencyTask";
 import UniversityApplication from "../model/UniversityApplication";
 import Commission from "../model/Commission";
@@ -184,7 +185,7 @@ class ModelInitializer {
       QuizAnswers, QuizQuestions, SideBannerResponses, StudentBasicDetails,
       StudentCoins, UserDevices,
       // CRM
-      LeadIntegration, CrmLead, CrmLeadActivity, VisaTemplate, ClientForm, ClientFormAssignment, ClientFormSubmission,
+      LeadIntegration, CrmLead, CrmLeadActivity, CrmLeadFile, VisaTemplate, ClientForm, ClientFormAssignment, ClientFormSubmission,
       // SaaS billing
       SaasPlan, SaasSubscription, SaasPayment,
       Notification, MarketingSpend, AgencyBranch, ClientInvoice, ClientPayment, MessageTemplate, PlatformSetting, SaasCoupon, Announcement, AnnouncementDismissal, ActivityLog, AgencyService, ServiceOrder, ServiceOrderUpdate, PortalChatMessage, WhatsappPendingChat, AgencyTask, UniversityApplication, Commission, PlatformErrorLog, PlatformSchedulerHeartbeat,

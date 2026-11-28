@@ -29,6 +29,8 @@ import { importLeadsFromFile, IMPORT_TEMPLATE_CSV } from "../../services/leadImp
 import { buildPortalInvite, convertLeadToCase, ConversionError, portalInviteLoginCode, sendPortalInviteEmail } from "../../services/leadConversion";
 import { logPortalSafe } from "../../services/portalLeadActivity";
 import { resolveTemplate } from "./VisaTemplateController";
+import CrmLeadFile from "../../model/CrmLeadFile";
+import { presentLeadFile } from "../../services/whatsappLeadMedia";
 
 /**
  * Lead CRM for agencies.
@@ -312,9 +314,15 @@ class CrmController {
                 limit: 200,
             });
             const whatsapp = await LeadIntegration.count({ where: { agency_uuid: ctx(req).agencyUuid, type: "whatsapp", status: "active" } });
+            const fileRows: any[] = await CrmLeadFile.findAll({
+                where: { lead_id: lead.dataValues.id, agency_uuid: ctx(req).agencyUuid },
+                order: [["createdAt", "DESC"]],
+                limit: 100,
+            });
             return returnHelper(res, 200, true, "Lead fetched", {
                 lead,
                 activities,
+                files: fileRows.map(presentLeadFile),
                 whatsapp_enabled: whatsapp > 0,
                 doc_checklist: checklistSummary(lead.dataValues.doc_checklist),
             });

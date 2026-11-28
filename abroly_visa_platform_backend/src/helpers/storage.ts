@@ -11,6 +11,7 @@ import { getAgencyUuidFromRequest } from "./tenant";
  * With AWS_S3_BUCKET set, files go to S3, one folder per agency:
  *
  *   agencies/<agency_uuid>/student_docs/...       private (signed links only)
+ *   agencies/<agency_uuid>/lead_files/...         CRM lead attachments (e.g. WhatsApp)
  *   agencies/<agency_uuid>/subscription_proof/...
  *   agencies/<agency_uuid>/reports/...
  *   agencies/<agency_uuid>/service_files/...
@@ -27,7 +28,7 @@ import { getAgencyUuidFromRequest } from "./tenant";
  * presigned links; set AWS_S3_PUBLIC_URL (e.g. a CloudFront domain) to link public images directly.
  */
 
-export const PRIVATE_FOLDERS = ["student_docs", "subscription_proof", "reports", "service_files", "travel_docs"] as const;
+export const PRIVATE_FOLDERS = ["student_docs", "subscription_proof", "reports", "service_files", "travel_docs", "lead_files"] as const;
 export const PUBLIC_FOLDERS = [
     "profiles", "certificates", "event_images", "courses", "course_chapter_items",
     "testimonials", "banners", "service_info", "content_writing_files", "travel_media",

@@ -73,6 +73,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
     const [lead, setLead] = useState<any>(null);
     const [travelInfo, setTravelInfo] = useState<any>(null);
     const [activities, setActivities] = useState<any[]>([]);
+    const [files, setFiles] = useState<any[]>([]);
     const [whatsappEnabled, setWhatsappEnabled] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [team, setTeam] = useState<any[]>([]);
@@ -112,6 +113,7 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
             setLead(data.lead);
             setTravelInfo(data.travel || null);
             setActivities(data.activities || []);
+            setFiles(data.files || []);
             setWhatsappEnabled(Boolean(data.whatsapp_enabled));
             setNotFound(false);
         } else {
@@ -457,6 +459,22 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                             )}
                         </div>
                     </section>
+
+                    {files.length > 0 && (
+                        <section className="rounded-xl border border-default-200 px-4 py-3">
+                            <h2 className="text-sm font-semibold text-default-700 mb-3">Files</h2>
+                            <ul className="flex flex-col gap-2">
+                                {files.map((f) => (
+                                    <li key={f.uuid}>
+                                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline break-all">
+                                            {f.original_name || "File"}
+                                            {f.source === "whatsapp" ? " · WhatsApp" : ""}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
                 </div>
 
                 {/* one timeline: follow-up + composer + feed */}
@@ -628,6 +646,11 @@ const LeadDetails = ({ leadUuid, embedded = false, onClose, onChanged, onPrev, o
                                         <p className="text-sm text-default-700">For {formatDateTime(asObject(a.meta)?.at)}</p>
                                     )}
                                     {a.message && (a.type === "note" ? <MentionText text={a.message} /> : <p className="text-sm text-default-700 whitespace-pre-wrap break-words">{a.message}</p>)}
+                                    {asObject(a.meta)?.file_url && (
+                                        <a href={asObject(a.meta)?.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline break-all mt-1 inline-block">
+                                            Open {asObject(a.meta)?.file_name || "attachment"}
+                                        </a>
+                                    )}
                                 </li>
                             ))}
                         </ol>

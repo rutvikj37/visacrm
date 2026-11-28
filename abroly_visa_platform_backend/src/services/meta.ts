@@ -12,6 +12,7 @@ import { ingestLead, logActivity, normalizePhone, LeadInput, LeadValidationError
 import { mapRecordToLeadInput } from "./leadImport";
 import { metaConfiguredFrom, peekMetaConfig, refreshMetaConfig } from "./metaSettings";
 import { autoCreateLeads, upsertPendingWhatsapp } from "./whatsappPending";
+import { attachWhatsappMediaToLead, whatsappMediaPayload } from "./whatsappLeadMedia";
 
 /**
  * Meta (Facebook / Instagram Lead Ads + WhatsApp Cloud API).
@@ -562,10 +563,26 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
         const existing: any = await CrmLead.findOne({ where: { agency_uuid: agencyUuid, phone_normalized: phone.normalized } });
         if (existing) {
             if (await alreadyLogged(existing.dataValues.id, message.id)) continue;
-            await logActivity(existing.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });
+            const hasMedia = Boolean(whatsappMediaPayload(message));
+            if (hasMedia) {
+                const saved = await attachWhatsappMediaToLead({
+                    agencyUuid,
+                    leadId: existing.dataValues.id,
+                    integration,
+                    message,
+                    wamid: message.id || null,
+                    activityMessage: `Received: ${text}`,
+                });
+                if (!saved) {
+                    await logActivity(existing.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });
+                }
+            } else {
+                await logActivity(existing.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });
+            }
             notifyLater({
-                agencyUuid, recipientIds: await leadRecipients(agencyUuid, existing.dataValues.assigned_to), type: "whatsapp_message",
-                title: `WhatsApp from ${existing.dataValues.name || phone.phone_number}`, body: text.slice(0, 200),
+                agencyUuid, recipientIds: await leadRecipients(agencyUuid, existing.dataValues.assigned_to), type: hasMedia ? "document_uploaded" : "whatsapp_message",
+                title: hasMedia ? `WhatsApp file from ${existing.dataValues.name || phone.phone_number}` : `WhatsApp from ${existing.dataValues.name || phone.phone_number}`,
+                body: text.slice(0, 200),
                 link: `/crm/leads/${existing.dataValues.uuid}`,
                 // at most one alert per lead per hour
                 dedupeKey: `wa:${existing.dataValues.id}:${new Date().toISOString().slice(0, 13)}`,
@@ -582,12 +599,14 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
                 const pending: any = await upsertPendingWhatsapp({
                     agencyUuid,
                     integrationId: integration.dataValues.id,
+                    integration,
                     phoneNormalized: phone.normalized,
                     profileName: contact?.profile?.name || null,
                     text,
                     wamid: message.id || null,
                     campaign,
                     extra,
+                    message,
                 });
                 if (pending) {
                     notifyLater({
@@ -616,7 +635,21 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
                     extra,
                 },
             });
-            await logActivity(result.lead.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });
+            if (whatsappMediaPayload(message)) {
+                const saved = await attachWhatsappMediaToLead({
+                    agencyUuid,
+                    leadId: result.lead.dataValues.id,
+                    integration,
+                    message,
+                    wamid: message.id || null,
+                    activityMessage: `Received: ${text}`,
+                });
+                if (!saved) {
+                    await logActivity(result.lead.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });
+                }
+            } else {
+                await logActivity(result.lead.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });
+            }
         } catch (error) {
             if (!(error instanceof LeadValidationError)) console.error("WhatsApp inbound failed", error);
         }

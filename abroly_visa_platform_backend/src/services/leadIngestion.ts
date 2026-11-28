@@ -176,9 +176,10 @@ export const logActivity = async (
     createdBy: number | null = null,
     meta: Record<string, any> | null = null,
 ) => {
-    await CrmLeadActivity.create({ lead_id: leadId, agency_uuid: agencyUuid, type, message, created_by: createdBy, meta });
+    const row = await CrmLeadActivity.create({ lead_id: leadId, agency_uuid: agencyUuid, type, message, created_by: createdBy, meta });
     await CrmLead.update({ last_activity_at: new Date() }, { where: { id: leadId } });
     await refreshScore(leadId);
+    return row;
 };
 
 /** Active team members of an agency (the agency owner is not part of the rotation). */

@@ -224,7 +224,13 @@ class ConversationController {
                 const x = r.dataValues;
                 const dir = direction(x);
                 if (dir === "in") lastIn[x.type] = Math.max(lastIn[x.type] || 0, new Date(x.createdAt).getTime());
-                return { id: x.id, channel: x.type, direction: dir, text: clean(x.message), at: x.createdAt, by: dir === "out" ? (x.created_by ? senderOf.get(Number(x.created_by)) || "Team" : "Automatic") : null };
+                const meta = metaOf(x);
+                return {
+                    id: x.id, channel: x.type, direction: dir, text: clean(x.message), at: x.createdAt,
+                    by: dir === "out" ? (x.created_by ? senderOf.get(Number(x.created_by)) || "Team" : "Automatic") : null,
+                    file_url: meta.file_url || null,
+                    file_name: meta.file_name || null,
+                };
             });
 
             const [wa, ig] = await Promise.all([
