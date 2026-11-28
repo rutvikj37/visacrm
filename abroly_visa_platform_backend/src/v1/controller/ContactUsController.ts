@@ -69,8 +69,14 @@ class ContactUsController {
             const parsedLimit = parseInt(limit as string)
             const offset = (parsedPage - 1) * parsedLimit
 
+            // Student portal stores the agency owner id; JWT agent_id is owner for both owner and team.
+            const agencyId = Number(req?.user?.user?.agent_id || req?.user?.user?.id || 0)
+            if (!agencyId) {
+                return returnHelper(res, 200, false, "Unauthorized")
+            }
+
             const whereClause: any = {
-                agent_id: req?.user?.user?.id
+                agent_id: agencyId
             }
 
             const { count, rows: contactUsRecords } = await ContactUs.findAndCountAll({

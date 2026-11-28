@@ -455,23 +455,36 @@ class SideBannerController {
 
     async sideBannerResponsesGet(req: RequestWithUser, res: Response) {
         try {
-
             const { uuid } = req.body
 
             if (!uuid) {
                 return returnHelper(res, 200, false, "Invalid action")
             }
 
-            const findAll = await SideBannerResponses.findAll({
-                where: {
-                    banner_id: uuid
-                }
+            const banner: any = await SideBanner.findOne({
+                where: { uuid },
+                attributes: [
+                    "uuid", "campaign_title", "start_date", "end_date",
+                    "target_type", "status", "position", "responses",
+                    "image", "access_image", "createdAt",
+                ],
+            })
+            if (!banner) {
+                return returnHelper(res, 200, false, "Banner not found")
+            }
+
+            const responses = await SideBannerResponses.findAll({
+                where: { banner_id: uuid },
+                order: [["createdAt", "DESC"]],
             })
 
-            return returnHelper(res, 200, true, "Find Responses", findAll)
-
-        } catch (error) {
-
+            return returnHelper(res, 200, true, "Find Responses", {
+                banner: banner.toJSON ? banner.toJSON() : banner,
+                responses,
+            })
+        } catch (error: any) {
+            console.error("Error in sideBannerResponsesGet:", error)
+            return returnHelper(res, 500, false, error?.message || "Internal server error")
         }
     }
 

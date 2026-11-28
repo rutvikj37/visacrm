@@ -128,7 +128,7 @@ const TaskBoard = () => {
 
     const PAGE_SIZE = 25;
     const [view, setView] = useState("mine");
-    const [status, setStatus] = useState("open");
+    const [status, setStatus] = useState("all");
     const [layout, setLayout] = useState<"kanban" | "list">("kanban");
     const [page, setPage] = useState(1);
     const [q, setQ] = useState("");
@@ -357,6 +357,7 @@ const TaskBoard = () => {
                     <Tab key="all" title="All" />
                 </Tabs>
                 <Tabs size="sm" aria-label="Status" selectedKey={status} onSelectionChange={(k) => setStatus(String(k))}>
+                    <Tab key="all" title="All" />
                     <Tab key="open" title="Open" />
                     <Tab key="overdue" title="Overdue" />
                     <Tab key="todo" title="Pending" />

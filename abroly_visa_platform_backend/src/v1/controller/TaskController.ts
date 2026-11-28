@@ -173,12 +173,12 @@ const notifyTagged = (
 };
 
 class TaskController {
-    // GET /crm/tasks?view=all|mine|assigned_by_me|tagged_me&status=open|done|overdue|todo|in_progress|ready_for_review&q=&branch=
+    // GET /crm/tasks?view=all|mine|assigned_by_me|tagged_me&status=all|open|done|overdue|todo|in_progress|ready_for_review&q=&branch=
     async list(req: RequestWithUser, res: Response) {
         try {
             const a = accessOf(req);
             const view = String(req.query.view || "all");
-            const statusFilter = String(req.query.status || "open");
+            const statusFilter = String(req.query.status || "all");
             const q = String(req.query.q || "").trim().toLowerCase();
 
             const where: any = { ...taskScope(req) };
@@ -212,7 +212,9 @@ class TaskController {
             }
 
             const now = new Date();
-            if (statusFilter === "open") where.status = { [Op.in]: [...OPEN_STATUSES] };
+            if (statusFilter === "all" || statusFilter === "") {
+                // no status constraint — include completed tasks
+            } else if (statusFilter === "open") where.status = { [Op.in]: [...OPEN_STATUSES] };
             else if (statusFilter === "done") where.status = "done";
             else if (statusFilter === "overdue") {
                 where.status = { [Op.ne]: "done" };

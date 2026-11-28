@@ -313,7 +313,12 @@ class ReportsCrmController {
             const branchRow: any = filtered && access.filter ? await AgencyBranch.findOne({ where: { id: access.filter, agency_uuid: agencyUuid }, attributes: ["id", "name"] }) : null;
             return returnHelper(res, 200, true, "Report", {
                 // which branch these numbers are for (null = whole agency); locked = a branch manager's own branch
-                branch: filtered ? { id: access.filter, name: branchRow?.dataValues?.name || "No branch", locked: Boolean(access.locked) } : null,
+                branch: filtered ? {
+                    id: access.filter,
+                    name: branchRow?.dataValues?.name
+                        || (access.filter == null ? "Unassigned (no branch)" : `Branch #${access.filter}`),
+                    locked: Boolean(access.locked),
+                } : null,
                 period: { from: p.from, to: p.to, weekly },
                 summary: {
                     leads: total,
@@ -359,7 +364,9 @@ class ReportsCrmController {
                 q(`SELECT branch_id b, SUM(total - amount_paid) v FROM client_invoices
                    WHERE agency_uuid = :a AND deletedAt IS NULL AND status IN ('unpaid','partial') GROUP BY branch_id`),
             ]);
-            const pick = (rows: any[], id: number | null) => rows.find((r) => (r.b === null ? null : Number(r.b)) === id) || {};
+            // Coerce both sides — MySQL may return branch_id as a string; strict === then misses real branches.
+            const pick = (rows: any[], id: number | null) =>
+                rows.find((r) => (r.b == null ? null : Number(r.b)) === (id == null ? null : Number(id))) || {};
             const n = (v: any) => Number(v || 0);
             const row = (id: number | null, name: string, city: string | null) => {
                 const l = pick(leads, id), o = pick(open, id), c = pick(cases, id);
@@ -372,9 +379,9 @@ class ReportsCrmController {
                     invoiced: n(pick(invoiced, id).v) / 100, collected: n(pick(collected, id).v) / 100, outstanding: n(pick(outstanding, id).v) / 100,
                 };
             };
-            const rows = branches.map((b) => row(b.id, b.name, b.city));
-            const none = row(null, "No branch", null);
-            // the "No branch" line appears only when something is actually outside the branches
+            const rows = branches.map((b) => row(Number(b.id), String(b.name || "").trim() || `Branch #${b.id}`, b.city || null));
+            // Synthetic row for work with branch_id IS NULL — not a real office name.
+            const none = row(null, "Unassigned (no branch)", null);
             if (none.leads || none.open_leads || none.open_cases || none.invoiced || none.collected || none.outstanding) rows.push(none);
             const sum = (k: string) => rows.reduce((a: number, r: any) => a + Number(r[k] || 0), 0);
             return returnHelper(res, 200, true, "Branches", {
@@ -540,15 +547,16 @@ class ReportsCrmController {
                     raw: true,
                 });
                 const nameOf = (id: number | null) => {
-                    if (id == null) return "No branch";
-                    return branchMeta.find((b) => b.id === id)?.name || `Branch #${id}`;
+                    if (id == null) return "Unassigned (no branch)";
+                    const meta = branchMeta.find((b) => Number(b.id) === Number(id));
+                    return meta?.name || `Branch #${id}`;
                 };
                 branches = perBranch
                     .map((r) => {
                         const id = r.branch_id == null ? null : Number(r.branch_id);
                         const leads = Number(r.leads || 0);
                         const conv = Number(r.converted || 0);
-                        const meta = id == null ? null : branchMeta.find((b) => b.id === id);
+                        const meta = id == null ? null : branchMeta.find((b) => Number(b.id) === Number(id));
                         return {
                             id,
                             name: nameOf(id),
@@ -570,7 +578,12 @@ class ReportsCrmController {
 
             return returnHelper(res, 200, true, "Pipeline", {
                 branch: filtered
-                    ? { id: access.filter, name: branchRow?.dataValues?.name || "No branch", locked: Boolean(access.locked) }
+                    ? {
+                        id: access.filter,
+                        name: branchRow?.dataValues?.name
+                            || (access.filter == null ? "Unassigned (no branch)" : `Branch #${access.filter}`),
+                        locked: Boolean(access.locked),
+                    }
                     : null,
                 scope: access.assigneeOnly ? "mine" : (filtered ? "branch" : "agency"),
                 period: { from: p.from, to: p.to },

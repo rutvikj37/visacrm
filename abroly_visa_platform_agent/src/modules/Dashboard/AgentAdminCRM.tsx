@@ -105,7 +105,7 @@ const AgentCRM = () => {
         items: [
           { title: "Lead Inbox", url: "/crm/leads" },
           { title: "Follow-ups today", url: "/crm/leads?follow_up=today" },
-          // contact form messages arrive in the Lead Inbox (source "Portal"); the old list is linked from Lead sources
+          { title: "Contact form messages", url: "/contact_us" },
         ],
       },
       {
