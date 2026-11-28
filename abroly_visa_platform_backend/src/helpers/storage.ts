@@ -160,6 +160,22 @@ export const saveFile = async (opts: { owner: string; folder: StorageFolder; nam
     return name;
 };
 
+/** Read a stored file body (S3 key or legacy local name). */
+export const readStoredFile = async (folder: StorageFolder, ref: string): Promise<Buffer> => {
+    if (isS3Key(ref)) {
+        if (!s3Enabled() || !validKey(folder, ref)) throw new Error("File not found");
+        const out = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: ref }));
+        const bytes = await out.Body?.transformToByteArray();
+        if (!bytes?.length) throw new Error("Empty file");
+        return Buffer.from(bytes);
+    }
+    const file = safeName(ref);
+    if (!file) throw new Error("Invalid file name");
+    const local = existingLocalPath(folder, file);
+    if (!local) throw new Error("File not found");
+    return fs.promises.readFile(local);
+};
+
 /** Deletes a stored file (S3 key or legacy local name). Never throws. */
 export const deleteFile = async (folder: StorageFolder, ref?: string | null) => {
     if (!ref || /^https?:\/\//i.test(ref)) return;

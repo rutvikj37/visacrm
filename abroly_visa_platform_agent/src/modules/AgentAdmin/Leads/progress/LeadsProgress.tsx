@@ -9,7 +9,8 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, SelectSection, Spinner, Textarea } from "@heroui/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import FileSaver from "file-saver";
-import { ArrowDownToLine, CheckCircle2, Clock, FileText, ListChecks, Plus, XCircle } from 'lucide-react';
+import { ArrowDownToLine, CheckCircle2, Clock, FileText, ListChecks, MessageCircle, Plus, XCircle } from 'lucide-react';
+import { Link } from "react-router-dom";
 import { templateCountryMatches } from "@/modules/AgentAdmin/Crm/crmShared";
 import { SuccessToast } from "@/utils/Toaster";
 import moment from "moment";
@@ -377,6 +378,11 @@ const LeadsProgress = () => {
     })
 
     const tabs = Array.isArray(stepsData) ? stepsData : (stepsData?.steps || [])
+    const leadFiles: any[] = Array.isArray(stepsData) ? [] : (stepsData?.lead_files || [])
+    const crmLeadUuid: string | null = Array.isArray(stepsData) ? null : (stepsData?.crm_lead_uuid || null)
+    const whatsappStepIndex = tabs.findIndex(
+        (s: any) => String(s?.step_title || "").toLowerCase() === "whatsapp uploads",
+    )
     const initialLoad = isLoading && !stepsData
 
     useEffect(() => {
@@ -476,6 +482,42 @@ const LeadsProgress = () => {
                 onAddCommission={showCommissions() && canBill ? (app) => setCommissionFor({ app, n: Date.now() }) : undefined} />
             {showCommissions() && <CaseCommissions caseId={id!} addRequest={commissionFor} onChanged={() => setCaseReload((n) => n + 1)} />}
             </>)}
+
+            {leadFiles.length > 0 && (
+                <section className="rounded-xl border border-default-200 bg-content1 px-4 py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                        <div>
+                            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                <MessageCircle className="w-4 h-4 text-success" />
+                                WhatsApp files (from lead)
+                            </h2>
+                            <p className="text-xs text-default-500 mt-0.5">
+                                Uncategorised uploads — open the &quot;WhatsApp uploads&quot; step to review on the case, or re-upload under the right checklist item.
+                            </p>
+                        </div>
+                        {crmLeadUuid ? (
+                            <Button as={Link} to={`/crm/leads/${crmLeadUuid}`} size="sm" variant="flat">
+                                Open lead
+                            </Button>
+                        ) : null}
+                    </div>
+                    <ul className="flex flex-col gap-2">
+                        {leadFiles.map((f) => (
+                            <li key={f.uuid}>
+                                <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline break-all">
+                                    {f.original_name || "File"}
+                                    {f.source === "whatsapp" ? " · WhatsApp" : ""}
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                    {whatsappStepIndex >= 0 ? (
+                        <Button size="sm" className="mt-3" variant="flat" color="primary" onPress={() => onChange(whatsappStepIndex)}>
+                            Go to WhatsApp uploads step
+                        </Button>
+                    ) : null}
+                </section>
+            )}
 
             {/* 2. Application steps */}
             <section className="space-y-3">

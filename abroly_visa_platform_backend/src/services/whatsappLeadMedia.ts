@@ -8,6 +8,7 @@ import { parseJsonValue } from "../helpers/json";
 import { waCredentials } from "./meta";
 import { peekMetaConfig } from "./metaSettings";
 import { logActivity } from "./leadIngestion";
+import { mirrorLeadFileToConvertedCase } from "./whatsappCaseMirror";
 
 const MAX_BYTES = 25 * 1024 * 1024;
 const MEDIA_TYPES = new Set(["document", "image"]);
@@ -157,6 +158,16 @@ export const attachWhatsappMediaToLead = async (opts: {
     });
     await CrmLeadFile.update({ activity_id: activity.dataValues.id }, { where: { id: row.dataValues.id } });
 
+    void mirrorLeadFileToConvertedCase({
+        leadFileId: row.dataValues.id,
+        leadId: opts.leadId,
+        agencyUuid: opts.agencyUuid,
+        storage_name,
+        original_name: original.slice(0, 255),
+        mime: downloaded.mime,
+        body: downloaded.buffer,
+    }).catch((error) => console.error("WhatsApp case mirror failed", row.dataValues.uuid, error));
+
     return presentLeadFile(row);
 };
 
@@ -243,5 +254,14 @@ export const promotePendingFilesToLead = async (agencyUuid: string, leadId: numb
             file_url: url,
         });
         await CrmLeadFile.update({ activity_id: activity.dataValues.id }, { where: { id: row.dataValues.id } });
+
+        void mirrorLeadFileToConvertedCase({
+            leadFileId: row.dataValues.id,
+            leadId,
+            agencyUuid,
+            storage_name: f.storage_name,
+            original_name: f.original_name,
+            mime: f.mime,
+        }).catch((error) => console.error("WhatsApp case mirror failed (pending)", f.wamid, error));
     }
 };

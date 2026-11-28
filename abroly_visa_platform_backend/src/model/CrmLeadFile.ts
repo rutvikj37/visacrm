@@ -14,6 +14,9 @@ const CrmLeadFile = sequelize.define("CrmLeadFile", {
     source: { type: DataTypes.STRING(40), defaultValue: "whatsapp" },
     wamid: { type: DataTypes.STRING, allowNull: true },
     activity_id: { type: DataTypes.INTEGER, allowNull: true },
+    // when the lead is converted, WhatsApp files are copied into the visa case checklist
+    case_id: { type: DataTypes.INTEGER, allowNull: true },
+    case_question_id: { type: DataTypes.INTEGER, allowNull: true },
 }, {
     tableName: "crm_lead_files",
     timestamps: true,

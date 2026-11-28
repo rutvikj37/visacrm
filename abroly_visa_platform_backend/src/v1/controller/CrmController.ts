@@ -27,6 +27,7 @@ import {
 import { checklistSummary, normalizeDocChecklist } from "../../services/docChecklist";
 import { importLeadsFromFile, IMPORT_TEMPLATE_CSV } from "../../services/leadImport";
 import { buildPortalInvite, convertLeadToCase, ConversionError, portalInviteLoginCode, sendPortalInviteEmail } from "../../services/leadConversion";
+import { mirrorAllLeadFilesToCase } from "../../services/whatsappCaseMirror";
 import { logPortalSafe } from "../../services/portalLeadActivity";
 import { resolveTemplate } from "./VisaTemplateController";
 import CrmLeadFile from "../../model/CrmLeadFile";
@@ -806,6 +807,9 @@ class CrmController {
                 branchId: lead.dataValues.branch_id || (await branchOfAgent(assignTo)),
                 template,
             });
+            void mirrorAllLeadFilesToCase(lead.dataValues.id).catch((error) =>
+                console.error("mirror lead files after convert failed", lead.dataValues.id, error),
+            );
             if (!isOwner && !checklist.complete && checklistAck) {
                 await logActivity(
                     lead.dataValues.id, agencyUuid, "note",

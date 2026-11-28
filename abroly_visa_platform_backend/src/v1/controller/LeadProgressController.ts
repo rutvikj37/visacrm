@@ -16,6 +16,9 @@ import fs from "fs";
 import path from "path";
 import Agent from "../../model/Agent";
 import User from "../../model/User";
+import CrmLead from "../../model/CrmLead";
+import CrmLeadFile from "../../model/CrmLeadFile";
+import { presentLeadFile } from "../../services/whatsappLeadMedia";
 
 class LeadProgressController {
 
@@ -230,7 +233,26 @@ class LeadProgressController {
             })
 
 
-            return returnHelper(res, 200, true, "Steps Found", {steps: findSteps, student: findStudent})
+            const agencyUuid = req?.user?.user?.agent_uuid;
+            let lead_files: ReturnType<typeof presentLeadFile>[] = [];
+            let crm_lead_uuid: string | null = null;
+            if (agencyUuid) {
+                const crmLead: any = await CrmLead.findOne({
+                    where: { converted_case_id: lead_id, status: "converted", agency_uuid: agencyUuid },
+                    attributes: ["id", "uuid"],
+                });
+                if (crmLead) {
+                    crm_lead_uuid = crmLead.dataValues.uuid;
+                    const fileRows: any[] = await CrmLeadFile.findAll({
+                        where: { lead_id: crmLead.dataValues.id, agency_uuid: agencyUuid },
+                        order: [["createdAt", "DESC"]],
+                        limit: 100,
+                    });
+                    lead_files = fileRows.map(presentLeadFile);
+                }
+            }
+
+            return returnHelper(res, 200, true, "Steps Found", { steps: findSteps, student: findStudent, lead_files, crm_lead_uuid })
 
         } catch (error: any) {
             console.log("ERROR IN provideSteps --->", error.message)
