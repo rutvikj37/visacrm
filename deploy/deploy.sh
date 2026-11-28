@@ -25,7 +25,12 @@ install() {
     if [ -d node_modules ] && ! changed "$(basename "$PWD")/package-lock.json" "$(basename "$PWD")/package.json"; then
         echo "packages unchanged - skipping npm ci"; return
     fi
-    rm -rf node_modules   # a half-finished earlier install makes npm ci fail with ENOTEMPTY
+    # mv aside first: busy VPS filesystems often leave rm -rf ENOTEMPTY halfway through
+    if [ -d node_modules ]; then
+        trash="node_modules.trash.$$"
+        mv node_modules "$trash"
+        rm -rf "$trash" &
+    fi
     if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
 }
 
