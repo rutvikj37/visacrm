@@ -38,7 +38,12 @@ const WhatsappInbox = () => {
         setList(success ? data.conversations : []);
     }, [filter, q]);
     useEffect(() => { const t = setTimeout(loadList, 250); return () => clearTimeout(t); }, [loadList]);
-    useEffect(() => { (async () => { const { success, data } = await commonGetAPICalls("/travel/whatsapp/numbers"); if (success) setNumbers(data || []); })(); }, []);
+    useEffect(() => {
+        (async () => {
+            const { success, data } = await commonGetAPICalls("/crm/integrations");
+            if (success) setNumbers((data || []).filter((n: any) => n.type === "whatsapp"));
+        })();
+    }, [commonGetAPICalls]);
 
     const loadThread = useCallback(async () => {
         if (pendingId) {

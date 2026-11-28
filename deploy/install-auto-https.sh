@@ -8,6 +8,7 @@ PLATFORM_HOSTS="api.techxsolutions.io admin.techxsolutions.io crm.techxsolutions
 say() { printf "\n\033[1;36m==> %s\033[0m\n" "$*"; }
 
 mkdir -p "$WEBROOT" /etc/nginx/visacrm-portals /var/lib/visacrm-certs
+cp "$APP_DIR/deploy/nginx-ws-map.conf" /etc/nginx/conf.d/visacrm-ws-map.conf
 cp "$APP_DIR/deploy/nginx-spa-snippet.conf" /etc/nginx/snippets/visacrm-spa.conf
 cp "$APP_DIR/deploy/nginx-ssl-snippet.conf" /etc/nginx/snippets/visacrm-ssl.conf
 cp "$APP_DIR/deploy/nginx-agency-snippet.conf" /etc/nginx/snippets/visacrm-agency.conf
