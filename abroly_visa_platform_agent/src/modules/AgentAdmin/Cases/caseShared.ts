@@ -14,14 +14,22 @@ const TRAVEL_LABELS: Record<string, string> = {
 
 export type BusinessFocus = "study" | "travel" | "both";
 const FOCUS_KEY = "business_focus";
+const HIDE_TRAVEL_DOCS_KEY = "hide_travel_documents";
 let focus: BusinessFocus = (() => { try { const v = localStorage.getItem(FOCUS_KEY); return v === "travel" || v === "both" ? v : "study"; } catch { return "study"; } })();
+let hideTravelDocuments = (() => { try { return localStorage.getItem(HIDE_TRAVEL_DOCS_KEY) === "1"; } catch { return false; } })();
 
 export const CASE_STAGES = Object.keys(STUDY_LABELS).map((key) => ({ key, label: (focus === "travel" ? TRAVEL_LABELS : STUDY_LABELS)[key] }));
 
 export const getBusinessFocus = () => focus;
-export const applyCaseFlow = (next?: string | null) => {
+export type CaseFlowPrefs = { hide_travel_documents?: boolean };
+
+export const applyCaseFlow = (next?: string | null, prefs?: CaseFlowPrefs) => {
     focus = next === "travel" || next === "both" ? next : "study";
     try { localStorage.setItem(FOCUS_KEY, focus); } catch { /* private mode */ }
+    if (prefs?.hide_travel_documents !== undefined) {
+        hideTravelDocuments = Boolean(prefs.hide_travel_documents);
+        try { localStorage.setItem(HIDE_TRAVEL_DOCS_KEY, hideTravelDocuments ? "1" : "0"); } catch { /* private mode */ }
+    }
     const labels = focus === "travel" ? TRAVEL_LABELS : STUDY_LABELS;
     CASE_STAGES.forEach((s) => { s.label = labels[s.key]; });
 };
@@ -36,6 +44,10 @@ export const isTravelCase = (c?: { is_travel?: boolean; visa_type?: string | nul
     if (focus === "travel") return true;
     return Boolean(c?.is_travel) || isTravelVisaType(c?.visa_type);
 };
+
+/** Itinerary / cover letter / funds block on case progress (ui_prefs.hide_travel_documents opts out). */
+export const showTravelDocuments = (c?: { is_travel?: boolean; visa_type?: string | null } | null) =>
+    isTravelCase(c) && !hideTravelDocuments;
 
 /** Stage labels for one case (travel wording for travel cases even in a mixed agency). */
 export const stagesForCase = (c?: { is_travel?: boolean; visa_type?: string | null } | null) => {

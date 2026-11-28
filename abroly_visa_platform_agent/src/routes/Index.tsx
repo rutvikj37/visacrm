@@ -47,7 +47,7 @@ const Index = () => {
         if (success == true) {
             // Brand CSS vars first (no React remount). Then batch Redux updates.
             applyBrand(data?.brand_color)
-            applyCaseFlow(data?.business_focus)
+            applyCaseFlow(data?.business_focus, { hide_travel_documents: data?.hide_travel_documents })
             dispatch(setRole(data?.role))
             dispatch(setSubscription(data?.subscription))
             dispatch(setModules({ crm_type: data?.crm_type, modules: data?.modules, labels: data?.labels }))

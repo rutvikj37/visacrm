@@ -2,7 +2,7 @@ import { audit } from "../../services/audit";
 import { newTotpSecret, totpUri, verifyTotp } from "../../helpers/totp";
 import { decryptPii, encryptPii } from "../../helpers/crypto";
 import { hasModule, labelsFor, modulesFor } from "../../services/modules";
-import { businessFocusOf } from "../../services/businessFocus";
+import { businessFocusOf, hideTravelDocumentsOf } from "../../services/businessFocus";
 import { publicFileUrl, saveFile, deleteFile, ownerFromRequest, agencyOwner } from "../../helpers/storage";
 import { Request, Response } from "express";
 import { getAgencyAccess } from "../../services/saas";
@@ -1727,7 +1727,13 @@ class AgentController {
                         ...(await (async () => {
                             const ag: any = await Agent.findOne({ where: { uuid: (req.user?.user as any)?.agent_uuid, role: "agent" }, attributes: ["primary_color", "app_name", "username", "favicon_url", "ui_prefs"], raw: true });
                             const logo = ag?.favicon_url ? (String(ag.favicon_url).startsWith("http") ? ag.favicon_url : publicFileUrl("profiles", ag.favicon_url)) : null;
-                            return { brand_color: ag?.primary_color || null, agency_name: ag?.app_name || ag?.username || null, agency_logo: logo, business_focus: businessFocusOf(ag?.ui_prefs) };
+                            return {
+                                brand_color: ag?.primary_color || null,
+                                agency_name: ag?.app_name || ag?.username || null,
+                                agency_logo: logo,
+                                business_focus: businessFocusOf(ag?.ui_prefs),
+                                hide_travel_documents: hideTravelDocumentsOf(ag?.ui_prefs),
+                            };
                         })())
                     }
                 })

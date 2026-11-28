@@ -1,7 +1,7 @@
 import CaseToolbar, { StepDueDate } from "@/modules/AgentAdmin/Cases/CaseToolbar"
 import UniversityApplications from "@/modules/AgentAdmin/Cases/UniversityApplications"
 import CaseCommissions from "@/modules/AgentAdmin/Commissions/CaseCommissions"
-import { fmtShortDate, isOverdue, isTravelCase } from "@/modules/AgentAdmin/Cases/caseShared"
+import { fmtShortDate, isOverdue, showTravelDocuments } from "@/modules/AgentAdmin/Cases/caseShared"
 import TravelDocuments from "@/modules/AgentAdmin/Cases/TravelDocuments"
 import FormField from "@/modules/AgentAdmin/Crm/FormField"
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
@@ -429,7 +429,7 @@ const LeadsProgress = () => {
         },
         enabled: Boolean(id),
     })
-    const travel = isTravelCase(caseInfo)
+    const travelDocs = showTravelDocuments(caseInfo)
     const hasSteps = tabs.length > 0
 
     const openApplyTemplate = async () => {
@@ -467,7 +467,7 @@ const LeadsProgress = () => {
             {/* 1. Case header (student, stage, assignment, outcomes) */}
             <CaseToolbar caseId={id!} reloadKey={caseReload} />
 
-            {travel ? (
+            {travelDocs ? (
                 /* 2. Tourist / business visa: itinerary, cover letter, funds check */
                 <TravelDocuments caseId={id!} />
             ) : (<>

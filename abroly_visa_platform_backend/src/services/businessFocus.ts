@@ -19,6 +19,10 @@ export const businessFocusOf = (uiPrefs: any): BusinessFocus => {
     return BUSINESS_FOCUS.includes(v) ? v : "study";
 };
 
+/** Per-agency opt-out: hide itinerary / cover letter / funds block on case progress (Branding focus unchanged). */
+export const hideTravelDocumentsOf = (uiPrefs: any): boolean =>
+    readUiPrefs(uiPrefs).hide_travel_documents === true;
+
 /** Is this visa type a tourist / visitor / business visa (rather than a study visa)? */
 export const isTravelVisaType = (visaType?: string | null) =>
     /tour|visit|business|travel|b1|b2|schengen|transit|family|conference/i.test(String(visaType || "")) && !/stud|f-?1\b/i.test(String(visaType || ""));
