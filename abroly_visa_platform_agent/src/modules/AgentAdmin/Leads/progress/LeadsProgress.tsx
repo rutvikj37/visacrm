@@ -1,7 +1,7 @@
 import CaseToolbar, { StepDueDate } from "@/modules/AgentAdmin/Cases/CaseToolbar"
 import UniversityApplications from "@/modules/AgentAdmin/Cases/UniversityApplications"
 import CaseCommissions from "@/modules/AgentAdmin/Commissions/CaseCommissions"
-import { fmtShortDate, isOverdue, showCommissions, showTravelDocuments } from "@/modules/AgentAdmin/Cases/caseShared"
+import { fmtShortDate, isOverdue, showCommissions, showTravelDocuments, showUniversities } from "@/modules/AgentAdmin/Cases/caseShared"
 import TravelDocuments from "@/modules/AgentAdmin/Cases/TravelDocuments"
 import FormField from "@/modules/AgentAdmin/Crm/FormField"
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
@@ -477,9 +477,11 @@ const LeadsProgress = () => {
                 /* 2. Tourist / business visa: itinerary, cover letter, funds check */
                 <TravelDocuments caseId={id!} />
             ) : (<>
-            {/* 2. Universities the student applied to (+ commission for owner / accounts / managers) */}
-            <UniversityApplications caseId={id!} onChanged={() => setCaseReload((n) => n + 1)}
-                onAddCommission={showCommissions() && canBill ? (app) => setCommissionFor({ app, n: Date.now() }) : undefined} />
+            {showUniversities() && (
+                /* 2. Universities the student applied to (+ commission for owner / accounts / managers) */
+                <UniversityApplications caseId={id!} onChanged={() => setCaseReload((n) => n + 1)}
+                    onAddCommission={showCommissions() && canBill ? (app) => setCommissionFor({ app, n: Date.now() }) : undefined} />
+            )}
             {showCommissions() && <CaseCommissions caseId={id!} addRequest={commissionFor} onChanged={() => setCaseReload((n) => n + 1)} />}
             </>)}
 

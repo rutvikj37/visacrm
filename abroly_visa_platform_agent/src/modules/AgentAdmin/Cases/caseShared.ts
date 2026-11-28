@@ -16,14 +16,16 @@ export type BusinessFocus = "study" | "travel" | "both";
 const FOCUS_KEY = "business_focus";
 const HIDE_TRAVEL_DOCS_KEY = "hide_travel_documents";
 const HIDE_COMMISSIONS_KEY = "hide_commissions";
+const HIDE_UNIVERSITIES_KEY = "hide_universities";
 let focus: BusinessFocus = (() => { try { const v = localStorage.getItem(FOCUS_KEY); return v === "travel" || v === "both" ? v : "study"; } catch { return "study"; } })();
 let hideTravelDocuments = (() => { try { return localStorage.getItem(HIDE_TRAVEL_DOCS_KEY) === "1"; } catch { return false; } })();
 let hideCommissions = (() => { try { return localStorage.getItem(HIDE_COMMISSIONS_KEY) === "1"; } catch { return false; } })();
+let hideUniversities = (() => { try { return localStorage.getItem(HIDE_UNIVERSITIES_KEY) === "1"; } catch { return false; } })();
 
 export const CASE_STAGES = Object.keys(STUDY_LABELS).map((key) => ({ key, label: (focus === "travel" ? TRAVEL_LABELS : STUDY_LABELS)[key] }));
 
 export const getBusinessFocus = () => focus;
-export type CaseFlowPrefs = { hide_travel_documents?: boolean; hide_commissions?: boolean };
+export type CaseFlowPrefs = { hide_travel_documents?: boolean; hide_commissions?: boolean; hide_universities?: boolean };
 
 export const applyCaseFlow = (next?: string | null, prefs?: CaseFlowPrefs) => {
     focus = next === "travel" || next === "both" ? next : "study";
@@ -35,6 +37,10 @@ export const applyCaseFlow = (next?: string | null, prefs?: CaseFlowPrefs) => {
     if (prefs?.hide_commissions !== undefined) {
         hideCommissions = Boolean(prefs.hide_commissions);
         try { localStorage.setItem(HIDE_COMMISSIONS_KEY, hideCommissions ? "1" : "0"); } catch { /* private mode */ }
+    }
+    if (prefs?.hide_universities !== undefined) {
+        hideUniversities = Boolean(prefs.hide_universities);
+        try { localStorage.setItem(HIDE_UNIVERSITIES_KEY, hideUniversities ? "1" : "0"); } catch { /* private mode */ }
     }
     const labels = focus === "travel" ? TRAVEL_LABELS : STUDY_LABELS;
     CASE_STAGES.forEach((s) => { s.label = labels[s.key]; });
@@ -57,6 +63,9 @@ export const showTravelDocuments = (c?: { is_travel?: boolean; visa_type?: strin
 
 /** University commission UI (ui_prefs.hide_commissions opts out). */
 export const showCommissions = () => !hideCommissions;
+
+/** University applications card on case progress (ui_prefs.hide_universities opts out). */
+export const showUniversities = () => !hideUniversities;
 
 /** Stage labels for one case (travel wording for travel cases even in a mixed agency). */
 export const stagesForCase = (c?: { is_travel?: boolean; visa_type?: string | null } | null) => {

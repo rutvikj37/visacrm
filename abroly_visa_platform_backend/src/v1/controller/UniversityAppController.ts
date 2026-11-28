@@ -12,7 +12,7 @@ import AgencyLeads from "../../model/AgencyLeads";
 import UniversityApplication, { UNI_APP_STATUSES } from "../../model/UniversityApplication";
 import Commission from "../../model/Commission";
 import Agent from "../../model/Agent";
-import { hideCommissionsOf } from "../../services/businessFocus";
+import { hideCommissionsOf, hideUniversitiesOf } from "../../services/businessFocus";
 import { audit } from "../../services/audit";
 import { CASE_STAGES } from "./CaseController";
 
@@ -84,6 +84,11 @@ export const presentApp = (a: any, commissions: any[] = []) => {
 
 const findCase = (req: RequestWithUser, id: any) => AgencyLeads.findOne({ where: { ...caseScope(req), id: Number(id) || 0 } });
 
+const universitiesDisabled = async (agencyUuid: string) => {
+    const ag: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["ui_prefs"], raw: true });
+    return hideUniversitiesOf(ag?.ui_prefs);
+};
+
 /** The application and its case, only if this person may see the case. */
 const findApp = async (req: RequestWithUser, appId: any) => {
     const app: any = await UniversityApplication.findOne({ where: { id: Number(appId) || 0, agency_uuid: (req.user?.user as any)?.agent_uuid } });
@@ -123,10 +128,11 @@ class UniversityAppController {
     // GET /crm/cases/:id/universities
     async list(req: RequestWithUser, res: Response) {
         try {
+            const agencyUuid = (req.user?.user as any)?.agent_uuid;
+            if (await universitiesDisabled(agencyUuid)) return returnHelper(res, 200, false, "University applications are not enabled for this agency");
             const c: any = await findCase(req, req.params.id);
             if (!c) return returnHelper(res, 200, false, "Case not found");
             const apps: any[] = await UniversityApplication.findAll({ where: { case_id: c.dataValues.id }, order: [["is_final", "DESC"], ["createdAt", "ASC"]] });
-            const agencyUuid = (req.user?.user as any)?.agent_uuid;
             const ag: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["ui_prefs"], raw: true });
             const hideCommissions = hideCommissionsOf(ag?.ui_prefs);
             const commissions: any[] = !hideCommissions && apps.length
@@ -142,6 +148,7 @@ class UniversityAppController {
     // POST /crm/cases/:id/universities { university, course?, campus?, intake?, status?, ... }
     async create(req: RequestWithUser, res: Response) {
         try {
+            if (await universitiesDisabled((req.user?.user as any)?.agent_uuid)) return returnHelper(res, 200, false, "University applications are not enabled for this agency");
             const c: any = await findCase(req, req.params.id);
             if (!c) return returnHelper(res, 200, false, "Case not found");
             const fields = readFields(req.body || {});
@@ -166,6 +173,7 @@ class UniversityAppController {
     // POST /crm/universities/:appId { any field, status? }
     async update(req: RequestWithUser, res: Response) {
         try {
+            if (await universitiesDisabled((req.user?.user as any)?.agent_uuid)) return returnHelper(res, 200, false, "University applications are not enabled for this agency");
             const found = await findApp(req, req.params.appId);
             if (!found) return returnHelper(res, 200, false, "Application not found");
             const { app, c } = found;
@@ -200,6 +208,7 @@ class UniversityAppController {
     // POST /crm/universities/:appId/final  - the university the student goes with (copied to the case)
     async markFinal(req: RequestWithUser, res: Response) {
         try {
+            if (await universitiesDisabled((req.user?.user as any)?.agent_uuid)) return returnHelper(res, 200, false, "University applications are not enabled for this agency");
             const found = await findApp(req, req.params.appId);
             if (!found) return returnHelper(res, 200, false, "Application not found");
             const { app, c } = found;
@@ -217,6 +226,7 @@ class UniversityAppController {
     // POST /crm/universities/:appId/files (multipart "files")
     async addFiles(req: RequestWithUser, res: Response) {
         try {
+            if (await universitiesDisabled((req.user?.user as any)?.agent_uuid)) return returnHelper(res, 200, false, "University applications are not enabled for this agency");
             const found = await findApp(req, req.params.appId);
             if (!found) return returnHelper(res, 200, false, "Application not found");
             const { app, c } = found;
@@ -242,6 +252,7 @@ class UniversityAppController {
     // POST /crm/universities/:appId/files/remove { index }
     async removeFile(req: RequestWithUser, res: Response) {
         try {
+            if (await universitiesDisabled((req.user?.user as any)?.agent_uuid)) return returnHelper(res, 200, false, "University applications are not enabled for this agency");
             const found = await findApp(req, req.params.appId);
             if (!found) return returnHelper(res, 200, false, "Application not found");
             const { app, c } = found;
@@ -261,6 +272,7 @@ class UniversityAppController {
     // POST /crm/universities/:appId/delete
     async remove(req: RequestWithUser, res: Response) {
         try {
+            if (await universitiesDisabled((req.user?.user as any)?.agent_uuid)) return returnHelper(res, 200, false, "University applications are not enabled for this agency");
             const found = await findApp(req, req.params.appId);
             if (!found) return returnHelper(res, 200, false, "Application not found");
             const { app, c } = found;

@@ -2,7 +2,7 @@ import { audit } from "../../services/audit";
 import { newTotpSecret, totpUri, verifyTotp } from "../../helpers/totp";
 import { decryptPii, encryptPii } from "../../helpers/crypto";
 import { hasModule, labelsFor, modulesFor } from "../../services/modules";
-import { businessFocusOf, hideCommissionsOf, hideTravelDocumentsOf } from "../../services/businessFocus";
+import { businessFocusOf, hideCommissionsOf, hideTravelDocumentsOf, hideUniversitiesOf } from "../../services/businessFocus";
 import { publicFileUrl, saveFile, deleteFile, ownerFromRequest, agencyOwner } from "../../helpers/storage";
 import { Request, Response } from "express";
 import { getAgencyAccess } from "../../services/saas";
@@ -1734,6 +1734,7 @@ class AgentController {
                                 business_focus: businessFocusOf(ag?.ui_prefs),
                                 hide_travel_documents: hideTravelDocumentsOf(ag?.ui_prefs),
                                 hide_commissions: hideCommissionsOf(ag?.ui_prefs),
+                                hide_universities: hideUniversitiesOf(ag?.ui_prefs),
                             };
                         })())
                     }
