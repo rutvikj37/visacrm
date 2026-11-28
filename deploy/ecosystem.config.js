@@ -9,7 +9,7 @@ module.exports = {
             script: "dist/server.js",
             exec_mode: "fork",
             instances: 1,
-            env: { NODE_ENV: "production" },
+            env: { NODE_ENV: "production", DISABLE_DAILY_DIGEST: "true" },
             max_memory_restart: "900M",
             time: true,
         },

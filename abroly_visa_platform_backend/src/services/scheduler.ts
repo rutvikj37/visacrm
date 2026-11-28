@@ -48,7 +48,7 @@ const runReminders = async () => {
         // messages to students
         await documentsPendingReminders();
         await feeDueReminders();
-        await dailyDigest();
+        if (process.env.DISABLE_DAILY_DIGEST !== "true") await dailyDigest();
         await subscriptionReminders();
         await paymentFailureFollowups();
         await monthlyOwnerSummaries();

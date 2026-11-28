@@ -146,6 +146,7 @@ export const followUpReminders = async () => {
 
 /** Once a day after 9:00 IST: "your day" summary to every person with work waiting (in-app + email). */
 export const dailyDigest = async () => {
+    if (process.env.DISABLE_DAILY_DIGEST === "true") return;
     if (istNow().getUTCHours() < 9) return;
     const day = istDay();
     const agencies = await activeAgencyUuids();
