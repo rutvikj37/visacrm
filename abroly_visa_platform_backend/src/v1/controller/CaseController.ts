@@ -22,6 +22,7 @@ import PortalChatMessage from "../../model/PortalChatMessage";
 import { readTravelDocs, sanitizeTravelDocs } from "../../services/travelDocs";
 import { FILE_TRACKER_OPTIONS, readFileTracker, sanitizeFileTracker } from "../../services/fileTracker";
 import { isTravelVisaType } from "../../services/businessFocus";
+import { seedCaseStepsFromTemplate } from "../../services/leadConversion";
 
 /**
  * Visa cases (AgencyLeads): board by stage, outcome, assignment, step due dates, extra applications.
@@ -94,18 +95,15 @@ const openCase = async (req: RequestWithUser, c: any, b: any): Promise<{ id: num
             assign_id: assignTo, branch_id: c.dataValues.branch_id || null, case_stage: "documents", stage_updated_at: new Date(), university,
             last_follow_up_remark: b.remark || null, reapplied_from: b.reappliedFrom || null,
         }, { transaction: t });
-        for (const [index, step] of (template?.steps || []).entries()) {
-            const s: any = await Step.create({
-                agent_id: agencyId, student_id: studentId, lead_id: created.dataValues.id, created_by_id: userId,
-                step_title: step.title, step_description: step.description || null, step_order: index + 1,
-                due_date: step.due_in_days !== null && step.due_in_days !== undefined ? new Date(Date.now() + Number(step.due_in_days) * 86400000).toISOString().slice(0, 10) : null,
-            }, { transaction: t });
-            if (step.questions?.length) {
-                await Question.bulkCreate(step.questions.map((q) => ({
-                    step_id: s.dataValues.id, student_id: String(studentId), agent_id: String(agencyId), created_by_agent_id: String(userId),
-                    question_text: q.text, question_type: q.type === "file_selector" ? "file_selector" : "text_input", status: "pending",
-                })), { transaction: t });
-            }
+        if (template?.steps?.length) {
+            await seedCaseStepsFromTemplate({
+                template,
+                agencyId,
+                studentId,
+                caseId: created.dataValues.id,
+                userId,
+                transaction: t,
+            });
         }
         return created.dataValues.id;
     });
@@ -625,6 +623,39 @@ class CaseController {
             return returnHelper(res, 200, true, "Reapplication case created", { id: result.id });
         } catch (error) {
             console.error("reapply failed", error);
+            return returnHelper(res, 500, false, "Something went wrong");
+        }
+    }
+
+    // POST /crm/cases/:id/apply_template { template_id } — add checklist steps when the case has none yet
+    async applyTemplate(req: RequestWithUser, res: Response) {
+        try {
+            const c: any = await findCase(req, req.params.id);
+            if (!c) return returnHelper(res, 200, false, "Case not found");
+            const templateId = String(req.body?.template_id || "").trim();
+            if (!templateId) return returnHelper(res, 200, false, "Please choose a visa template");
+            const { agencyUuid, agencyId, userId } = ctx(req);
+            const template = await resolveTemplate(agencyUuid, templateId);
+            if (!template) return returnHelper(res, 200, false, "Template not found");
+            const existing = await Step.count({ where: { lead_id: c.dataValues.id, agent_id: agencyId } });
+            if (existing > 0) {
+                return returnHelper(res, 200, false, "This case already has steps. Remove them first or add steps manually.");
+            }
+            const studentId = c.dataValues.user_id;
+            const { stepCount, questionCount } = await seedCaseStepsFromTemplate({
+                template,
+                agencyId,
+                studentId,
+                caseId: c.dataValues.id,
+                userId,
+            });
+            audit(req, {
+                entity: "case", entityId: c.dataValues.id, branchId: c.dataValues.branch_id, action: "apply_template",
+                summary: `Applied template "${template.name}" (${stepCount} steps)`,
+            });
+            return returnHelper(res, 200, true, "Template applied", { stepCount, questionCount, template_name: template.name });
+        } catch (error) {
+            console.error("apply template failed", error);
             return returnHelper(res, 500, false, "Something went wrong");
         }
     }

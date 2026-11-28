@@ -31,6 +31,48 @@ import {
 
 export class ConversionError extends Error { }
 
+/** Copy a resolved visa template into Steps + Questions for one case. */
+export const seedCaseStepsFromTemplate = async (opts: {
+    template: { steps: TemplateStep[] };
+    agencyId: number;
+    studentId: number;
+    caseId: number;
+    userId: number;
+    transaction?: Transaction;
+}) => {
+    const { template, agencyId, studentId, caseId, userId, transaction: t } = opts;
+    let stepCount = 0;
+    let questionCount = 0;
+    for (const [index, step] of (template.steps || []).entries()) {
+        const createdStep: any = await Step.create({
+            agent_id: agencyId,
+            student_id: studentId,
+            lead_id: caseId,
+            created_by_id: userId,
+            step_title: step.title,
+            step_description: step.description || null,
+            step_order: index + 1,
+            due_date: step.due_in_days !== null && step.due_in_days !== undefined
+                ? new Date(Date.now() + Number(step.due_in_days) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+                : null,
+        }, { transaction: t });
+        stepCount++;
+        if (step.questions?.length) {
+            await Question.bulkCreate(step.questions.map((q) => ({
+                step_id: createdStep.dataValues.id,
+                student_id: String(studentId),
+                agent_id: String(agencyId),
+                created_by_agent_id: String(userId),
+                question_text: q.text,
+                question_type: q.type === "file_selector" ? "file_selector" : "text_input",
+                status: "pending",
+            })), { transaction: t });
+            questionCount += step.questions.length;
+        }
+    }
+    return { stepCount, questionCount };
+};
+
 export interface ConvertInput {
     agencyUuid: string;
     agencyId: number;      // Agent.id of the agency owner (Step.agent_id)
@@ -130,35 +172,11 @@ export const convertLeadToCase = async (input: ConvertInput) => {
         }, { transaction: t });
         const caseId = visaCase.dataValues.id;
 
-        // 3. template -> steps + questions
-        let stepCount = 0, questionCount = 0;
-        for (const [index, step] of (template?.steps || []).entries()) {
-            const createdStep: any = await Step.create({
-                agent_id: agencyId,
-                student_id: studentId,
-                lead_id: caseId,
-                created_by_id: userId,
-                step_title: step.title,
-                step_description: step.description || null,
-                step_order: index + 1,
-                due_date: step.due_in_days !== null && step.due_in_days !== undefined
-                    ? new Date(Date.now() + Number(step.due_in_days) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-                    : null,
-            }, { transaction: t });
-            stepCount++;
-            if (step.questions?.length) {
-                await Question.bulkCreate(step.questions.map((q) => ({
-                    step_id: createdStep.dataValues.id,
-                    student_id: String(studentId),
-                    agent_id: String(agencyId),
-                    created_by_agent_id: String(userId),
-                    question_text: q.text,
-                    question_type: q.type === "file_selector" ? "file_selector" : "text_input",
-                    status: "pending",
-                })), { transaction: t });
-                questionCount += step.questions.length;
-            }
-        }
+        // 3. template -> steps + questions (only when the agency explicitly chose one)
+        const seeded = template?.steps?.length
+            ? await seedCaseStepsFromTemplate({ template, agencyId, studentId, caseId, userId, transaction: t })
+            : { stepCount: 0, questionCount: 0 };
+        const { stepCount, questionCount } = seeded;
 
         // 4. lead -> converted
         const now = new Date();

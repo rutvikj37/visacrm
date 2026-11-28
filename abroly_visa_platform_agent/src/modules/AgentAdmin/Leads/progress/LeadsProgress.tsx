@@ -6,10 +6,12 @@ import TravelDocuments from "@/modules/AgentAdmin/Cases/TravelDocuments"
 import FormField from "@/modules/AgentAdmin/Crm/FormField"
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
-import { Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Spinner, Textarea } from "@heroui/react";
+import { Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, SelectSection, Spinner, Textarea } from "@heroui/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import FileSaver from "file-saver";
-import { ArrowDownToLine, CheckCircle2, Clock, FileText, Plus, XCircle } from 'lucide-react';
+import { ArrowDownToLine, CheckCircle2, Clock, FileText, ListChecks, Plus, XCircle } from 'lucide-react';
+import { templateCountryMatches } from "@/modules/AgentAdmin/Crm/crmShared";
+import { SuccessToast } from "@/utils/Toaster";
 import moment from "moment";
 import React, { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
@@ -361,6 +363,8 @@ const LeadsProgress = () => {
         step_title: "",
         step_description: ""
     })
+    const [templateModal, setTemplateModal] = useState({ isOpen: false, templateId: "", loading: false, saving: false });
+    const [templates, setTemplates] = useState<{ agency: any[]; library: any[] }>({ agency: [], library: [] });
 
     const { data: stepsData, isLoading, isError, error } = useQuery({
         queryKey: ['steps', id],
@@ -426,6 +430,37 @@ const LeadsProgress = () => {
         enabled: Boolean(id),
     })
     const travel = isTravelCase(caseInfo)
+    const hasSteps = tabs.length > 0
+
+    const openApplyTemplate = async () => {
+        setTemplateModal({ isOpen: true, templateId: "", loading: true, saving: false });
+        const { success, data } = await commonGetAPICalls("/crm/visa_templates");
+        if (success) {
+            setTemplates({ agency: data?.agency || [], library: data?.library || [] });
+            const country = caseInfo?.country || "";
+            const match = country
+                ? [...(data?.agency || []), ...(data?.library || [])].find((t: any) => templateCountryMatches(t.country, country))
+                : null;
+            setTemplateModal((m) => ({ ...m, templateId: match?.id || "", loading: false }));
+        } else {
+            setTemplateModal((m) => ({ ...m, loading: false }));
+        }
+    }
+
+    const applyTemplate = async () => {
+        if (!templateModal.templateId) return;
+        setTemplateModal((m) => ({ ...m, saving: true }));
+        const { success, data, message } = await commonPostAPICall(
+            { template_id: templateModal.templateId },
+            `crm/cases/${id}/apply_template`,
+            false,
+        );
+        setTemplateModal({ isOpen: false, templateId: "", loading: false, saving: false });
+        if (!success) return;
+        SuccessToast(data?.template_name ? `Applied "${data.template_name}" (${data.stepCount || 0} steps)` : (message || "Template applied"));
+        fetchQueryClient(["steps", id]);
+        setSearchParams({ step: "0" });
+    }
 
     return (
         <div className="flex flex-col gap-4 p-1 sm:p-2 max-w-full">
@@ -447,17 +482,34 @@ const LeadsProgress = () => {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <h2 className="text-sm font-semibold text-foreground">Application steps</h2>
-                        <p className="text-xs text-default-500">Select a step to review documents and answers</p>
+                        <p className="text-xs text-default-500">
+                            {hasSteps
+                                ? "Select a step to review documents and answers"
+                                : "Choose a visa template for the full checklist, or add steps yourself"}
+                        </p>
                     </div>
-                    <Button
-                        size="sm"
-                        color="primary"
-                        variant="flat"
-                        startContent={<Plus className="w-4 h-4" />}
-                        onPress={() => setStepAddModal(prev => ({ ...prev, isOpen: true }))}
-                    >
-                        Add step
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        {!hasSteps && (
+                            <Button
+                                size="sm"
+                                color="primary"
+                                variant="flat"
+                                startContent={<ListChecks className="w-4 h-4" />}
+                                onPress={openApplyTemplate}
+                            >
+                                Apply visa template
+                            </Button>
+                        )}
+                        <Button
+                            size="sm"
+                            color="primary"
+                            variant="flat"
+                            startContent={<Plus className="w-4 h-4" />}
+                            onPress={() => setStepAddModal(prev => ({ ...prev, isOpen: true }))}
+                        >
+                            Add step
+                        </Button>
+                    </div>
                 </div>
 
                 {isError ? (
@@ -471,17 +523,31 @@ const LeadsProgress = () => {
                 ) : !tabs || tabs.length === 0 ? (
                     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-default-300 bg-content1 px-4 py-12 text-center">
                         <FileText className="w-10 h-10 text-default-300" />
-                        <p className="text-sm font-medium text-default-700">No steps yet</p>
-                        <p className="text-xs text-default-500">Add a step to track documents and answers for this case</p>
-                        <Button
-                            size="sm"
-                            color="primary"
-                            className="mt-2"
-                            startContent={<Plus className="w-4 h-4" />}
-                            onPress={() => setStepAddModal(prev => ({ ...prev, isOpen: true }))}
-                        >
-                            Add step
-                        </Button>
+                        <p className="text-sm font-medium text-default-700">No application steps yet</p>
+                        <p className="text-xs text-default-500 max-w-sm">
+                            {travel
+                                ? "Itinerary and cover letter above are separate. Application steps come from a visa template you choose — not automatically."
+                                : "Steps are not added until you pick a visa template on convert or apply one here."}
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-2 mt-2">
+                            <Button
+                                size="sm"
+                                color="primary"
+                                startContent={<ListChecks className="w-4 h-4" />}
+                                onPress={openApplyTemplate}
+                            >
+                                Apply visa template
+                            </Button>
+                            <Button
+                                size="sm"
+                                color="primary"
+                                variant="flat"
+                                startContent={<Plus className="w-4 h-4" />}
+                                onPress={() => setStepAddModal(prev => ({ ...prev, isOpen: true }))}
+                            >
+                                Add step
+                            </Button>
+                        </div>
                     </div>
                 ) : (
                     <div className="grid gap-4 lg:grid-cols-3">
@@ -566,6 +632,62 @@ const LeadsProgress = () => {
                     </div>
                 )}
             </section>
+
+            <Modal isOpen={templateModal.isOpen} onOpenChange={(open) => !open && !templateModal.saving && setTemplateModal({ isOpen: false, templateId: "", loading: false, saving: false })} size="md">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader>Apply visa template</ModalHeader>
+                            <ModalBody className="gap-3">
+                                <p className="text-sm text-default-500">
+                                    Adds the template&apos;s steps and document questions to this case. You can still edit steps afterward.
+                                </p>
+                                {templateModal.loading ? (
+                                    <Spinner size="sm" />
+                                ) : (
+                                    <Select
+                                        aria-label="Visa template"
+                                        placeholder="Choose a template"
+                                        selectedKeys={templateModal.templateId ? [templateModal.templateId] : []}
+                                        onSelectionChange={(keys) => {
+                                            const v = Array.from(keys)[0];
+                                            setTemplateModal((m) => ({ ...m, templateId: v ? String(v) : "" }));
+                                        }}
+                                    >
+                                        {[
+                                            ...(templates.agency.length ? [
+                                                <SelectSection key="agency" title="My templates">
+                                                    {templates.agency.map((t) => (
+                                                        <SelectItem key={t.id} description={`${t.step_count} steps`}>{t.name}</SelectItem>
+                                                    ))}
+                                                </SelectSection>,
+                                            ] : []),
+                                            ...(templates.library.length ? [
+                                                <SelectSection key="library" title="Built-in templates">
+                                                    {templates.library.map((t) => (
+                                                        <SelectItem key={t.id} description={`${t.step_count} steps`}>{t.name}</SelectItem>
+                                                    ))}
+                                                </SelectSection>,
+                                            ] : []),
+                                        ]}
+                                    </Select>
+                                )}
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button variant="light" onPress={onClose} isDisabled={templateModal.saving}>Cancel</Button>
+                                <Button
+                                    color="primary"
+                                    isLoading={templateModal.saving}
+                                    isDisabled={!templateModal.templateId || templateModal.loading}
+                                    onPress={applyTemplate}
+                                >
+                                    Apply template
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
 
             <Modal isOpen={stepAddModal.isOpen} onOpenChange={(open) => !open && setStepAddModal((prev) => ({ ...prev, isOpen: false }))} size="md" scrollBehavior="outside">
                 <ModalContent>

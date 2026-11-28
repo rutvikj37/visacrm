@@ -9,7 +9,7 @@ import FormField from "./FormField";
 import CountrySelectWithFlag from "./CountrySelectWithFlag";
 import LeadDocChecklist from "./LeadDocChecklist";
 import PortalInvitePanel from "./PortalInvitePanel";
-import { summarizeDocChecklist } from "./crmShared";
+import { summarizeDocChecklist, templateCountryMatches } from "./crmShared";
 
 interface Props {
     isOpen: boolean;
@@ -23,13 +23,6 @@ interface Props {
 }
 
 const VISA_TYPES = ["Student Visa", "Work Visa", "Tourist Visa", "PR / Immigration", "Business Visa", "Dependent Visa", "Other"];
-
-const norm = (v?: string) => (v || "").toLowerCase().replace(/[^a-z]/g, "");
-const countryMatches = (templateCountry?: string, wanted?: string) => {
-    const a = norm(templateCountry), b = norm(wanted);
-    if (!a || !b) return false;
-    return a === b || a.includes(b) || b.includes(a) || (a === "unitedkingdom" && b === "uk") || (a === "unitedstates" && ["usa", "us"].includes(b));
-};
 
 const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [], canAssign = false, onConverted }: Props) => {
     const navigate = useNavigate();
@@ -69,12 +62,9 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
         })();
     }, [isOpen, lead?.uuid, docChecklist]);
 
-    // suggest a template that matches the country
-    useEffect(() => {
-        if (templateId || !country) return;
-        const match = [...templates.agency, ...templates.library].find((t) => countryMatches(t.country, country));
-        if (match) setTemplateId(match.id);
-    }, [templates, country]);
+    const suggestedTemplate = country && !templateId
+        ? [...templates.agency, ...templates.library].find((t) => templateCountryMatches(t.country, country))
+        : null;
 
     const missingDocs = !isOwner && !checklist.complete;
 
@@ -216,6 +206,11 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
                                     </FormField>
                                 )}
                                 <FormField label="Visa process template" className="sm:col-span-2">
+                                    <p className="text-xs text-default-500 -mt-0.5 mb-1">
+                                        {suggestedTemplate
+                                            ? `Suggested for ${country}: ${suggestedTemplate.name} — pick it below if you want the full checklist on this case.`
+                                            : "Optional. Leave empty and add steps later from the visa case page."}
+                                    </p>
                                     {loadingTemplates ? <Spinner size="sm" /> : (
                                         <Select
                                             aria-label="Template"

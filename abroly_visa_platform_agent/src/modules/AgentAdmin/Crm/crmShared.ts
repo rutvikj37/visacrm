@@ -266,6 +266,16 @@ export const DOC_CHECKLIST_ITEMS: { key: string; label: string }[] = [
     { key: "sop", label: "SOP draft (if needed)" },
 ];
 
+const normCountry = (v?: string) => (v || "").toLowerCase().replace(/[^a-z]/g, "");
+
+/** Does a visa template's country label match the case / lead country? (for suggestions only — never auto-apply.) */
+export const templateCountryMatches = (templateCountry?: string, wanted?: string) => {
+    const a = normCountry(templateCountry);
+    const b = normCountry(wanted);
+    if (!a || !b) return false;
+    return a === b || a.includes(b) || b.includes(a) || (a === "unitedkingdom" && b === "uk") || (a === "unitedstates" && ["usa", "us"].includes(b));
+};
+
 export const summarizeDocChecklist = (doneKeys?: any) => {
     const done = new Set(asArray(doneKeys));
     const items = DOC_CHECKLIST_ITEMS.map((i) => ({ ...i, done: done.has(i.key) }));
