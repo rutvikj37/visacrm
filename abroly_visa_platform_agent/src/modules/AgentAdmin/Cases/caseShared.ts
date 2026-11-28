@@ -30,9 +30,12 @@ export const applyCaseFlow = (next?: string | null) => {
 export const isTravelVisaType = (visaType?: string | null) =>
     /tour|visit|business|travel|b1|b2|schengen|transit|family|conference/i.test(String(visaType || "")) && !/stud|f-?1\b/i.test(String(visaType || ""));
 
-/** Should this case use the tourist / business tools (itinerary, cover letter) instead of universities? */
-export const isTravelCase = (c?: { is_travel?: boolean; visa_type?: string | null } | null) =>
-    focus === "travel" || Boolean(c?.is_travel) || (focus === "both" && isTravelVisaType(c?.visa_type));
+/** Tourist / business tools only when the agency's branding focus allows it (study = never). */
+export const isTravelCase = (c?: { is_travel?: boolean; visa_type?: string | null } | null) => {
+    if (focus === "study") return false;
+    if (focus === "travel") return true;
+    return Boolean(c?.is_travel) || isTravelVisaType(c?.visa_type);
+};
 
 /** Stage labels for one case (travel wording for travel cases even in a mixed agency). */
 export const stagesForCase = (c?: { is_travel?: boolean; visa_type?: string | null } | null) => {
