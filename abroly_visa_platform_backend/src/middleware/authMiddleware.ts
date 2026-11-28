@@ -16,7 +16,7 @@ const secretTokenForJWT: string | any = process.env.ACCESS_TOKEN_SECRET
 const tokenRevoked = (decoded: any, row: any) => {
     const after = row?.dataValues?.tokens_valid_after
     if (!after || !decoded?.iat) return false
-    return Number(decoded.iat) < Math.floor(new Date(after).getTime() / 1000)
+    return Number(decoded.iat) <= Math.floor(new Date(after).getTime() / 1000)
 }
 const SIGNED_OUT = "You were signed out. Please log in again."
 

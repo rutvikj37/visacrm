@@ -12,13 +12,19 @@ import { Dialog, DialogContent, DialogFooter } from "./ui/dialog";
 
 const CommonConfirmation = ({ isOpen, onOpenChange, title, handleSubmit, nagativeTitle, positiveTitle }: any) => {
   const isMobile = useIsMobile()
+
+  const onConfirm = async () => {
+    onOpenChange(false);
+    await handleSubmit?.();
+  };
+
   if(isMobile) {
     return <Dialog open={isOpen} onOpenChange={onOpenChange} >
       <DialogContent className="px-5">
         <h1>{title}</h1>
       <DialogFooter className="flex flex-row gap-2 items-end justify-end">
-      <Button variant="bordered" color="default" size="sm" className="w-fit" onPress={()=>onOpenChange()}>{nagativeTitle}</Button>
-      <Button variant="shadow" color="danger" size="sm" className="w-fit" onPress={()=>handleSubmit()}>{positiveTitle}</Button>
+      <Button variant="bordered" color="default" size="sm" className="w-fit" onPress={() => onOpenChange(false)}>{nagativeTitle}</Button>
+      <Button variant="shadow" color="danger" size="sm" className="w-fit" onPress={() => void onConfirm()}>{positiveTitle}</Button>
 
       </DialogFooter>
       </DialogContent>
@@ -36,18 +42,14 @@ const CommonConfirmation = ({ isOpen, onOpenChange, title, handleSubmit, nagativ
           </div>
         </DrawerBody>
         <DrawerFooter className={`flex flex-row justify-center gap-4 mx-auto`}>
-          <Button variant='shadow' color='primary' onPress={() => onOpenChange()}>
+          <Button variant='shadow' color='primary' onPress={() => onOpenChange(false)}>
             {nagativeTitle}
           </Button>
           <Button variant='shadow' color='danger'
-            
-            onPress={() =>{
-              console.log("KEY PRESS");
-              handleSubmit()}
-            }
+            onPress={() => void onConfirm()}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  handleSubmit()
+                  void onConfirm();
                 }
               }}
               >

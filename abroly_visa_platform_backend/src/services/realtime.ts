@@ -52,7 +52,7 @@ export const startRealtime = (server: http.Server) => {
                 : await User.findOne({ where: { id: u.id }, attributes: ["uuid", "tokens_valid_after"] });
             if (!row || row.dataValues.uuid !== u.uuid) return next(new Error("unauthorized"));
             const after = row.dataValues.tokens_valid_after;
-            if (after && Number(decoded.iat) < Math.floor(new Date(after).getTime() / 1000)) return next(new Error("unauthorized"));
+            if (after && Number(decoded.iat) <= Math.floor(new Date(after).getTime() / 1000)) return next(new Error("unauthorized"));
             if (u.agent_uuid) socket.data.room = `agency:${u.agent_uuid}`; // agency owner / staff
             else socket.data.room = `student:${Number(u.id)}`; // student
             next();
