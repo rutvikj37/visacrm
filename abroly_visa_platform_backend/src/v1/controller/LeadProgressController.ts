@@ -19,6 +19,7 @@ import User from "../../model/User";
 import CrmLead from "../../model/CrmLead";
 import CrmLeadFile from "../../model/CrmLeadFile";
 import { presentLeadFile } from "../../services/whatsappLeadMedia";
+import { WHATSAPP_INBOX_STEP_MARKER } from "../../services/whatsappCaseMirror";
 
 class LeadProgressController {
 
@@ -36,6 +37,10 @@ class LeadProgressController {
 
             if (!leadProgress) {
                 return returnHelper(res, 400, false, "Lead Progress not found")
+            }
+
+            if (String(step_description || "").trim() === WHATSAPP_INBOX_STEP_MARKER) {
+                return returnHelper(res, 200, false, "This description is reserved for WhatsApp uploads.")
             }
 
             // new steps go to the end of the list
@@ -77,9 +82,13 @@ class LeadProgressController {
                 return returnHelper(res, 200, false, "Step not found")
             }
 
+            const isWhatsappInbox = findStep.dataValues.step_description === WHATSAPP_INBOX_STEP_MARKER
             const updateParams = {
-                ...(step_title && step_title?.trim() !== "" && { step_title }),
-                ...(step_description && step_description?.trim() !== "" && { step_description }),
+                ...(step_title && step_title?.trim() !== "" && { step_title: String(step_title).trim().slice(0, 255) }),
+                ...(!isWhatsappInbox && step_description !== undefined && { step_description: String(step_description || "").trim().slice(0, 500) }),
+            }
+            if (!Object.keys(updateParams).length) {
+                return returnHelper(res, 200, false, "Nothing to update")
             }
 
             const createStep = await Step.update(updateParams, {
@@ -116,6 +125,9 @@ class LeadProgressController {
                 return returnHelper(res, 200, false, "Step not found")
             }
 
+            if (findStep.dataValues.step_description === WHATSAPP_INBOX_STEP_MARKER) {
+                return returnHelper(res, 200, false, "This step holds WhatsApp uploads and cannot be removed. Rename it instead.")
+            }
 
             const createStep = await Step.destroy({
                 where: {

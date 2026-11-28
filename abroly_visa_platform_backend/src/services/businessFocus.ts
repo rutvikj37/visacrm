@@ -31,6 +31,12 @@ export const hideCommissionsOf = (uiPrefs: any): boolean =>
 export const hideUniversitiesOf = (uiPrefs: any): boolean =>
     readUiPrefs(uiPrefs).hide_universities === true;
 
+/** Default display title for auto-created WhatsApp inbox steps (Branding / ui_prefs). */
+export const whatsappUploadsStepNameOf = (uiPrefs: any, fallback = "WhatsApp uploads"): string => {
+    const name = String(readUiPrefs(uiPrefs).whatsapp_uploads_step_name || "").trim();
+    return name.slice(0, 255) || fallback;
+};
+
 /** Is this visa type a tourist / visitor / business visa (rather than a study visa)? */
 export const isTravelVisaType = (visaType?: string | null) =>
     /tour|visit|business|travel|b1|b2|schengen|transit|family|conference/i.test(String(visaType || "")) && !/stud|f-?1\b/i.test(String(visaType || ""));

@@ -7,6 +7,7 @@ import Step from "../model/Step";
 import Question from "../model/Question";
 import Agent from "../model/Agent";
 import { agencyOwner, readStoredFile, saveFile } from "../helpers/storage";
+import { whatsappUploadsStepNameOf } from "./businessFocus";
 
 export const WHATSAPP_INBOX_STEP_MARKER = "__whatsapp_inbox__";
 export const WHATSAPP_INBOX_STEP_TITLE = "WhatsApp uploads";
@@ -28,19 +29,25 @@ const convertedCaseForLead = async (leadId: number) => {
     };
 };
 
-const ensureWhatsappInboxStep = async (caseId: number, agencyId: number, studentId: number) => {
+const defaultInboxTitle = async (agencyUuid: string) => {
+    const ag: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["ui_prefs"], raw: true });
+    return whatsappUploadsStepNameOf(ag?.ui_prefs, WHATSAPP_INBOX_STEP_TITLE);
+};
+
+const ensureWhatsappInboxStep = async (caseId: number, agencyId: number, studentId: number, agencyUuid: string) => {
     const existing: any = await Step.findOne({
         where: { lead_id: caseId, agent_id: agencyId, step_description: WHATSAPP_INBOX_STEP_MARKER },
     });
     if (existing) return existing;
 
     const lastOrder: any = await Step.max("step_order", { where: { lead_id: caseId } });
+    const stepTitle = await defaultInboxTitle(agencyUuid);
     return Step.create({
         lead_id: caseId,
         agent_id: agencyId,
         student_id: studentId,
         created_by_id: agencyId,
-        step_title: WHATSAPP_INBOX_STEP_TITLE,
+        step_title: stepTitle,
         step_description: WHATSAPP_INBOX_STEP_MARKER,
         step_order: (Number(lastOrder) || 0) + 1,
         step_status: 0,
@@ -70,7 +77,7 @@ export const mirrorLeadFileToConvertedCase = async (opts: {
     if (!caseRow || caseRow.dataValues.agent_uuid !== opts.agencyUuid) return null;
 
     const studentId = ctx.studentId || Number(caseRow.dataValues.user_id);
-    const step: any = await ensureWhatsappInboxStep(ctx.caseId, agencyId, studentId);
+    const step: any = await ensureWhatsappInboxStep(ctx.caseId, agencyId, studentId, opts.agencyUuid);
 
     let buffer = opts.body;
     if (!buffer) {

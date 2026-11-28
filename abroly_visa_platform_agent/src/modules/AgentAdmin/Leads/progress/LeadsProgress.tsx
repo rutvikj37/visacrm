@@ -1,7 +1,10 @@
 import CaseToolbar, { StepDueDate } from "@/modules/AgentAdmin/Cases/CaseToolbar"
 import UniversityApplications from "@/modules/AgentAdmin/Cases/UniversityApplications"
 import CaseCommissions from "@/modules/AgentAdmin/Commissions/CaseCommissions"
-import { fmtShortDate, isOverdue, showCommissions, showTravelDocuments, showUniversities } from "@/modules/AgentAdmin/Cases/caseShared"
+import {
+    DEFAULT_WHATSAPP_INBOX_STEP_TITLE, fmtShortDate, isOverdue, isWhatsappInboxStep, showCommissions,
+    showTravelDocuments, showUniversities, stepDisplayDescription,
+} from "@/modules/AgentAdmin/Cases/caseShared"
 import TravelDocuments from "@/modules/AgentAdmin/Cases/TravelDocuments"
 import FormField from "@/modules/AgentAdmin/Crm/FormField"
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
@@ -9,7 +12,7 @@ import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, SelectSection, Spinner, Textarea } from "@heroui/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import FileSaver from "file-saver";
-import { ArrowDownToLine, CheckCircle2, Clock, FileText, ListChecks, MessageCircle, Plus, XCircle } from 'lucide-react';
+import { ArrowDownToLine, CheckCircle2, Clock, FileText, ListChecks, MessageCircle, Pencil, Plus, XCircle } from 'lucide-react';
 import { Link } from "react-router-dom";
 import { templateCountryMatches } from "@/modules/AgentAdmin/Crm/crmShared";
 import { SuccessToast } from "@/utils/Toaster";
@@ -26,7 +29,9 @@ const STATUS_COLOR: Record<string, "warning" | "success" | "danger" | "primary" 
 };
 
 /** One step’s questions / updates. */
-const StepDetails = ({ step_id, description, leadId }: { step_id: string | number; description?: string; leadId: string | undefined }) => {
+const StepDetails = ({ step_id, description, leadId, onRename }: {
+    step_id: string | number; description?: string; leadId: string | undefined; onRename?: () => void;
+}) => {
     const { commonGetAPICalls, commonPostAPICall, commonPostAPICallWithFile } = useApiCallUtils()
     const fetchQueryClient = fetchQueriesHook()
 
@@ -116,15 +121,22 @@ const StepDetails = ({ step_id, description, leadId }: { step_id: string | numbe
                     <h2 className="text-base font-semibold text-foreground truncate">{data?.step?.step_title || "Step"}</h2>
                     {description ? <p className="text-sm text-default-500 mt-0.5">{description}</p> : null}
                 </div>
-                <Button
-                    size="sm"
-                    color="primary"
-                    variant="flat"
-                    startContent={<Plus className="w-4 h-4" />}
-                    onPress={() => setQuestionManage((prev) => ({ ...prev, isOpen: true }))}
-                >
-                    Add question
-                </Button>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                    {onRename ? (
+                        <Button size="sm" variant="flat" startContent={<Pencil className="w-4 h-4" />} onPress={onRename}>
+                            Rename step
+                        </Button>
+                    ) : null}
+                    <Button
+                        size="sm"
+                        color="primary"
+                        variant="flat"
+                        startContent={<Plus className="w-4 h-4" />}
+                        onPress={() => setQuestionManage((prev) => ({ ...prev, isOpen: true }))}
+                    >
+                        Add question
+                    </Button>
+                </div>
             </div>
 
             <div className="px-4 py-3">
@@ -380,9 +392,28 @@ const LeadsProgress = () => {
     const tabs = Array.isArray(stepsData) ? stepsData : (stepsData?.steps || [])
     const leadFiles: any[] = Array.isArray(stepsData) ? [] : (stepsData?.lead_files || [])
     const crmLeadUuid: string | null = Array.isArray(stepsData) ? null : (stepsData?.crm_lead_uuid || null)
-    const whatsappStepIndex = tabs.findIndex(
-        (s: any) => String(s?.step_title || "").toLowerCase() === "whatsapp uploads",
-    )
+    const whatsappStepIndex = tabs.findIndex((s: any) => isWhatsappInboxStep(s))
+    const whatsappStepTitle = whatsappStepIndex >= 0
+        ? (tabs[whatsappStepIndex]?.step_title || DEFAULT_WHATSAPP_INBOX_STEP_TITLE)
+        : DEFAULT_WHATSAPP_INBOX_STEP_TITLE
+
+    const openEditStep = (item: any) => {
+        setStepAddModal({
+            isOpen: true,
+            id: item?.id ?? null,
+            isDelete: false,
+            step_title: item?.step_title || "",
+            step_description: stepDisplayDescription(item),
+        })
+    }
+
+    const stepModalPayload = () => {
+        const base = { id: stepAddModal.id, isDelete: stepAddModal.isDelete, step_title: stepAddModal.step_title }
+        if (stepAddModal.id != null && tabs.some((s: any) => s?.id === stepAddModal.id && isWhatsappInboxStep(s))) {
+            return base
+        }
+        return { ...base, step_description: stepAddModal.step_description }
+    }
     const initialLoad = isLoading && !stepsData
 
     useEffect(() => {
@@ -396,16 +427,20 @@ const LeadsProgress = () => {
 
     const manageDepartmentMutation = useMutation({
         mutationFn: async () => {
+            const payload = stepAddModal.id == null
+                ? { ...stepModalPayload(), lead_id: id }
+                : stepModalPayload()
             const { data, success, message } = stepAddModal?.id == null
-                ? await commonPostAPICall({ ...stepAddModal, lead_id: id }, "/leads/lead_progress/manage_step")
+                ? await commonPostAPICall(payload, "/leads/lead_progress/manage_step")
                 : stepAddModal.isDelete == true
-                    ? await commonDeleteAPICall({ ...stepAddModal }, "/leads/lead_progress/manage_step")
-                    : await commonPutAPICall({ ...stepAddModal }, "/leads/lead_progress/manage_step")
+                    ? await commonDeleteAPICall(payload, "/leads/lead_progress/manage_step")
+                    : await commonPutAPICall(payload, "/leads/lead_progress/manage_step")
             if (success) return data
             throw new Error(message)
         },
         onSuccess: () => {
             fetchQueryClient(["steps", id])
+            const wasEdit = stepAddModal.id != null && !stepAddModal.isDelete
             setStepAddModal({
                 isOpen: false,
                 id: null,
@@ -413,7 +448,7 @@ const LeadsProgress = () => {
                 step_title: "",
                 step_description: ""
             })
-            setSearchParams({ step: String(tabs.length) })
+            if (!wasEdit) setSearchParams({ step: String(tabs.length) })
         }
     })
 
@@ -494,7 +529,7 @@ const LeadsProgress = () => {
                                 WhatsApp files (from lead)
                             </h2>
                             <p className="text-xs text-default-500 mt-0.5">
-                                Uncategorised uploads — open the &quot;WhatsApp uploads&quot; step to review on the case, or re-upload under the right checklist item.
+                                Uncategorised uploads — open the &quot;{whatsappStepTitle}&quot; step to review on the case, or re-upload under the right checklist item.
                             </p>
                         </div>
                         {crmLeadUuid ? (
@@ -515,7 +550,7 @@ const LeadsProgress = () => {
                     </ul>
                     {whatsappStepIndex >= 0 ? (
                         <Button size="sm" className="mt-3" variant="flat" color="primary" onPress={() => onChange(whatsappStepIndex)}>
-                            Go to WhatsApp uploads step
+                            Go to {whatsappStepTitle} step
                         </Button>
                     ) : null}
                 </section>
@@ -647,8 +682,8 @@ const LeadsProgress = () => {
                                                     <span className={`block text-sm truncate ${active ? "font-semibold text-foreground" : "text-default-700"}`}>
                                                         {item?.step_title}
                                                     </span>
-                                                    {item?.step_description ? (
-                                                        <span className="block text-xs truncate text-default-400">{item.step_description}</span>
+                                                    {stepDisplayDescription(item) ? (
+                                                        <span className="block text-xs truncate text-default-400">{stepDisplayDescription(item)}</span>
                                                     ) : null}
                                                     {item?.due_date ? (
                                                         <span className={`block text-xs ${overdue ? "text-danger font-medium" : "text-default-400"}`}>
@@ -668,8 +703,9 @@ const LeadsProgress = () => {
                             {activeStep?.id ? (
                                 <StepDetails
                                     step_id={activeStep.id}
-                                    description={activeStep.step_description}
+                                    description={stepDisplayDescription(activeStep)}
                                     leadId={id}
+                                    onRename={() => openEditStep(activeStep)}
                                 />
                             ) : null}
                         </div>
@@ -737,9 +773,13 @@ const LeadsProgress = () => {
                 <ModalContent>
                     {(onClose) => (
                         <>
-                            <ModalHeader>Add step</ModalHeader>
+                            <ModalHeader>{stepAddModal.id != null ? "Rename step" : "Add step"}</ModalHeader>
                             <ModalBody className="gap-4">
-                                <p className="text-sm text-default-500">Give this stage a short title and optional description.</p>
+                                <p className="text-sm text-default-500">
+                                    {stepAddModal.id != null
+                                        ? "Change how this step appears on the case. WhatsApp uploads keep landing here after you rename it."
+                                        : "Give this stage a short title and optional description."}
+                                </p>
                                 <FormField label="Title">
                                     <Input
                                         aria-label="Title"
@@ -748,14 +788,16 @@ const LeadsProgress = () => {
                                         onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_title: v }))}
                                     />
                                 </FormField>
-                                <FormField label="Description">
-                                    <Input
-                                        aria-label="Description"
-                                        placeholder="What happens in this step?"
-                                        value={stepAddModal.step_description}
-                                        onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_description: v }))}
-                                    />
-                                </FormField>
+                                {!(stepAddModal.id != null && tabs.some((s: any) => s?.id === stepAddModal.id && isWhatsappInboxStep(s))) ? (
+                                    <FormField label="Description">
+                                        <Input
+                                            aria-label="Description"
+                                            placeholder="What happens in this step?"
+                                            value={stepAddModal.step_description}
+                                            onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_description: v }))}
+                                        />
+                                    </FormField>
+                                ) : null}
                             </ModalBody>
                             <ModalFooter>
                                 <Button variant="light" onPress={onClose}>Cancel</Button>
@@ -763,10 +805,10 @@ const LeadsProgress = () => {
                                     color="primary"
                                     isLoading={manageDepartmentMutation.isPending}
                                     isDisabled={!stepAddModal.step_title.trim()}
-                                    startContent={<Plus className="w-4 h-4" />}
+                                    startContent={stepAddModal.id != null ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                                     onPress={() => manageDepartmentMutation.mutate()}
                                 >
-                                    Add step
+                                    {stepAddModal.id != null ? "Save" : "Add step"}
                                 </Button>
                             </ModalFooter>
                         </>

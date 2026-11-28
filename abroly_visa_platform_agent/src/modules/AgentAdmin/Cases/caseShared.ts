@@ -88,3 +88,15 @@ export const fmtShortDate = (v?: string | null) => {
 };
 
 export const isOverdue = (v?: string | null) => Boolean(v) && String(v).slice(0, 10) < new Date().toISOString().slice(0, 10);
+
+/** Internal marker on step_description — WhatsApp mirrored files always attach here. */
+export const WHATSAPP_INBOX_STEP_MARKER = "__whatsapp_inbox__";
+export const DEFAULT_WHATSAPP_INBOX_STEP_TITLE = "WhatsApp uploads";
+
+export const isWhatsappInboxStep = (step?: { step_description?: string | null } | null) =>
+    String(step?.step_description || "") === WHATSAPP_INBOX_STEP_MARKER;
+
+export const stepDisplayDescription = (step?: { step_description?: string | null } | null) => {
+    const d = String(step?.step_description || "").trim();
+    return isWhatsappInboxStep(step) || !d ? "" : d;
+};
