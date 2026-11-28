@@ -30,6 +30,29 @@ const direction = (a: any) => (metaOf(a).direction === "in" ? "in" : "out");
 // activities store "Received: text" / "Sent: text" - show only the text in the chat
 const clean = (m: any) => String(m || "").replace(/^(Received|Sent):\s*/, "");
 
+/** Friendlier line for inbox list + search when the stored text is a Meta placeholder. */
+const humanizeChatText = (raw: string) => {
+    const s = String(raw || "").trim();
+    if (!s) return "";
+    if (/^\[document\]/i.test(s)) return "Document";
+    if (/^\[image\]/i.test(s)) return "Photo";
+    if (/^\[unsupported\]/i.test(s) || s === "[unsupported]") return "Unsupported message type";
+    if (/^\[(\w+)\]$/i.test(s)) return s.slice(1, -1).replace(/_/g, " ");
+    return s;
+};
+
+const inboxPreview = (row: any) => {
+    if (!row) return "";
+    const meta = metaOf(row.dataValues || row);
+    const raw = clean(row.dataValues?.message ?? row.message);
+    if (meta?.file_url) {
+        const name = meta.file_name || "attachment";
+        const isImg = String(meta.mime || "").startsWith("image/") || /^(\[image\]|Photo)/i.test(raw);
+        return isImg ? `Photo: ${name}` : `Document: ${name}`;
+    }
+    return humanizeChatText(raw);
+};
+
 // literal: Sequelize would escape the "$" of a JSON path passed as a value
 const isInbound = Sequelize.literal(`JSON_UNQUOTE(JSON_EXTRACT(\`CrmLeadActivity\`.\`meta\`, '$.direction')) = 'in'`);
 
@@ -101,7 +124,7 @@ class ConversationController {
                     uuid: d.uuid, name: d.name || (d.source === "instagram" ? "Instagram user" : "Unnamed"), status: d.status,
                     country: d.interested_country, assigned_to: d.assigned_to, assigned_name: nameOf.get(Number(d.assigned_to)) || null,
                     channel: last?.dataValues.type || "whatsapp",
-                    last_message: clean(last?.dataValues.message), last_direction: direction(last?.dataValues), last_at: last?.dataValues.createdAt,
+                    last_message: inboxPreview(last), last_direction: direction(last?.dataValues), last_at: last?.dataValues.createdAt,
                     unread,
                     window_open: Object.values(lastIn).some((t: any) => Date.now() - new Date(t).getTime() < WINDOW_MS),
                 };
@@ -225,11 +248,16 @@ class ConversationController {
                 const dir = direction(x);
                 if (dir === "in") lastIn[x.type] = Math.max(lastIn[x.type] || 0, new Date(x.createdAt).getTime());
                 const meta = metaOf(x);
+                const raw = clean(x.message);
                 return {
-                    id: x.id, channel: x.type, direction: dir, text: clean(x.message), at: x.createdAt,
+                    id: x.id, channel: x.type, direction: dir,
+                    text: meta.file_url ? inboxPreview(r) : humanizeChatText(raw),
+                    raw_text: raw,
+                    at: x.createdAt,
                     by: dir === "out" ? (x.created_by ? senderOf.get(Number(x.created_by)) || "Team" : "Automatic") : null,
                     file_url: meta.file_url || null,
                     file_name: meta.file_name || null,
+                    mime: meta.mime || null,
                 };
             });
 

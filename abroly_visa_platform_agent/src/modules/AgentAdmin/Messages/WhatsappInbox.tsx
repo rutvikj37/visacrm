@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, CardBody, Chip, Input, Spinner, Tab, Tabs, Textarea } from "@heroui/react";
-import { ArrowLeft, ExternalLink, MessageCircle, Search, Send, Settings, UserPlus, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, MessageCircle, Search, Send, Settings, UserPlus, X } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import EmptyState from "@/components/ui-kit/EmptyState";
 
@@ -9,6 +9,40 @@ const time = (d?: string) => {
     if (!d) return "";
     const t = new Date(d);
     return t.toDateString() === new Date().toDateString() ? t.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : t.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+};
+
+const isImageMime = (mime?: string | null, name?: string | null) => {
+    if (mime?.startsWith("image/")) return true;
+    return /\.(jpe?g|png|gif|webp)$/i.test(name || "");
+};
+
+/** Render a single inbox bubble (text, image, or document attachment). */
+const ChatBubbleBody = ({ m }: { m: any }) => {
+    const image = m.file_url && isImageMime(m.mime, m.file_name);
+    if (image) {
+        return (
+            <div className="flex flex-col gap-2">
+                <a href={m.file_url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden max-w-full">
+                    <img src={m.file_url} alt={m.file_name || "Photo"} className="max-h-48 w-auto rounded-lg object-contain" />
+                </a>
+                {(m.text || m.file_name) && <span>{m.text || m.file_name}</span>}
+            </div>
+        );
+    }
+    if (m.file_url) {
+        return (
+            <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 font-medium">
+                    <FileText size={14} className="shrink-0 text-default-500" />
+                    {m.file_name || m.text || "Document"}
+                </span>
+                <a href={m.file_url} target="_blank" rel="noopener noreferrer" className="text-primary text-xs underline w-fit">
+                    Open
+                </a>
+            </div>
+        );
+    }
+    return <>{m.text}</>;
 };
 
 /**
@@ -170,7 +204,7 @@ const WhatsappInbox = () => {
                             )}
                             {thread.messages.map((m: any) => (
                                 <div key={m.id} className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.direction === "out" ? "self-end bg-success-100" : "self-start bg-content1 border border-default-200"}`}>
-                                    {m.text}
+                                    <ChatBubbleBody m={m} />
                                     <div className="text-[10px] text-default-500 mt-1 text-right">{m.by ? `${m.by} · ` : ""}{time(m.at)}</div>
                                 </div>
                             ))}

@@ -3,7 +3,8 @@ import LeadIntegration from "../model/LeadIntegration";
 import { parseJsonValue } from "../helpers/json";
 import { ingestLead, logActivity } from "./leadIngestion";
 import { leadRecipients, notifyLater } from "./notifications";
-import { promotePendingFilesToLead, stashWhatsappMediaForPending } from "./whatsappLeadMedia";
+import { promotePendingFilesToLead, stashWhatsappMediaForPending, type PendingStoredFile } from "./whatsappLeadMedia";
+import { signedFileUrl } from "../helpers/privateFiles";
 
 const MAX_MESSAGES = 100;
 
@@ -96,9 +97,24 @@ export const upsertPendingWhatsapp = async (opts: {
     });
 };
 
+const pendingPreview = (last: string, extra: any) => {
+    const files: PendingStoredFile[] = Array.isArray(extra?.pending_files) ? extra.pending_files : [];
+    const latest = files.length ? files[files.length - 1] : null;
+    if (latest?.original_name) {
+        const isImg = String(latest.mime || "").startsWith("image/");
+        return isImg ? `Photo: ${latest.original_name}` : `Document: ${latest.original_name}`;
+    }
+    const s = String(last || "").trim();
+    if (/^\[document\]/i.test(s)) return "Document";
+    if (/^\[image\]/i.test(s)) return "Photo";
+    if (/^\[unsupported\]/i.test(s)) return "Unsupported message type";
+    return s;
+};
+
 export const presentPending = (row: any) => {
     const d = row.toJSON ? row.toJSON() : row.dataValues || row;
     const messages = asMessages(d.messages);
+    const extra = parseJsonValue(d.extra) || {};
     const readAt = d.read_at ? new Date(d.read_at) : null;
     const unread = messages.filter((m) => !readAt || new Date(m.at) > readAt).length;
     return {
@@ -106,7 +122,7 @@ export const presentPending = (row: any) => {
         pending: true,
         name: d.profile_name || "WhatsApp contact",
         phone_normalized: d.phone_normalized,
-        last_message: d.last_message || "",
+        last_message: pendingPreview(d.last_message, extra),
         last_at: d.last_message_at,
         message_count: d.message_count || messages.length,
         unread: unread || (readAt ? 0 : 1),
@@ -121,14 +137,24 @@ export const presentPending = (row: any) => {
 
 export const presentPendingThread = (row: any) => {
     const d = row.toJSON ? row.toJSON() : row.dataValues || row;
-    const messages = asMessages(d.messages).map((m, i) => ({
-        id: m.wamid || `p${i}`,
-        channel: "whatsapp",
-        direction: "in" as const,
-        text: m.text,
-        at: m.at,
-        by: null,
-    }));
+    const extra = parseJsonValue(d.extra) || {};
+    const files: PendingStoredFile[] = Array.isArray(extra.pending_files) ? extra.pending_files : [];
+    const fileByWamid = new Map(files.filter((f) => f.wamid).map((f) => [f.wamid, f]));
+    const messages = asMessages(d.messages).map((m, i) => {
+        const file = m.wamid ? fileByWamid.get(m.wamid) : null;
+        const url = file?.storage_name ? signedFileUrl("lead_files", file.storage_name) : null;
+        return {
+            id: m.wamid || `p${i}`,
+            channel: "whatsapp",
+            direction: "in" as const,
+            text: file?.original_name ? `Document: ${file.original_name}` : m.text,
+            at: m.at,
+            by: null,
+            file_url: url,
+            file_name: file?.original_name || null,
+            mime: file?.mime || null,
+        };
+    });
     return {
         pending: true,
         lead: {

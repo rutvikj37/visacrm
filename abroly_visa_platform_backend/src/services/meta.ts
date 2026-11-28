@@ -516,11 +516,24 @@ const describeMessage = (message: any): string => {
         case "button": return message.button?.text || "[button]";
         case "interactive":
             return message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || "[interactive reply]";
-        case "image": case "video": case "audio": case "document": case "sticker":
-            return `[${message.type}]${message[message.type]?.caption ? ` ${message[message.type].caption}` : ""}`;
-        case "location": return "[location]";
-        case "contacts": return "[contact card]";
-        default: return `[${message?.type || "message"}]`;
+        case "image": {
+            const cap = message.image?.caption;
+            return cap ? `Photo: ${cap}` : "Photo";
+        }
+        case "document": {
+            const name = message.document?.filename;
+            const cap = message.document?.caption;
+            if (name && cap) return `Document: ${name} — ${cap}`;
+            if (name) return `Document: ${name}`;
+            return "Document";
+        }
+        case "video": return message.video?.caption ? `Video: ${message.video.caption}` : "Video";
+        case "audio": return "Voice message";
+        case "sticker": return "Sticker";
+        case "location": return "Location";
+        case "contacts": return "Contact card";
+        case "unsupported": return "Unsupported message type";
+        default: return message?.type ? `WhatsApp: ${message.type}` : "Message";
     }
 };
 
@@ -571,7 +584,6 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
                     integration,
                     message,
                     wamid: message.id || null,
-                    activityMessage: `Received: ${text}`,
                 });
                 if (!saved) {
                     await logActivity(existing.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });
@@ -642,7 +654,6 @@ export const handleWhatsappChange = async (value: any, onlyIntegration: any = nu
                     integration,
                     message,
                     wamid: message.id || null,
-                    activityMessage: `Received: ${text}`,
                 });
                 if (!saved) {
                     await logActivity(result.lead.dataValues.id, agencyUuid, "whatsapp", `Received: ${text}`, null, { direction: "in", wamid: message.id || null });

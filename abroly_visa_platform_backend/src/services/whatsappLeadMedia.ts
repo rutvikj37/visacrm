@@ -145,8 +145,8 @@ export const attachWhatsappMediaToLead = async (opts: {
     });
 
     const url = signedFileUrl("lead_files", storage_name);
-    const label = opts.message.type === "image" ? "image" : "document";
-    const text = opts.activityMessage || `Received: [${label}] ${original}${payload.caption ? ` — ${payload.caption}` : ""}`;
+    const label = opts.message.type === "image" ? "Photo" : "Document";
+    const text = opts.activityMessage || `Received: ${label}: ${original}${payload.caption ? ` — ${payload.caption}` : ""}`;
     const activity = await logActivity(opts.leadId, opts.agencyUuid, "whatsapp", text.slice(0, 4000), null, {
         direction: "in",
         wamid,
