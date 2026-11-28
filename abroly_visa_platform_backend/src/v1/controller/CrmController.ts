@@ -26,7 +26,7 @@ import {
 } from "../../services/leadIngestion";
 import { checklistSummary, normalizeDocChecklist } from "../../services/docChecklist";
 import { importLeadsFromFile, IMPORT_TEMPLATE_CSV } from "../../services/leadImport";
-import { buildPortalInvite, convertLeadToCase, ConversionError, sendPortalInviteEmail } from "../../services/leadConversion";
+import { buildPortalInvite, convertLeadToCase, ConversionError, portalInviteLoginCode, sendPortalInviteEmail } from "../../services/leadConversion";
 import { logPortalSafe } from "../../services/portalLeadActivity";
 import { resolveTemplate } from "./VisaTemplateController";
 
@@ -830,10 +830,12 @@ class CrmController {
                     );
                 }
             }
-            const invite = await buildPortalInvite(agencyUuid, fresh, country);
+            const invite = await buildPortalInvite(agencyUuid, fresh, country, result.login_code);
             const msg = inviteEmail?.sent
                 ? "Lead converted to a visa case. Student portal login was emailed."
-                : "Lead converted to a visa case";
+                : result.login_code
+                  ? "Lead converted to a visa case. Share the default login code with the student (no email on file)."
+                  : "Lead converted to a visa case";
             return returnHelper(res, 200, true, msg, { ...result, invite, invite_email: inviteEmail });
         } catch (error) {
             if (error instanceof ConversionError) return returnHelper(res, 200, false, error.message);
@@ -847,7 +849,8 @@ class CrmController {
             const lead: any = await findScopedLead(req, req.params.uuid);
             if (!lead) return returnHelper(res, 200, false, "Lead not found");
             if (lead.dataValues.status !== "converted") return returnHelper(res, 200, false, "Convert the lead first");
-            const invite = await buildPortalInvite(ctx(req).agencyUuid, lead);
+            const loginCode = await portalInviteLoginCode(lead);
+            const invite = await buildPortalInvite(ctx(req).agencyUuid, lead, undefined, loginCode);
             return returnHelper(res, 200, true, "Invite ready", invite);
         } catch (error) {
             return handleError(res, error, "portalInvite");

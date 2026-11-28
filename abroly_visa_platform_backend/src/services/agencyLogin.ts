@@ -34,6 +34,8 @@ export const PASSCODE_MARKER = "PASSCODE";
  * Admins now get a random code from `npm run admin:code`, or a secret ADMIN_LOGIN_OTP in .env.
  */
 const LEGACY_ADMIN_OTP = "111111";
+/** Default invite login code for students with no email (agency shares it verbally / WhatsApp). */
+export const STUDENT_NO_EMAIL_LOGIN_CODE = LEGACY_ADMIN_OTP;
 const adminEnvOtp = () => String(process.env.ADMIN_LOGIN_OTP || "").replace(/\D/g, "");
 const RESET_MINUTES = 15;
 const SETUP_TOKEN_MINUTES = 30;
@@ -126,6 +128,22 @@ export const checkLoginCode = (agencyUserId: number, code: unknown) => checkCode
 
 /** Students (portal) - same rules. */
 export const setStudentLoginCode = (studentId: number) => setCodeOn(User, studentId);
+/** Fixed login code when the student has no email (mirrors platform-admin default OTP). */
+export const setStudentNoEmailLoginCode = async (studentId: number, transaction?: import("sequelize").Transaction) => {
+    const code = STUDENT_NO_EMAIL_LOGIN_CODE;
+    await User.update(
+        {
+            login_pin: await bcrypt.hash(code, 10),
+            login_pin_attempts: 0,
+            login_pin_locked_until: null,
+            passcode_set: false,
+            login_reset_code: null,
+            login_reset_expires: null,
+        },
+        { where: { id: studentId }, ...(transaction ? { transaction } : {}) },
+    );
+    return code;
+};
 export const studentUsesLoginCode = (studentId: number) => usesCodeOn(User, studentId);
 export const studentHasPasscode = (studentId: number) => hasPasscodeOn(User, studentId);
 export const checkStudentLoginCode = (studentId: number, code: unknown) => checkCodeOn(User, studentId, code);

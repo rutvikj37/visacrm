@@ -10,7 +10,13 @@ import Step from "../model/Step";
 import Question from "../model/Question";
 import { TemplateStep } from "./visaTemplateLibrary";
 import { agencyBrand, mailEnabled, sendMail } from "./mailer";
-import { setStudentLoginCode } from "./agencyLogin";
+import {
+    setStudentLoginCode,
+    setStudentNoEmailLoginCode,
+    STUDENT_NO_EMAIL_LOGIN_CODE,
+    studentHasPasscode,
+    studentUsesLoginCode,
+} from "./agencyLogin";
 
 /**
  * Lead -> visa case.
@@ -81,6 +87,12 @@ export const convertLeadToCase = async (input: ConvertInput) => {
             await User.update({ email: l.email }, { where: { id: student.dataValues.id }, transaction: t });
         }
         const studentId = student.dataValues.id;
+
+        let loginCode: string | null = null;
+        const hasEmail = Boolean(String(l.email || student.dataValues.email || "").trim());
+        if (!hasEmail && !(await studentHasPasscode(studentId))) {
+            loginCode = await setStudentNoEmailLoginCode(studentId, t);
+        }
 
         // 2. application + case (same shape as an offline lead, so existing screens work)
         const application: any = await RaisedApplications.create({
@@ -168,8 +180,21 @@ export const convertLeadToCase = async (input: ConvertInput) => {
             meta: { case_id: caseId, student_id: studentId, template: template?.name || null },
         }, { transaction: t });
 
-        return { caseId, studentId, studentCreated, stepCount, questionCount };
+        return { caseId, studentId, studentCreated, stepCount, questionCount, login_code: loginCode };
     });
+};
+
+/** Plain login code to show in the agency UI when the student has no email and still uses the default invite code. */
+export const portalInviteLoginCode = async (lead: any) => {
+    const l = lead.dataValues || lead;
+    if (String(l.email || "").trim()) return null;
+    const sid = Number(l.converted_student_id);
+    if (!sid) return null;
+    if (await studentHasPasscode(sid)) return null;
+    if (!(await studentUsesLoginCode(sid))) return null;
+    const row: any = await User.findByPk(sid, { attributes: ["email"] });
+    if (String(row?.dataValues?.email || "").trim()) return null;
+    return STUDENT_NO_EMAIL_LOGIN_CODE;
 };
 
 /** Link to the agency's branded student portal (resolved from its subdomain / domain). */
@@ -184,7 +209,7 @@ export const studentPortalUrl = async (agencyUuid: string) => {
 };
 
 /** Invite message + links the agency can send to the student (WhatsApp / copy / email). */
-export const buildPortalInvite = async (agencyUuid: string, lead: any, country?: string | null) => {
+export const buildPortalInvite = async (agencyUuid: string, lead: any, country?: string | null, loginCode?: string | null) => {
     const l = lead.dataValues || lead;
     const { base, agencyName } = await studentPortalUrl(agencyUuid);
     const phone = `${l.country_code || ""} ${l.phone_number || ""}`.trim();
@@ -195,7 +220,9 @@ export const buildPortalInvite = async (agencyUuid: string, lead: any, country?:
         `Hi ${firstName}, welcome to ${agencyName}! ` +
         `Your ${countryLabel} visa process has started.`.replace("  ", " ") +
         (link ? ` Track your progress and upload documents here: ${link} ` : " ") +
-        `Log in with your mobile number ${phone} (we will send you an OTP).`;
+        (loginCode
+            ? `Log in with mobile number ${phone} and login code ${loginCode}. On first login, set your own passcode.`
+            : `Log in with your mobile number ${phone} (we will send you an OTP).`);
     const digits = (l.phone_normalized || "").replace(/\D/g, "");
     return {
         portal_url: link || null,
@@ -208,6 +235,8 @@ export const buildPortalInvite = async (agencyUuid: string, lead: any, country?:
         email_available: mailEnabled(),
         agency_name: agencyName,
         subject: `Your visa process with ${agencyName}`,
+        login_code: loginCode || null,
+        phone,
     };
 };
 

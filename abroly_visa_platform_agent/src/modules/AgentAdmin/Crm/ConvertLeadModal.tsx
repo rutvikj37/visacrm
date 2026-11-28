@@ -106,6 +106,7 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
             return;
         }
         if (data?.invite_email?.sent) SuccessToast("Visa case created — student login emailed");
+        else if (data?.login_code) SuccessToast("Visa case created — share login code 111111 with the student");
         else if (data?.invite_email?.reason) SuccessToast(`Visa case created. Invite email: ${data.invite_email.reason}`);
         else SuccessToast("Lead converted to a visa case");
         setResult(data);
@@ -124,7 +125,9 @@ const ConvertLeadModal = ({ isOpen, onOpenChange, lead, docChecklist, team = [],
                                 {result.stepCount ? ` and ${result.stepCount} steps with ${result.questionCount} items were added to the case.` : "."}
                                 {result.invite_email?.sent
                                     ? " Student portal login (mobile + 6-digit code) was emailed automatically."
-                                    : " Invite the student to the portal so they can upload documents:"}
+                                    : result.login_code
+                                      ? " No email on file — the student uses the default login code below (they set a personal passcode on first login)."
+                                      : " Invite the student to the portal so they can upload documents:"}
                             </p>
                             {result.invite_email?.sent && result.invite_email?.reason === undefined && (
                                 <p className="text-sm text-success">Invite email sent{result.invite?.email ? ` to ${result.invite.email}` : ""}.</p>
