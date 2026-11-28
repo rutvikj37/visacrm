@@ -47,6 +47,7 @@ import PanelBottomNav from "@/components/panel/PanelBottomNav"
 import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import useModules from "@/hooks/useModules"
 import { filterNav } from "@/modules/AgentAdmin/Menu/filterNav"
+import { showCommissions } from "@/modules/AgentAdmin/Cases/caseShared"
 
 const SubAgentCRM = () => {
   const { crmType, has } = useModules()
@@ -99,7 +100,7 @@ const SubAgentCRM = () => {
           { title: "Case board", url: "/cases/board", module: "visa" },
           { title: "Client fees", url: "/fees", module: "billing" },
           // money from universities: Accounts and branch managers only
-          ...(teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager" ? [{ title: "Commissions", url: "/commissions", module: "visa" }] : []),
+          ...(showCommissions() && (teamRoleForMenu === "accounts" || teamRoleForMenu === "branch_manager") ? [{ title: "Commissions", url: "/commissions", module: "visa" }] : []),
         ],
       },
     ],

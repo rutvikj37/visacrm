@@ -51,6 +51,7 @@ import KeyboardShortcuts from "@/components/panel/KeyboardShortcuts"
 import NotificationBell from "@/modules/AgentAdmin/Notifications/NotificationBell"
 import useModules from "@/hooks/useModules"
 import { filterNav } from "@/modules/AgentAdmin/Menu/filterNav"
+import { showCommissions } from "@/modules/AgentAdmin/Cases/caseShared"
 
 const AgentCRM = () => {
   const { crmType, modules, has } = useModules()
@@ -116,7 +117,7 @@ const AgentCRM = () => {
         items: [
           { title: "Case board", url: "/cases/board", module: "visa" },
           { title: "Client fees", url: "/fees", module: "billing" },
-          { title: "Commissions", url: "/commissions", module: "visa" },
+          ...(showCommissions() ? [{ title: "Commissions", url: "/commissions", module: "visa" }] : []),
         ],
       },
       {

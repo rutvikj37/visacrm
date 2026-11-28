@@ -11,6 +11,8 @@ import { signedFileUrl } from "../../helpers/privateFiles";
 import AgencyLeads from "../../model/AgencyLeads";
 import UniversityApplication, { UNI_APP_STATUSES } from "../../model/UniversityApplication";
 import Commission from "../../model/Commission";
+import Agent from "../../model/Agent";
+import { hideCommissionsOf } from "../../services/businessFocus";
 import { audit } from "../../services/audit";
 import { CASE_STAGES } from "./CaseController";
 
@@ -124,7 +126,12 @@ class UniversityAppController {
             const c: any = await findCase(req, req.params.id);
             if (!c) return returnHelper(res, 200, false, "Case not found");
             const apps: any[] = await UniversityApplication.findAll({ where: { case_id: c.dataValues.id }, order: [["is_final", "DESC"], ["createdAt", "ASC"]] });
-            const commissions: any[] = apps.length ? await Commission.findAll({ where: { university_app_id: apps.map((a) => a.dataValues.id) }, raw: true }) : [];
+            const agencyUuid = (req.user?.user as any)?.agent_uuid;
+            const ag: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["ui_prefs"], raw: true });
+            const hideCommissions = hideCommissionsOf(ag?.ui_prefs);
+            const commissions: any[] = !hideCommissions && apps.length
+                ? await Commission.findAll({ where: { university_app_id: apps.map((a) => a.dataValues.id) }, raw: true })
+                : [];
             return returnHelper(res, 200, true, "Applications", { applications: apps.map((a) => presentApp(a, commissions)), statuses: UNI_APP_STATUSES.map((k) => ({ key: k, label: UNI_STATUS_LABEL[k] })) });
         } catch (error) {
             console.error("university apps list failed", error);

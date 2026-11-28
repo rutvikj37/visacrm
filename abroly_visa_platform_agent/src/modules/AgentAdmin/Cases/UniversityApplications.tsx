@@ -6,7 +6,7 @@ import {
 import { FileText, GraduationCap, MoreVertical, Paperclip, Pencil, Plus, Star, Trash2, X } from "lucide-react";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { ErrorToast } from "@/utils/Toaster";
-import { fmtShortDate } from "./caseShared";
+import { fmtShortDate, showCommissions } from "./caseShared";
 
 export const UNI_STATUSES = [
     { key: "shortlisted", label: "Shortlisted", color: "default" },
@@ -183,7 +183,7 @@ const UniversityApplications = ({ caseId, defaultIntake, defaultCourse, onChange
                                             </DropdownMenu>
                                         </Dropdown>
                                     </div>
-                                    {(a.offer_files?.length > 0 || a.commissions?.length > 0) && (
+                                    {(a.offer_files?.length > 0 || (showCommissions() && a.commissions?.length > 0)) && (
                                         <div className="flex flex-wrap items-center gap-1.5">
                                             {a.offer_files.map((f: any) => (
                                                 <Chip key={f.index} size="sm" variant="bordered" startContent={<FileText size={12} className="ml-1" />}
@@ -191,7 +191,7 @@ const UniversityApplications = ({ caseId, defaultIntake, defaultCourse, onChange
                                                     <a href={f.url} target="_blank" rel="noreferrer" className="hover:underline">{f.name}</a>
                                                 </Chip>
                                             ))}
-                                            {a.commissions?.map((c: any) => (
+                                            {showCommissions() && a.commissions?.map((c: any) => (
                                                 <Tooltip key={c.id} content={`Commission ${c.status}`}>
                                                     <Chip size="sm" variant="flat" color={c.status === "received" ? "success" : c.status === "cancelled" ? "default" : "primary"}>
                                                         Commission {money(c.amount_expected, c.currency)} · {c.status}

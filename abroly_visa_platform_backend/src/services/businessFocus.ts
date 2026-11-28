@@ -23,6 +23,10 @@ export const businessFocusOf = (uiPrefs: any): BusinessFocus => {
 export const hideTravelDocumentsOf = (uiPrefs: any): boolean =>
     readUiPrefs(uiPrefs).hide_travel_documents === true;
 
+/** Per-agency opt-out: hide university commission tracking (nav, case UI, API). */
+export const hideCommissionsOf = (uiPrefs: any): boolean =>
+    readUiPrefs(uiPrefs).hide_commissions === true;
+
 /** Is this visa type a tourist / visitor / business visa (rather than a study visa)? */
 export const isTravelVisaType = (visaType?: string | null) =>
     /tour|visit|business|travel|b1|b2|schengen|transit|family|conference/i.test(String(visaType || "")) && !/stud|f-?1\b/i.test(String(visaType || ""));

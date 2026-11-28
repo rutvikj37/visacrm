@@ -12,6 +12,7 @@ import Step from "../../model/Step";
 import Question from "../../model/Question";
 import User from "../../model/User";
 import Agent from "../../model/Agent";
+import { hideCommissionsOf } from "../../services/businessFocus";
 import ClientInvoice from "../../model/ClientInvoice";
 import { branchFilter } from "../../services/branches";
 import { canManage, invoiceScope, presentInvoice } from "./FeesController";
@@ -115,6 +116,8 @@ class TodayController {
             const caseNo = q.match(/^(?:#|case\s*#?)\s*(\d{1,9})$/i)?.[1];
             const a = accessOf(req);
             const seesMoney = a.isOwner || a.teamRole === "accounts" || a.teamRole === "branch_manager";
+            const ag: any = await Agent.findOne({ where: { uuid: a.agencyUuid, role: "agent" }, attributes: ["ui_prefs"], raw: true });
+            const hideCommissions = hideCommissionsOf(ag?.ui_prefs);
             const caseIdsSeen = async () => (await AgencyLeads.findAll({ where: caseScope(req), attributes: ["id"], raw: true }) as any[]).map((r) => r.id);
 
             const [leads, cases, invoices, byNumber, tasks, uniApps, commissions]: any[] = await Promise.all([
@@ -144,7 +147,7 @@ class TodayController {
                     const students: any[] = visible.length ? await User.findAll({ where: { id: visible.map((r) => r.dataValues.student_id) }, attributes: ["id", "username"], raw: true }) : [];
                     return visible.map((r) => ({ ...r.dataValues, student: students.find((u) => u.id === r.dataValues.student_id)?.username }));
                 })(),
-                seesMoney ? (async () => {
+                seesMoney && !hideCommissions ? (async () => {
                     const where: any = { agency_uuid: a.agencyUuid, [Op.or]: [{ partner: { [Op.like]: like } }, { invoice_ref: { [Op.like]: like } }] };
                     if (!(a.isOwner || a.teamRole === "accounts" || a.seesAll)) { const ids = await caseIdsSeen(); where.case_id = ids.length ? ids : [-1]; }
                     return Commission.findAll({ where, attributes: ["id", "case_id", "partner", "status", "currency", "amount_expected", "invoice_ref"], order: [["updatedAt", "DESC"]], limit: 4, raw: true });

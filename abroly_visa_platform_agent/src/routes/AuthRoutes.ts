@@ -1,5 +1,5 @@
 import { lazy } from "react"
-import { RedirectToApprovedCases, RedirectToCaseBoard, RedirectToCrmCalendar, RedirectToLeadInbox, RedirectToNotStartedCases, RedirectToRejectedCases, RedirectToReports, RedirectToWithdrawnCases } from "@/modules/AgentAdmin/Crm/Redirects"
+import { CommissionsRoute, RedirectToApprovedCases, RedirectToCaseBoard, RedirectToCrmCalendar, RedirectToLeadInbox, RedirectToNotStartedCases, RedirectToRejectedCases, RedirectToReports, RedirectToWithdrawnCases } from "@/modules/AgentAdmin/Crm/Redirects"
 
 // Authenticated CRM pages: eager imports so Suspense does not blank the shell on every nav click.
 import JobPost from "@/modules/AgentAdmin/JobPost/JobPost"
@@ -33,7 +33,6 @@ import RolesAndBranches from "@/modules/AgentAdmin/SubAgent/RolesAndBranches"
 import BrandingSettings from "@/modules/AgentAdmin/Branding/BrandingSettings"
 import WhatsappInbox from "@/modules/AgentAdmin/Messages/WhatsappInbox"
 import FeesList from "@/modules/AgentAdmin/Fees/FeesList"
-import CommissionsPage from "@/modules/AgentAdmin/Commissions/CommissionsPage"
 import StudentTimeline from "@/modules/AgentAdmin/Cases/StudentTimeline"
 import ServicesStore from "@/modules/AgentAdmin/Services/ServicesStore"
 import ServiceOrderPage from "@/modules/AgentAdmin/Services/ServiceOrderPage"
@@ -157,7 +156,7 @@ export const AgentAdminRoutes = [
     },
     {
         path: "/commissions",
-        element: CommissionsPage
+        element: CommissionsRoute
     },
     {
         path: "/students/:id/timeline",
@@ -468,7 +467,7 @@ export const SubAgentRoutes = [
     },
     {
         path: "/commissions",
-        element: CommissionsPage
+        element: CommissionsRoute
     },
     {
         path: "/students/:id/timeline",

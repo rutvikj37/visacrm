@@ -1,4 +1,6 @@
 import { Navigate } from "react-router-dom";
+import CommissionsPage from "@/modules/AgentAdmin/Commissions/CommissionsPage";
+import { showCommissions } from "@/modules/AgentAdmin/Cases/caseShared";
 
 // Old marketplace screens: everything now starts in the Lead Inbox (add lead -> convert to visa case)
 export const RedirectToLeadInbox = () => <Navigate to="/crm/leads" replace />;
@@ -26,3 +28,6 @@ export const RedirectToWithdrawnCases = redirectTo("/cases/board?stage=withdrawn
 export const RedirectToReports = redirectTo("/reports");
 // old "Students" / "Applications" lists → cases accepted but not started yet
 export const RedirectToNotStartedCases = redirectTo("/cases/board?stage=not_started");
+
+/** Commissions page, or home when the agency opted out (ui_prefs.hide_commissions). */
+export const CommissionsRoute = () => (showCommissions() ? <CommissionsPage /> : <Navigate to="/" replace />);

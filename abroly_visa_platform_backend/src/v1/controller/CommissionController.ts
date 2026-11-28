@@ -7,6 +7,8 @@ import AgencyLeads from "../../model/AgencyLeads";
 import User from "../../model/User";
 import UniversityApplication from "../../model/UniversityApplication";
 import Commission, { COMMISSION_STATUSES } from "../../model/Commission";
+import Agent from "../../model/Agent";
+import { hideCommissionsOf } from "../../services/businessFocus";
 import { audit } from "../../services/audit";
 
 /**
@@ -25,6 +27,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const canManage = (req: RequestWithUser) => { const a = accessOf(req); return a.isOwner || a.teamRole === "accounts"; };
 const canView = (req: RequestWithUser) => canManage(req) || accessOf(req).teamRole === "branch_manager";
+
+const commissionsDisabled = async (agencyUuid: string) => {
+    const ag: any = await Agent.findOne({ where: { uuid: agencyUuid, role: "agent" }, attributes: ["ui_prefs"], raw: true });
+    return hideCommissionsOf(ag?.ui_prefs);
+};
 
 /** Ids of the cases this person may see (null = all of the agency). */
 const visibleCaseIds = async (req: RequestWithUser): Promise<number[] | null> => {
@@ -81,6 +88,7 @@ class CommissionController {
         try {
             if (!canView(req)) return returnHelper(res, 200, false, "Only the owner, Accounts or a branch manager can see commissions");
             const a = accessOf(req);
+            if (await commissionsDisabled(a.agencyUuid)) return returnHelper(res, 200, false, "Commissions are not enabled for this agency");
             const q = req.query as Record<string, string>;
             const where: any = { agency_uuid: a.agencyUuid };
             const ids = await visibleCaseIds(req);
@@ -151,6 +159,8 @@ class CommissionController {
     async create(req: RequestWithUser, res: Response) {
         try {
             if (!canManage(req)) return returnHelper(res, 200, false, "Only the owner or Accounts can add commissions");
+            const a = accessOf(req);
+            if (await commissionsDisabled(a.agencyUuid)) return returnHelper(res, 200, false, "Commissions are not enabled for this agency");
             const b = req.body || {};
             const c: any = await AgencyLeads.findOne({ where: { ...caseScope(req), id: Number(b.case_id) || 0 } });
             if (!c) return returnHelper(res, 200, false, "Case not found");
@@ -183,7 +193,9 @@ class CommissionController {
     async update(req: RequestWithUser, res: Response) {
         try {
             if (!canManage(req)) return returnHelper(res, 200, false, "Only the owner or Accounts can change commissions");
-            const row: any = await Commission.findOne({ where: { id: Number(req.params.id) || 0, agency_uuid: accessOf(req).agencyUuid } });
+            const a = accessOf(req);
+            if (await commissionsDisabled(a.agencyUuid)) return returnHelper(res, 200, false, "Commissions are not enabled for this agency");
+            const row: any = await Commission.findOne({ where: { id: Number(req.params.id) || 0, agency_uuid: a.agencyUuid } });
             if (!row) return returnHelper(res, 200, false, "Commission not found");
             const b = req.body || {};
             const f = readMoney(b, row.dataValues);
@@ -222,7 +234,9 @@ class CommissionController {
     async remove(req: RequestWithUser, res: Response) {
         try {
             if (!canManage(req)) return returnHelper(res, 200, false, "Only the owner or Accounts can delete commissions");
-            const row: any = await Commission.findOne({ where: { id: Number(req.params.id) || 0, agency_uuid: accessOf(req).agencyUuid } });
+            const a = accessOf(req);
+            if (await commissionsDisabled(a.agencyUuid)) return returnHelper(res, 200, false, "Commissions are not enabled for this agency");
+            const row: any = await Commission.findOne({ where: { id: Number(req.params.id) || 0, agency_uuid: a.agencyUuid } });
             if (!row) return returnHelper(res, 200, false, "Commission not found");
             if (Number(row.dataValues.amount_received) > 0) return returnHelper(res, 200, false, "A commission with money received can not be deleted - mark it cancelled instead");
             await Commission.destroy({ where: { id: row.dataValues.id } });
