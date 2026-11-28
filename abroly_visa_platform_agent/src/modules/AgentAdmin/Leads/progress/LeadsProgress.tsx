@@ -525,7 +525,7 @@ const LeadsProgress = () => {
                         <FileText className="w-10 h-10 text-default-300" />
                         <p className="text-sm font-medium text-default-700">No application steps yet</p>
                         <p className="text-xs text-default-500 max-w-sm">
-                            {travel
+                            {travelDocs
                                 ? "Itinerary and cover letter above are separate. Application steps come from a visa template you choose — not automatically."
                                 : "Steps are not added until you pick a visa template on convert or apply one here."}
                         </p>
