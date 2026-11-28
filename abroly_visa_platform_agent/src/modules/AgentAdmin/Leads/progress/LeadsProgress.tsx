@@ -3,6 +3,7 @@ import UniversityApplications from "@/modules/AgentAdmin/Cases/UniversityApplica
 import CaseCommissions from "@/modules/AgentAdmin/Commissions/CaseCommissions"
 import { fmtShortDate, isOverdue, isTravelCase } from "@/modules/AgentAdmin/Cases/caseShared"
 import TravelDocuments from "@/modules/AgentAdmin/Cases/TravelDocuments"
+import FormField from "@/modules/AgentAdmin/Crm/FormField"
 import fetchQueriesHook from "@/hooks/fetchQueriesHook";
 import useApiCallUtils from "@/hooks/useApiCallUtils";
 import { Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Spinner, Textarea } from "@heroui/react";
@@ -245,16 +246,16 @@ const StepDetails = ({ step_id, description, leadId }: { step_id: string | numbe
                     {(onClose) => (
                         <>
                             <ModalHeader>Add question or update</ModalHeader>
-                            <ModalBody>
+                            <ModalBody className="gap-4">
                                 <p className="text-sm text-default-500">Shown on this step for the student to answer or review.</p>
-                                <Input
-                                    aria-label="Question / update"
-                                    label="Question / update"
-                                    labelPlacement="outside"
-                                    placeholder="What do you need from the student?"
-                                    value={questionManageModel.question_text}
-                                    onValueChange={(v) => setQuestionManage((prev) => ({ ...prev, question_text: v }))}
-                                />
+                                <FormField label="Question / update">
+                                    <Input
+                                        aria-label="Question / update"
+                                        placeholder="What do you need from the student?"
+                                        value={questionManageModel.question_text}
+                                        onValueChange={(v) => setQuestionManage((prev) => ({ ...prev, question_text: v }))}
+                                    />
+                                </FormField>
                                 <RadioGroup
                                     isRequired
                                     label="Type"
@@ -299,16 +300,16 @@ const StepDetails = ({ step_id, description, leadId }: { step_id: string | numbe
                     {(onClose) => (
                         <>
                             <ModalHeader>Reason for rejection</ModalHeader>
-                            <ModalBody>
-                                <Textarea
-                                    aria-label="Reason"
-                                    label="Reason"
-                                    labelPlacement="outside"
-                                    placeholder="Why is this rejected?"
-                                    value={rejectModel.reason}
-                                    onValueChange={(v) => setRejectModel((prev) => ({ ...prev, reason: v }))}
-                                    minRows={2}
-                                />
+                            <ModalBody className="gap-4">
+                                <FormField label="Reason">
+                                    <Textarea
+                                        aria-label="Reason"
+                                        placeholder="Why is this rejected?"
+                                        value={rejectModel.reason}
+                                        onValueChange={(v) => setRejectModel((prev) => ({ ...prev, reason: v }))}
+                                        minRows={2}
+                                    />
+                                </FormField>
                             </ModalBody>
                             <ModalFooter>
                                 <Button variant="light" onPress={onClose}>Cancel</Button>
@@ -571,24 +572,24 @@ const LeadsProgress = () => {
                     {(onClose) => (
                         <>
                             <ModalHeader>Add step</ModalHeader>
-                            <ModalBody>
+                            <ModalBody className="gap-4">
                                 <p className="text-sm text-default-500">Give this stage a short title and optional description.</p>
-                                <Input
-                                    aria-label="Title"
-                                    label="Title"
-                                    labelPlacement="outside"
-                                    placeholder="e.g. Documents"
-                                    value={stepAddModal.step_title}
-                                    onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_title: v }))}
-                                />
-                                <Input
-                                    aria-label="Description"
-                                    label="Description"
-                                    labelPlacement="outside"
-                                    placeholder="What happens in this step?"
-                                    value={stepAddModal.step_description}
-                                    onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_description: v }))}
-                                />
+                                <FormField label="Title">
+                                    <Input
+                                        aria-label="Title"
+                                        placeholder="e.g. Documents"
+                                        value={stepAddModal.step_title}
+                                        onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_title: v }))}
+                                    />
+                                </FormField>
+                                <FormField label="Description">
+                                    <Input
+                                        aria-label="Description"
+                                        placeholder="What happens in this step?"
+                                        value={stepAddModal.step_description}
+                                        onValueChange={(v) => setStepAddModal((prev) => ({ ...prev, step_description: v }))}
+                                    />
+                                </FormField>
                             </ModalBody>
                             <ModalFooter>
                                 <Button variant="light" onPress={onClose}>Cancel</Button>
